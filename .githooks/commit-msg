@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+# commit-msg hook: refuse a commit message that names an AI tool or carries an AI co-author trailer.
+# Why: the public sync (sync-public.py) refuses such commits later, and every public commit
+# must read as the project's own work. Catching it at commit time is cheaper than rewriting a queue.
+#
+# Install in a project (keep the name commit-msg, git calls it with the message file as $1):
+#   cp commit-msg-guard.sh backend/.githooks/commit-msg && chmod +x backend/.githooks/commit-msg
+#   git -C backend config core.hooksPath .githooks
+# Rare exceptions are the owner's call and go in the sync's message override file, never by skipping this hook.
+# Works with macOS bash 3.2 and BSD grep.
+set -u
+msg_file="${1:?usage: commit-msg <message-file>}"
+# Ignore the comment lines git puts in the editor template.
+body=$(grep -v '^#' "$msg_file" || true)
+# Same set as FORBIDDEN in crypto-repo-organization/scripts/sync-public.py (keep the two lists equal).
+names='claude|anthropic|chatgpt|openai|codex|copilot|co-authored[-]by|generated[ ]with'
+pattern="(^|[^[:alnum:]_])(${names})([^[:alnum:]_]|$)"
+if printf '%s\n' "$body" | grep -qiE "$pattern"; then
+  echo "commit-msg-guard: the message names an AI tool or has an AI co-author trailer:" >&2
+  printf '%s\n' "$body" | grep -niE "$pattern" | sed 's/^/  line /' >&2
+  echo "commit-msg-guard: reword it; the public sync refuses these commits." >&2
+  exit 1
+fi
+exit 0

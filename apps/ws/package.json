@@ -1,0 +1,9 @@
+{
+  "name": "@capstan/ws",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "WebSocket gateway: market, account and plan streams",
+  "main": "src/index.ts",
+  "types": "src/index.ts"
+}

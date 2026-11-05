@@ -1,0 +1,81 @@
+name: ci
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# A newer push cancels the older run on the same ref; manual runs sit in their own group and are never cancelled.
+concurrency:
+  group: ci-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'push' || github.event_name == 'pull_request' }}
+
+# Exact pins: every action by full commit sha (tag in the comment, checked by .github/scripts/pins-check.sh),
+# Bun 1.4.4, Foundry v1.8.4, gitleaks 8.30.1 by sha256.
+jobs:
+  ts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with: { persist-credentials: false }
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with: { bun-version: 1.4.4 }
+      - name: cache bun installs
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-1.4.4-${{ hashFiles('bun.lock') }}
+          restore-keys: bun-${{ runner.os }}-1.4.4-
+      - run: bun install --frozen-lockfile
+      - name: typecheck
+        run: bunx tsc --noEmit
+      - name: tests (includes the invariant check tests)
+        run: bun test
+
+  contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults: { run: { working-directory: contracts } }
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with: { persist-credentials: false }
+      - uses: foundry-rs/foundry-toolchain@908c540300062bd5a7e473851cdb4282204cee09 # v1.9.1
+        with: { version: v1.8.4 }
+      - name: format
+        run: forge fmt --check
+      - name: build
+        run: forge build --sizes
+      - name: tests
+        run: forge test -vv
+
+  gitleaks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with: { persist-credentials: false, fetch-depth: 0 }
+      - name: gitleaks 8.30.1 (release tarball pinned by sha256)
+        run: |
+          curl -sSfL -o "$RUNNER_TEMP/gitleaks.tgz" https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz
+          echo "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb  $RUNNER_TEMP/gitleaks.tgz" | sha256sum -c -
+          tar -xzf "$RUNNER_TEMP/gitleaks.tgz" -C "$RUNNER_TEMP" gitleaks
+          "$RUNNER_TEMP/gitleaks" detect --source . --config .github/gitleaks.toml --redact --no-banner --exit-code 1
+
+  ci-summary:
+    # the single required check: green only when every job passed
+    needs: [ts, contracts, gitleaks]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: every job passed
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: |
+          echo "$NEEDS" | jq -r 'to_entries[] | "\(.key): \(.value.result)"'
+          bad="$(echo "$NEEDS" | jq -r '[to_entries[] | select(.value.result != "success") | "\(.key)=\(.value.result)"] | join(" ")')"
+          if [ -n "$bad" ]; then echo "::error::ci-summary: $bad"; exit 1; fi
+          echo "ci-summary: every job passed"

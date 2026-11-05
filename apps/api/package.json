@@ -1,0 +1,12 @@
+{
+  "name": "@capstan/api",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Hono REST + tRPC router, x402 middleware, eligibility edge",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "dependencies": {
+    "hono": "4.13.16"
+  }
+}

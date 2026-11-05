@@ -1,0 +1,35 @@
+# Capstan contracts on Robinhood Chain (mainnet 4663, testnet 46630). Spec section 8: two small non-upgradeable
+# contracts (CapstanReceiptAnchor, CPSTLock) plus the fixed-supply CPST ERC-20.
+# Vendored: forge-std v1.17.0 (forge install --no-git, commit f3dae6e6ee381f25eb6a246f7da9b85c91a68219), trimmed to
+# src/, licences, README, foundry.toml and package.json (its own tests, fixtures and CI are not needed here).
+[profile.default]
+src = "src"
+test = "test"
+script = "script"
+out = "out"
+libs = ["lib"]
+solc_version = "0.8.28"
+evm_version = "cancun"        # RHC (Arbitrum Orbit) supports PUSH0/MCOPY/TSTORE; VERIFY before deploy
+optimizer = true
+optimizer_runs = 200
+bytecode_hash = "none"
+fs_permissions = [{ access = "read", path = "./" }, { access = "read-write", path = "./deployments" }]
+
+[profile.default.fuzz]
+runs = 512
+seed = "0xca95"               # fixed seed: deterministic runs in CI
+
+[profile.default.invariant]
+runs = 64
+depth = 50
+fail_on_revert = false
+
+[profile.ci.fuzz]
+runs = 4096
+
+[rpc_endpoints]
+rhc = "${RHC_RPC_URL}"
+rhc_testnet = "https://rpc.testnet.chain.robinhood.com"
+
+[fmt]
+line_length = 120

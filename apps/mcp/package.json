@@ -1,0 +1,9 @@
+{
+  "name": "@capstan/mcp",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "MCP server (Streamable HTTP)",
+  "main": "src/index.ts",
+  "types": "src/index.ts"
+}

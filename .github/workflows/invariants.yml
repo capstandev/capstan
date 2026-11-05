@@ -1,0 +1,37 @@
+name: invariants
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: invariants-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'push' || github.event_name == 'pull_request' }}
+
+# Spec invariants enforced by grep-style checks (same commands as .githooks/pre-commit).
+jobs:
+  invariants:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with: { persist-credentials: false }
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with: { bun-version: 1.4.4 }
+      - name: "invariant 1: no privateKey|seed|mnemonic identifiers in apps/*"
+        run: bun ops/ci/check-key-identifiers.ts
+      - name: "invariant 5: banned words in docs, copy, API strings and MCP tool descriptions"
+        run: bun ops/ci/check-banned-words.ts
+      - name: "invariant 2: no adapter declares canWithdraw: true"
+        run: |
+          if grep -rnE --exclude='*.test.ts' 'canWithdraw[[:space:]]*:[[:space:]]*true' apps packages; then
+            echo "::error::an adapter declares canWithdraw: true"; exit 1
+          fi
+          echo "no canWithdraw: true"
+      - name: public guard (private words, private paths, env files, 64-hex keys)
+        run: bash .githooks/public-guard.sh
+      - name: every workflow action is pinned by full sha
+        run: bash .github/scripts/pins-check.sh

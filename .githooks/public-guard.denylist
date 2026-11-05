@@ -1,0 +1,27 @@
+# one case-insensitive regex per line; private vocabulary that must never appear in the public backend
+kill criteria
+what not to say
+launch strategy
+launch target
+launch plan
+tokenomics
+\bKOL\b
+sibling product
+studio reuse
+\bstudio\b
+shared core
+internal notes
+pre-decided pivot
+\bpivot [AB]\b
+legal-heat
+lawyer review
+staker bucket
+\bp[l]ynth\b
+\bl[e]mniscate\b
+\bi[f]so\b
+\bo[g]ee\b
+\bh[a]wari\b
+\bk[h]aled\b
+g[o]tmygat
+\bk[a]l\b
+capstan-backend

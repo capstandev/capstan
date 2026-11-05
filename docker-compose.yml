@@ -1,0 +1,32 @@
+# Local dev dependencies only (never production). Ports avoid the common defaults so other local stacks keep theirs.
+# Images pinned by tag and index digest (checked 2026-11-05).
+name: capstan-dev
+services:
+  postgres:
+    # Postgres 16 + TimescaleDB (funding, marks, books and risk snapshots become hypertables)
+    image: timescale/timescaledb:2.31.0-pg16@sha256:322ae364eca3321cf2a48f1ef31213b87843413b3cf8feeebf54e999a26bb731
+    environment:
+      POSTGRES_USER: capstan
+      POSTGRES_PASSWORD: capstan
+      POSTGRES_DB: capstan
+    ports: ["127.0.0.1:55432:5432"]
+    volumes: ["capstan-pg:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U capstan -d capstan"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+  redis:
+    # Redis 7: BullMQ jobs, caches, rate-limit buckets, pub/sub fan-out
+    image: redis:7.4.12-alpine@sha256:4783bb5c3ecd5a93ce0a779ed2c44d5472043bb2cb7251f5390700748c62e62b
+    command: ["redis-server", "--appendonly", "yes"]
+    ports: ["127.0.0.1:56379:6379"]
+    volumes: ["capstan-redis:/data"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+volumes:
+  capstan-pg:
+  capstan-redis:

@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# pre-commit: the public guard (private words, private paths, env files, 64-hex keys), then the spec invariants:
+#   1. no privateKey|seed|mnemonic identifiers in apps/*   (ops/ci/check-key-identifiers.ts)
+#   2. no canWithdraw: true outside tests
+#   5. no banned words in docs, copy, API strings, MCP tool descriptions   (ops/ci/check-banned-words.ts)
+set -euo pipefail
+root="$(git rev-parse --show-toplevel)"
+cd "$root"
+export PATH="/opt/homebrew/bin:$HOME/.bun/bin:$PATH"
+bash .githooks/public-guard.sh
+if ! command -v bun >/dev/null 2>&1; then
+  echo "pre-commit: bun not found; the invariant checks cannot run. Install bun (https://bun.sh)." >&2
+  exit 1
+fi
+bun ops/ci/check-key-identifiers.ts
+bun ops/ci/check-banned-words.ts
+# invariant 2: no adapter declares canWithdraw: true (tests plant it on purpose)
+if grep -rnE --exclude='*.test.ts' --exclude-dir=node_modules 'canWithdraw[[:space:]]*:[[:space:]]*true' apps packages; then
+  echo "pre-commit: an adapter declares canWithdraw: true" >&2
+  exit 1
+fi

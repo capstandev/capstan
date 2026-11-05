@@ -1,0 +1,9 @@
+{
+  "name": "@capstan/adapter-aster",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Aster Code adapter",
+  "main": "src/index.ts",
+  "types": "src/index.ts"
+}

@@ -1,0 +1,9 @@
+{
+  "name": "@capstan/catalog",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Canonical-asset map and equivalence records",
+  "main": "src/index.ts",
+  "types": "src/index.ts"
+}

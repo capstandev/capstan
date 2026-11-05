@@ -1,0 +1,25 @@
+# One case-insensitive regex per line. Return-promise, endorsement and false-claim vocabulary that must never appear
+# in public docs, copy, API strings or MCP tool descriptions (spec invariant 5 and the copy rules).
+# This file is excluded from its own scan.
+\bguarantee(d|s)?\b
+\brisk[- ]?free\b
+\briskless\b
+\bno risk\b
+\bpassive income\b
+\bfree money\b
+\bcan'?t lose\b
+\bsure (thing|profit|win)\b
+\bget rich\b
+\b\d+x (returns?|gains?)\b
+\bofficial (hyperliquid|lighter|aster|variational|arcus|robinhood)\b
+\b(endorsed|sponsored|certified) by\b
+\bpartnered with\b
+\bin partnership with\b
+\bpowered by (hyperliquid|lighter|aster|variational|arcus|robinhood)\b
+\brobinhood[- ]backed\b
+\btrade robinhood stocks\b
+\bcross[- ]margin(ed|ing)?\b
+\bunified margin\b
+\bshared (collateral|margin)\b
+\bnetted margin\b
+\bworks in the us\b

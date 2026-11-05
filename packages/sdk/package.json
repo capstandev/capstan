@@ -1,0 +1,9 @@
+{
+  "name": "@capstan/sdk",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "TS SDK: client-side key gen, payload checks, signing, plan executor",
+  "main": "src/index.ts",
+  "types": "src/index.ts"
+}

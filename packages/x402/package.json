@@ -1,0 +1,9 @@
+{
+  "name": "@capstan/x402",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "x402 client and server helpers (Permit2 + EIP-3009)",
+  "main": "src/index.ts",
+  "types": "src/index.ts"
+}

@@ -1,0 +1,60 @@
+# Dependencies and forge output
+node_modules/
+out/
+cache/
+broadcast/
+*.tsbuildinfo
+
+# Secrets: never commit
+.env*
+*.env
+*.env.*
+.envrc
+!.env.example
+credentials/
+secrets/
+keystores/
+*.key
+*.pem
+*.p12
+*.pfx
+*.keystore
+.npmrc
+.netrc
+.pgpass
+id_rsa*
+id_ed25519*
+
+# Private workspace material belongs in the separate private docs folder (../docs), never here.
+/docs/
+/plan/
+/plans/
+/todos/
+/deploy/
+/deploy-config/
+/docker/
+# Never ignore contracts/deployments/<chain>.json: it is the ONE committed deployment record.
+# docker-compose.yml IS committed here (local Postgres/Redis for dev, no secrets); other compose/Docker files stay out.
+AGENTS.md
+CLAUDE.md
+memories.md
+TODO*
+PLAN*
+RESUME*
+STATUS.md
+Dockerfile*
+docker-compose.*.yml
+docker-compose.override.yml
+compose*.yml
+compose*.yaml
+
+# Generated output and local data
+dist/
+coverage/
+*.log
+*.sql.gz
+*.dump
+*.bak
+*.db
+*.sqlite*
+.DS_Store

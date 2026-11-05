@@ -1,0 +1,12 @@
+# Default gitleaks rules plus one narrow allowlist: vendored upstream libraries under contracts/lib/ (forge-std's
+# curve constants and fixtures read as generic keys). Every other path gets the full default rule set.
+title = "capstan gitleaks"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "vendored upstream Solidity libraries"
+paths = [
+  '''^contracts/lib/''',
+]
