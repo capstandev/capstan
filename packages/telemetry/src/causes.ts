@@ -47,6 +47,7 @@ export const CAUSES: Record<string, CauseSpec> = {
   "catalog.source_errors": { affected: "Markets from those sources were left unchanged.", facts: (e) => `${count(e.detail)} sources` },
   "deploy.rollback": { affected: "The previous release is serving; the new one is not live.", done: "The server rolled back to the previous release.", facts: (e) => `failed ${field(e, "sha")}, now ${field(e, "previous")}` },
   "gas.low": { affected: "That service stops sending when the gas runs out.", facts: (e) => `${field(e, "service")} balance ${field(e, "balance")}, minimum ${field(e, "minimum")}` },
+  "geo.refresh_failed": { affected: "No users: eligibility keeps using the previous DB-IP file.", facts: (e) => `month ${field(e, "month")}, reason ${field(e, "reason")}` },
   "governor.above_90": { affected: "All users of that venue on this IP; above 100% the venue refuses requests.", facts: (e) => `${field(e, "budget")} at ${field(e, "usedPct")}%` },
   "lighter_rh.deposit_pin_mismatch": { affected: "Lighter on Robinhood Chain deposit builds are refused until reviewed.", done: "Deposit builds refuse on their own boot check (fail closed).", facts: (e) => `reason ${field(e, "reason")}` },
   "ops.unknown_event": { affected: "Unknown.", facts: (e) => `kind ${field(e, "unknownKind")}` },

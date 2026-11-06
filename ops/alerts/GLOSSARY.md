@@ -76,6 +76,11 @@ Severity: act
 Means: a service key (facilitator or another sender) has less gas than its configured minimum.
 Do: the owner sends the amount in the alert to the address in the alert.
 
+## geo.refresh_failed
+Severity: info
+Means: the weekly DB-IP Lite country file refresh failed. The previous file stays in use for eligibility.
+Do: nothing if next week's run works; if it repeats, check the DB-IP download page and the server's disk space.
+
 ## governor.above_90
 Severity: act
 Means: a venue request budget on one egress IP is above 90% of the venue limit. Above 100% the venue starts refusing.
