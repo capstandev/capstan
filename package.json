@@ -13,7 +13,8 @@
     "apps/*",
     "packages/*",
     "packages/adapters/*",
-    "packages/signers/*"
+    "packages/signers/*",
+    "ops/usage"
   ],
   "scripts": {
     "typecheck": "tsc --noEmit",

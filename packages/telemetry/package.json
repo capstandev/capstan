@@ -1,0 +1,21 @@
+{
+  "name": "@capstan/telemetry",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Traces (W3C traceparent api to relay to venue), Prometheus metrics, log redaction and ops alerts",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "dependencies": {
+    "@capstan/core": "workspace:*",
+    "@capstan/schema": "workspace:*",
+    "@opentelemetry/api": "1.9.1",
+    "@opentelemetry/context-async-hooks": "2.12.0",
+    "@opentelemetry/core": "2.12.0",
+    "@opentelemetry/sdk-trace": "2.12.0",
+    "drizzle-orm": "0.45.4"
+  },
+  "devDependencies": {
+    "hono": "4.13.16"
+  }
+}

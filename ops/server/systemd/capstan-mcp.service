@@ -1,0 +1,39 @@
+# MCP server. One Unix user and one env file per service (DECISIONS #20). Installed by ops/server/provision.sh.
+[Unit]
+Description=Capstan mcp (MCP server)
+After=network-online.target capstan-db.service capstan-api.service
+Wants=network-online.target
+Requires=capstan-db.service
+StartLimitIntervalSec=300
+StartLimitBurst=10
+
+[Service]
+Type=simple
+User=capstan-mcp
+Group=capstan-mcp
+EnvironmentFile=/etc/capstan/mcp/env
+WorkingDirectory=/opt/capstan/current
+ExecStart=/usr/local/bin/bun /opt/capstan/current/apps/mcp/src/index.ts
+Restart=on-failure
+RestartSec=5
+StandardOutput=append:/var/log/capstan/mcp/mcp.jsonl
+StandardError=append:/var/log/capstan/mcp/mcp.jsonl
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+UMask=0077
+ReadWritePaths=/var/log/capstan/mcp
+ReadOnlyPaths=/opt/capstan
+# only this service's folder is visible under /etc/capstan
+TemporaryFileSystem=/etc/capstan:ro
+BindReadOnlyPaths=/etc/capstan/mcp
+
+[Install]
+WantedBy=multi-user.target

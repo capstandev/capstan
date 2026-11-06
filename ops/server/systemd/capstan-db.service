@@ -1,0 +1,17 @@
+# Postgres 16 + TimescaleDB and Redis 7 in docker, bound to 127.0.0.1 only (ops/server/capstan-compose.yaml).
+[Unit]
+Description=Capstan databases (docker compose)
+After=docker.service network-online.target
+Requires=docker.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=/opt/capstan/compose
+EnvironmentFile=/etc/capstan/db/env
+ExecStart=/usr/bin/docker compose -p capstan-db -f /opt/capstan/compose/capstan-compose.yaml up -d --wait
+ExecStop=/usr/bin/docker compose -p capstan-db -f /opt/capstan/compose/capstan-compose.yaml stop
+TimeoutStartSec=300
+
+[Install]
+WantedBy=multi-user.target

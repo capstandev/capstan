@@ -1,0 +1,19 @@
+# Prometheus scrape config for the VPS (free, local only). Each service serves GET /metrics on 127.0.0.1 at its
+# PROM_PORT (set in /etc/capstan/<service>/env by ops/server). Nothing here is exposed by Caddy.
+global:
+  scrape_interval: 15s
+scrape_configs:
+  - job_name: capstan
+    static_configs:
+      - targets: ["127.0.0.1:9710"]
+        labels: { service: api }
+      - targets: ["127.0.0.1:9711"]
+        labels: { service: ws }
+      - targets: ["127.0.0.1:9712"]
+        labels: { service: relay }
+      - targets: ["127.0.0.1:9713"]
+        labels: { service: mcp }
+      - targets: ["127.0.0.1:9714"]
+        labels: { service: facilitator }
+      - targets: ["127.0.0.1:9715"]
+        labels: { service: workers }

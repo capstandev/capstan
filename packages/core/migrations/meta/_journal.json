@@ -29,6 +29,13 @@
       "when": 1793935512418,
       "tag": "0003_receipts_anchor",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1793938336863,
+      "tag": "0004_request_logs",
+      "breakpoints": true
     }
   ]
 }

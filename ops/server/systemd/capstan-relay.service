@@ -1,0 +1,39 @@
+# signed payload relay. One Unix user and one env file per service (DECISIONS #20). Installed by ops/server/provision.sh.
+[Unit]
+Description=Capstan relay (signed payload relay)
+After=network-online.target capstan-db.service 
+Wants=network-online.target
+Requires=capstan-db.service
+StartLimitIntervalSec=300
+StartLimitBurst=10
+
+[Service]
+Type=simple
+User=capstan-relay
+Group=capstan-relay
+EnvironmentFile=/etc/capstan/relay/env
+WorkingDirectory=/opt/capstan/current
+ExecStart=/usr/local/bin/bun /opt/capstan/current/apps/relay/src/index.ts
+Restart=on-failure
+RestartSec=5
+StandardOutput=append:/var/log/capstan/relay/relay.jsonl
+StandardError=append:/var/log/capstan/relay/relay.jsonl
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+UMask=0077
+ReadWritePaths=/var/log/capstan/relay
+ReadOnlyPaths=/opt/capstan
+# only this service's folder is visible under /etc/capstan
+TemporaryFileSystem=/etc/capstan:ro
+BindReadOnlyPaths=/etc/capstan/relay
+
+[Install]
+WantedBy=multi-user.target

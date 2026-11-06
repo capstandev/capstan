@@ -524,6 +524,24 @@ export const governancePolls = pgTable("governance_polls", {
   status: text("status").notNull(),
 });
 
+/** Request log for api and mcp calls (rate-limit and usage reads). `ip` is kept 7 days at most, then nulled by the
+ * log-retention job so only `ip_country` remains (spec 14). `client_hash` is a salted hash, never a raw key or address. */
+export const requestLogs = pgTable(
+  "request_logs",
+  {
+    id: text("id").primaryKey(),
+    ts: tsz("ts").notNull().defaultNow(),
+    service: text("service").notNull(), // api | mcp
+    route: text("route").notNull(),
+    clientHash: text("client_hash"),
+    ip: text("ip"),
+    ipCountry: text("ip_country"),
+    status: integer("status").notNull(),
+    durationMs: integer("duration_ms"),
+  },
+  (t) => [index("rl_ts").on(t.ts), index("rl_service_ts").on(t.service, t.ts)],
+);
+
 /** Every table, for tests and tooling. */
 export const ALL_TABLES = {
   venues,
@@ -566,4 +584,5 @@ export const ALL_TABLES = {
   usageDaily,
   killEvents,
   governancePolls,
+  requestLogs,
 } as const;

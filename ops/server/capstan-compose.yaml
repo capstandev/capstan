@@ -1,0 +1,39 @@
+# Production databases on the VPS (DECISIONS #21, BACKLOG D3). Same pinned images as local dev. Both bind to
+# 127.0.0.1 only: nothing outside the server can reach them (ufw also allows only 22, 80, 443).
+# Run by capstan-db.service: docker compose -p capstan-db -f /opt/capstan/compose/capstan-compose.yaml up -d --wait
+name: capstan-db
+services:
+  postgres:
+    image: timescale/timescaledb:2.31.0-pg16@sha256:322ae364eca3321cf2a48f1ef31213b87843413b3cf8feeebf54e999a26bb731 # not-a-key
+    container_name: capstan-db-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: capstan
+      POSTGRES_DB: capstan
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_password
+    secrets: [db_password]
+    ports: ["127.0.0.1:5432:5432"]
+    volumes: ["capstan-pg:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U capstan -d capstan"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+  redis:
+    image: redis:7.4.12-alpine@sha256:4783bb5c3ecd5a93ce0a779ed2c44d5472043bb2cb7251f5390700748c62e62b # not-a-key
+    container_name: capstan-db-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    ports: ["127.0.0.1:6379:6379"]
+    volumes: ["capstan-redis:/data"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+secrets:
+  db_password:
+    file: /etc/capstan/db/password
+volumes:
+  capstan-pg:
+  capstan-redis:

@@ -1,0 +1,41 @@
+# Caddy config for the VPS, rendered by provision.sh from server.conf (DOMAIN). DNS records stay grey cloud (no proxy)
+# so the server's IP is the relay egress and TLS ends here. Access logs keep the client IP at most 7 days: the
+# log-retention job rewrites older records to the country code, and Caddy keeps 7 days of rolled files.
+{
+	email @ACME_EMAIL@
+	admin off
+}
+
+(common) {
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options nosniff
+		Referrer-Policy no-referrer
+		-Server
+	}
+	request_body {
+		max_size 1MB
+	}
+	log {
+		output file /var/log/capstan/caddy/access.log {
+			roll_size 50MiB
+			roll_keep_for 168h
+		}
+		format json
+	}
+}
+
+api.@DOMAIN@ {
+	import common
+	handle /mcp* {
+		reverse_proxy 127.0.0.1:8713
+	}
+	handle {
+		reverse_proxy 127.0.0.1:8710
+	}
+}
+
+ws.@DOMAIN@ {
+	import common
+	reverse_proxy 127.0.0.1:8711
+}

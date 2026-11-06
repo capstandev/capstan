@@ -1,0 +1,10 @@
+# Daily encrypted database backup (ops/server/backup.sh). Started by capstan-backup.timer.
+[Unit]
+Description=Capstan database backup
+After=capstan-db.service
+Requires=capstan-db.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/capstan-backup
+Nice=10

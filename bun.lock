@@ -17,6 +17,7 @@
         "@capstan/adapter-aster": "workspace:*",
         "@capstan/core": "workspace:*",
         "@capstan/schema": "workspace:*",
+        "@capstan/telemetry": "workspace:*",
         "@capstan/venue-client": "workspace:*",
         "@hono/trpc-server": "0.4.2",
         "@trpc/server": "11.23.0",
@@ -29,6 +30,7 @@
       "version": "0.0.0",
       "dependencies": {
         "@capstan/core": "workspace:*",
+        "@capstan/telemetry": "workspace:*",
       },
     },
     "apps/mcp": {
@@ -36,6 +38,7 @@
       "version": "0.0.0",
       "dependencies": {
         "@capstan/core": "workspace:*",
+        "@capstan/telemetry": "workspace:*",
       },
     },
     "apps/relay": {
@@ -43,6 +46,7 @@
       "version": "0.0.0",
       "dependencies": {
         "@capstan/core": "workspace:*",
+        "@capstan/telemetry": "workspace:*",
       },
     },
     "apps/workers": {
@@ -54,8 +58,10 @@
         "@capstan/adapter-lighter": "workspace:*",
         "@capstan/catalog": "workspace:*",
         "@capstan/core": "workspace:*",
+        "@capstan/ops-usage": "workspace:*",
         "@capstan/receipts": "workspace:*",
         "@capstan/schema": "workspace:*",
+        "@capstan/telemetry": "workspace:*",
         "@capstan/venue-client": "workspace:*",
         "bullmq": "6.5.4",
         "drizzle-orm": "0.45.4",
@@ -67,6 +73,20 @@
       "version": "0.0.0",
       "dependencies": {
         "@capstan/core": "workspace:*",
+        "@capstan/telemetry": "workspace:*",
+      },
+    },
+    "ops/usage": {
+      "name": "@capstan/ops-usage",
+      "version": "0.0.0",
+      "dependencies": {
+        "@capstan/core": "workspace:*",
+        "@capstan/schema": "workspace:*",
+        "drizzle-orm": "0.45.4",
+      },
+      "devDependencies": {
+        "@capstan/telemetry": "workspace:*",
+        "@capstan/workers": "workspace:*",
       },
     },
     "packages/adapters/arcus": {
@@ -221,6 +241,22 @@
       "name": "@capstan/signer-lighter-wasm",
       "version": "0.0.0",
     },
+    "packages/telemetry": {
+      "name": "@capstan/telemetry",
+      "version": "0.0.0",
+      "dependencies": {
+        "@capstan/core": "workspace:*",
+        "@capstan/schema": "workspace:*",
+        "@opentelemetry/api": "1.9.1",
+        "@opentelemetry/context-async-hooks": "2.12.0",
+        "@opentelemetry/core": "2.12.0",
+        "@opentelemetry/sdk-trace": "2.12.0",
+        "drizzle-orm": "0.45.4",
+      },
+      "devDependencies": {
+        "hono": "4.13.16",
+      },
+    },
     "packages/venue-client": {
       "name": "@capstan/venue-client",
       "version": "0.0.0",
@@ -260,6 +296,8 @@
 
     "@capstan/mcp": ["@capstan/mcp@workspace:apps/mcp"],
 
+    "@capstan/ops-usage": ["@capstan/ops-usage@workspace:ops/usage"],
+
     "@capstan/receipts": ["@capstan/receipts@workspace:packages/receipts"],
 
     "@capstan/relay": ["@capstan/relay@workspace:apps/relay"],
@@ -273,6 +311,8 @@
     "@capstan/signer-hl": ["@capstan/signer-hl@workspace:packages/signers/hl"],
 
     "@capstan/signer-lighter-wasm": ["@capstan/signer-lighter-wasm@workspace:packages/signers/lighter-wasm"],
+
+    "@capstan/telemetry": ["@capstan/telemetry@workspace:packages/telemetry"],
 
     "@capstan/venue-client": ["@capstan/venue-client@workspace:packages/venue-client"],
 
@@ -363,6 +403,18 @@
     "@noble/curves": ["@noble/curves@2.4.0", "", { "dependencies": { "@noble/hashes": "2.4.0" } }, "sha512-P4/62zrgfH33CneE3Dn4WhJVA22YUU0eR51wKIan4NVRvwsA0YnPTwWGpNbpuacSujmSFLvyzpyuR30+fbq2Ew=="],
 
     "@noble/hashes": ["@noble/hashes@2.4.0", "", {}, "sha512-X5XaVWZIBCT7HHZGm5I7ZQXDwLG+bGXuSrMQAW+7Zvl87h1kmc1ZB1VSRJcpUfoUrGQp4Fkoxm5kZ+Ms+aW+eA=="],
+
+    "@opentelemetry/api": ["@opentelemetry/api@1.9.1", "", {}, "sha512-gLyJlPHPZYdAk1JENA9LeHejZe1Ti77/pTeFm/nMXmQH/HFZlcS/O2XJB+L8fkbrNSqhdtlvjBVjxwUYanNH5Q=="],
+
+    "@opentelemetry/context-async-hooks": ["@opentelemetry/context-async-hooks@2.12.0", "", { "peerDependencies": { "@opentelemetry/api": ">=1.0.0 <1.10.0" } }, "sha512-iK/1nD7mmZVkuYjVjkdFBiCvzntJdFny1S3CYbUYyOq7V5enL6XX+gJ7eh965L1LnS11VA8mQ7Ej/ck04SB0MQ=="],
+
+    "@opentelemetry/core": ["@opentelemetry/core@2.12.0", "", { "dependencies": { "@opentelemetry/semantic-conventions": "^1.29.0" }, "peerDependencies": { "@opentelemetry/api": ">=1.0.0 <1.10.0" } }, "sha512-1HsSAuvT4/my0QrXWsyXFdWjKaPeCHsismKZgEEIb8NK13LP6DrMRlsUbvD/0F9mDWK3xDom9AMv3IscxgOnOQ=="],
+
+    "@opentelemetry/resources": ["@opentelemetry/resources@2.12.0", "", { "dependencies": { "@opentelemetry/core": "2.12.0", "@opentelemetry/semantic-conventions": "^1.29.0" }, "peerDependencies": { "@opentelemetry/api": ">=1.3.0 <1.10.0" } }, "sha512-+rSRoOdln6NhXTVcBdHSlZxJDNzwxadeweK2ltZO3tVtfp6aklABc06xclDk6ovRR+EiGgIcSbh/6NgjFhnb3A=="],
+
+    "@opentelemetry/sdk-trace": ["@opentelemetry/sdk-trace@2.12.0", "", { "dependencies": { "@opentelemetry/core": "2.12.0", "@opentelemetry/resources": "2.12.0", "@opentelemetry/semantic-conventions": "^1.29.0" }, "peerDependencies": { "@opentelemetry/api": ">=1.3.0 <1.10.0" } }, "sha512-ImVuRQ6faOsTi1Wna88s2avgrrf/iDgXPigIeynkUhjstMuoQUDOJXgkez2j1mlU4btjXcXBGa+q7qKFYR3GsA=="],
+
+    "@opentelemetry/semantic-conventions": ["@opentelemetry/semantic-conventions@1.44.0", "", {}, "sha512-E3JkOlMBi3N8OGGkbl7tFyqk2MAS6/lySRZBK3Mu7AzjF1fT8oIChH9ChE48SUWzDn9Kdwta+G/p5LJ4xW4CLQ=="],
 
     "@scure/base": ["@scure/base@1.2.6", "", {}, "sha512-g/nm5FgUa//MCj1gV09zTJTaM6KBAHqLN907YVQqf7zC49+DcO4B1so4ZX07Ef10Twr6nuqYEH9GEggFXA4Fmg=="],
 

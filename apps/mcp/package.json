@@ -7,6 +7,7 @@
   "main": "src/index.ts",
   "types": "src/index.ts",
   "dependencies": {
-    "@capstan/core": "workspace:*"
+    "@capstan/core": "workspace:*",
+    "@capstan/telemetry": "workspace:*"
   }
 }

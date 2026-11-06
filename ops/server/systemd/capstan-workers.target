@@ -1,0 +1,7 @@
+# All worker processes (jobs without keys, anchor poster, receipt signer). `systemctl stop capstan-workers.target`.
+[Unit]
+Description=Capstan workers
+Wants=capstan-workers.service capstan-anchor.service capstan-receipts.service
+
+[Install]
+WantedBy=multi-user.target

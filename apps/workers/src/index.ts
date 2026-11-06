@@ -1,6 +1,7 @@
 // @capstan/workers entry: `WORKER_JOBS=catalog-sync bun apps/workers/src/index.ts`. Validates config, picks the jobs,
 // refuses an unknown job name before connecting to anything, then runs the workers until SIGTERM.
 import { createDb, createMarketDataCache, createRedis, loadConfig, logger } from "@capstan/core";
+import { initTelemetry, telemetryEnv } from "@capstan/telemetry";
 import { discoverJobs, selectJobs, startJobs } from "./runner";
 
 export * from "./runner";
@@ -9,6 +10,7 @@ if (import.meta.main) {
   const log = logger("workers");
   try {
     const cfg = loadConfig("workers");
+    const tel = initTelemetry("workers", telemetryEnv(process.env)); // traces + /metrics
     const jobs = selectJobs(await discoverJobs(), cfg.WORKER_JOBS);
     const redis = createRedis(cfg.REDIS_URL, { forBullmq: true });
     const db = createDb(cfg.DATABASE_URL);
@@ -16,6 +18,7 @@ if (import.meta.main) {
     log.info("workers running", { jobs: jobs.map((j) => j.name) });
     const stop = async () => {
       await running.stop();
+      await tel.shutdown();
       await redis.quit();
       await db.$client.end({ timeout: 5 });
       process.exit(0);
