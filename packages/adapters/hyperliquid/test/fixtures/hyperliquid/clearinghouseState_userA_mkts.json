@@ -1,0 +1,34 @@
+{
+ "name": "hyperliquid/clearinghouseState_userA_mkts",
+ "capturedAt": "2026-11-06T03:00:53.679Z",
+ "source": "live",
+ "venue": "hyperliquid",
+ "request": {
+  "method": "POST",
+  "url": "https://api.hyperliquid.xyz/info",
+  "body": {
+   "type": "clearinghouseState",
+   "user": "0x2ac6e76aeb3102d322ee9a82bd67d447d8781014",
+   "dex": "mkts"
+  }
+ },
+ "status": 200,
+ "response": {
+  "marginSummary": {
+   "accountValue": "0.0",
+   "totalNtlPos": "0.0",
+   "totalRawUsd": "0.0",
+   "totalMarginUsed": "0.0"
+  },
+  "crossMarginSummary": {
+   "accountValue": "0.0",
+   "totalNtlPos": "0.0",
+   "totalRawUsd": "0.0",
+   "totalMarginUsed": "0.0"
+  },
+  "crossMaintenanceMarginUsed": "0.0",
+  "withdrawable": "0.0",
+  "assetPositions": [],
+  "time": 1793934053386
+ }
+}

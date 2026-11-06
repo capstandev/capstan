@@ -1,0 +1,17 @@
+{
+ "name": "hyperliquid/maxBuilderFee_none",
+ "capturedAt": "2026-11-06T03:00:50.947Z",
+ "source": "live",
+ "venue": "hyperliquid",
+ "request": {
+  "method": "POST",
+  "url": "https://api.hyperliquid.xyz/info",
+  "body": {
+   "type": "maxBuilderFee",
+   "user": "0x2ac6e76aeb3102d322ee9a82bd67d447d8781014",
+   "builder": "0x00000000000000000000000000000000c0ffee01"
+  }
+ },
+ "status": 200,
+ "response": 0
+}

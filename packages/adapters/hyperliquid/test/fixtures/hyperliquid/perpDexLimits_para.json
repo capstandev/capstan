@@ -1,0 +1,158 @@
+{
+ "name": "hyperliquid/perpDexLimits_para",
+ "capturedAt": "2026-11-06T03:00:48.142Z",
+ "source": "live",
+ "venue": "hyperliquid",
+ "request": {
+  "method": "POST",
+  "url": "https://api.hyperliquid.xyz/info",
+  "body": {
+   "type": "perpDexLimits",
+   "dex": "para"
+  }
+ },
+ "status": 200,
+ "response": {
+  "totalOiCap": "50000000.0",
+  "oiSzCapPerPerp": "10000000000.0",
+  "maxTransferNtl": "300000000.0",
+  "coinToOiCap": [
+   [
+    "para:10Y",
+    "25000000.0"
+   ],
+   [
+    "para:2Y",
+    "25000000.0"
+   ],
+   [
+    "para:30Y",
+    "25000000.0"
+   ],
+   [
+    "para:AAOI",
+    "25000000.0"
+   ],
+   [
+    "para:ANSEM",
+    "5000000.0"
+   ],
+   [
+    "para:ANTH",
+    "25000000.0"
+   ],
+   [
+    "para:AVGO",
+    "25000000.0"
+   ],
+   [
+    "para:BTCD",
+    "10000000.0"
+   ],
+   [
+    "para:CIEN",
+    "25000000.0"
+   ],
+   [
+    "para:CIFR",
+    "25000000.0"
+   ],
+   [
+    "para:COHR",
+    "25000000.0"
+   ],
+   [
+    "para:CRDO",
+    "25000000.0"
+   ],
+   [
+    "para:CRWD",
+    "25000000.0"
+   ],
+   [
+    "para:DRV",
+    "10000000.0"
+   ],
+   [
+    "para:GDX",
+    "25000000.0"
+   ],
+   [
+    "para:GLW",
+    "25000000.0"
+   ],
+   [
+    "para:IGV",
+    "25000000.0"
+   ],
+   [
+    "para:IREN",
+    "25000000.0"
+   ],
+   [
+    "para:LRCX",
+    "25000000.0"
+   ],
+   [
+    "para:MELI",
+    "25000000.0"
+   ],
+   [
+    "para:NET",
+    "25000000.0"
+   ],
+   [
+    "para:OTHERS",
+    "5000000.0"
+   ],
+   [
+    "para:PAPER",
+    "5000000.0"
+   ],
+   [
+    "para:RDDT",
+    "25000000.0"
+   ],
+   [
+    "para:SMCI",
+    "25000000.0"
+   ],
+   [
+    "para:SMH",
+    "25000000.0"
+   ],
+   [
+    "para:SOFI",
+    "25000000.0"
+   ],
+   [
+    "para:STX",
+    "25000000.0"
+   ],
+   [
+    "para:TER",
+    "25000000.0"
+   ],
+   [
+    "para:TOTAL2",
+    "5000000.0"
+   ],
+   [
+    "para:TREAD",
+    "10000000.0"
+   ],
+   [
+    "para:TTWO",
+    "25000000.0"
+   ],
+   [
+    "para:UNITREE",
+    "25000000.0"
+   ],
+   [
+    "para:VST",
+    "25000000.0"
+   ]
+  ]
+ }
+}

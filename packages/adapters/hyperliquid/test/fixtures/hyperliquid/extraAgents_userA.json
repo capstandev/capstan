@@ -1,0 +1,37 @@
+{
+ "name": "hyperliquid/extraAgents_userA",
+ "capturedAt": "2026-11-06T03:00:49.221Z",
+ "source": "live",
+ "venue": "hyperliquid",
+ "request": {
+  "method": "POST",
+  "url": "https://api.hyperliquid.xyz/info",
+  "body": {
+   "type": "extraAgents",
+   "user": "0x2ac6e76aeb3102d322ee9a82bd67d447d8781014"
+  }
+ },
+ "status": 200,
+ "response": [
+  {
+   "name": "entropy-web",
+   "address": "0x43b082c10a10e5a625a409ae4eea2ac30b1eec39",
+   "validUntil": 1808058990243
+  },
+  {
+   "name": "txyz_true.agent",
+   "address": "0x5081cc205d2692c7ab2d8c5e88fb5fd6f5ce8f74",
+   "validUntil": 1800371113614
+  },
+  {
+   "name": "api1",
+   "address": "0x00888153671364912ccb988e7530b32f31c7c321",
+   "validUntil": 1809185494744
+  },
+  {
+   "name": "api2",
+   "address": "0xbbca5f8fcf62a2d00805e77ed1a6ed15536c6bf4",
+   "validUntil": 1794023964586
+  }
+ ]
+}

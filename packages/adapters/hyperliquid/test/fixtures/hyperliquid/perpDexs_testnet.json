@@ -1,0 +1,73 @@
+{
+ "name": "hyperliquid/perpDexs_testnet",
+ "capturedAt": "2026-11-06T03:00:59.034Z",
+ "source": "live",
+ "venue": "hyperliquid-testnet",
+ "request": {
+  "method": "POST",
+  "url": "https://api.hyperliquid-testnet.xyz/info",
+  "body": {
+   "type": "perpDexs"
+  }
+ },
+ "status": 200,
+ "response": [
+  null,
+  {
+   "name": "test",
+   "fullName": "test dex",
+   "deployer": "0x5e89b26d8d66da9888c835c9bfcc2aa51813e152",
+   "oracleUpdater": null,
+   "feeRecipient": null,
+   "assetToStreamingOiCap": [],
+   "subDeployers": [],
+   "assetToFundingMultiplier": [],
+   "assetToFundingInterestRate": [],
+   "assetToFundingClamp": []
+  },
+  {
+   "name": "unit",
+   "fullName": "unit dex",
+   "deployer": "0x888888880c61928866d8fcd1ac8655b7760b9f71",
+   "oracleUpdater": null,
+   "feeRecipient": null,
+   "assetToStreamingOiCap": [],
+   "subDeployers": [
+    [
+     "setOracle",
+     [
+      "0x2d2bce037fc7b1b8a94af488d01ec20bec8117db"
+     ]
+    ]
+   ],
+   "assetToFundingMultiplier": [],
+   "assetToFundingInterestRate": [],
+   "assetToFundingClamp": []
+  },
+  {
+   "name": "scam",
+   "fullName": "Scam DEX",
+   "deployer": "0xcc16ae2ffc076d7bcd5ec3fb1e9aa5c2984133a1",
+   "oracleUpdater": null,
+   "feeRecipient": null,
+   "assetToStreamingOiCap": [],
+   "subDeployers": [
+    [
+     "setOracle",
+     [
+      "0x6e86e8bee85cf425fd210e8c7e10dea882b77594"
+     ]
+    ]
+   ],
+   "assetToFundingMultiplier": [],
+   "assetToFundingInterestRate": [],
+   "assetToFundingClamp": []
+  }
+ ],
+ "trimmed": {
+  "path": "",
+  "kept": 4,
+  "total": 277,
+  "rule": "first 4 dexes, per-asset lists cut to 3"
+ }
+}

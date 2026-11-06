@@ -1,0 +1,59 @@
+{
+ "name": "hyperliquid/clearinghouseState_userA_io",
+ "capturedAt": "2026-11-06T03:00:53.085Z",
+ "source": "live",
+ "venue": "hyperliquid",
+ "request": {
+  "method": "POST",
+  "url": "https://api.hyperliquid.xyz/info",
+  "body": {
+   "type": "clearinghouseState",
+   "user": "0x2ac6e76aeb3102d322ee9a82bd67d447d8781014",
+   "dex": "io"
+  }
+ },
+ "status": 200,
+ "response": {
+  "marginSummary": {
+   "accountValue": "5141.858692",
+   "totalNtlPos": "1372.36848",
+   "totalRawUsd": "6514.227172",
+   "totalMarginUsed": "231.739406"
+  },
+  "crossMarginSummary": {
+   "accountValue": "4910.119286",
+   "totalNtlPos": "0.0",
+   "totalRawUsd": "4910.119286",
+   "totalMarginUsed": "0.0"
+  },
+  "crossMaintenanceMarginUsed": "0.0",
+  "withdrawable": "4775.068055",
+  "assetPositions": [
+   {
+    "type": "oneWay",
+    "position": {
+     "coin": "io:SNDK",
+     "szi": "-1.577",
+     "leverage": {
+      "type": "isolated",
+      "value": 6,
+      "rawUsd": "1604.107886"
+     },
+     "entryPx": "871.6",
+     "positionValue": "1372.36848",
+     "unrealizedPnl": "2.158088",
+     "returnOnEquity": "0.0094203548",
+     "liquidationPx": "984.3769627917",
+     "marginUsed": "231.739406",
+     "maxLeverage": 15,
+     "cumFunding": {
+      "allTime": "-0.372292",
+      "sinceOpen": "-0.076905",
+      "sinceChange": "-0.076905"
+     }
+    }
+   }
+  ],
+  "time": 1793934052783
+ }
+}

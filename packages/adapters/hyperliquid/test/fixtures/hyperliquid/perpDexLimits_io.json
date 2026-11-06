@@ -1,0 +1,78 @@
+{
+ "name": "hyperliquid/perpDexLimits_io",
+ "capturedAt": "2026-11-06T03:00:47.486Z",
+ "source": "live",
+ "venue": "hyperliquid",
+ "request": {
+  "method": "POST",
+  "url": "https://api.hyperliquid.xyz/info",
+  "body": {
+   "type": "perpDexLimits",
+   "dex": "io"
+  }
+ },
+ "status": 200,
+ "response": {
+  "totalOiCap": "300000000.0",
+  "oiSzCapPerPerp": "10000000000.0",
+  "maxTransferNtl": "300000000.0",
+  "coinToOiCap": [
+   [
+    "io:AAPL",
+    "10000000.0"
+   ],
+   [
+    "io:ANTH",
+    "185000000.0"
+   ],
+   [
+    "io:CRCL",
+    "10000000.0"
+   ],
+   [
+    "io:DRAM",
+    "5000000.0"
+   ],
+   [
+    "io:EWY",
+    "5000000.0"
+   ],
+   [
+    "io:GPRO",
+    "5000000.0"
+   ],
+   [
+    "io:IONQ",
+    "5000000.0"
+   ],
+   [
+    "io:NBIS",
+    "15000000.0"
+   ],
+   [
+    "io:NVDA",
+    "10000000.0"
+   ],
+   [
+    "io:OAI",
+    "12000000.0"
+   ],
+   [
+    "io:PRL",
+    "15000000.0"
+   ],
+   [
+    "io:SNDK",
+    "35000000.0"
+   ],
+   [
+    "io:TCNT",
+    "5000000.0"
+   ],
+   [
+    "io:XIAOMI",
+    "5000000.0"
+   ]
+  ]
+ }
+}

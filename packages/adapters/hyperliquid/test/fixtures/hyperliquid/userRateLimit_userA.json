@@ -1,0 +1,21 @@
+{
+ "name": "hyperliquid/userRateLimit_userA",
+ "capturedAt": "2026-11-06T03:00:56.162Z",
+ "source": "live",
+ "venue": "hyperliquid",
+ "request": {
+  "method": "POST",
+  "url": "https://api.hyperliquid.xyz/info",
+  "body": {
+   "type": "userRateLimit",
+   "user": "0x2ac6e76aeb3102d322ee9a82bd67d447d8781014"
+  }
+ },
+ "status": 200,
+ "response": {
+  "cumVlm": "2128692.6200000001",
+  "nRequestsUsed": 372064,
+  "nRequestsCap": 2138692,
+  "nRequestsSurplus": 0
+ }
+}

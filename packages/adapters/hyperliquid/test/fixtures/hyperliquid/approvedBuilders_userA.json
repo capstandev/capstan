@@ -1,0 +1,18 @@
+{
+ "name": "hyperliquid/approvedBuilders_userA",
+ "capturedAt": "2026-11-06T03:00:49.755Z",
+ "source": "live",
+ "venue": "hyperliquid",
+ "request": {
+  "method": "POST",
+  "url": "https://api.hyperliquid.xyz/info",
+  "body": {
+   "type": "approvedBuilders",
+   "user": "0x2ac6e76aeb3102d322ee9a82bd67d447d8781014"
+  }
+ },
+ "status": 200,
+ "response": [
+  "0xcd254d2a328f7f67c7c6fef930a4757516f7b601"
+ ]
+}

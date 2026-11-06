@@ -8,6 +8,7 @@
   "types": "src/index.ts",
   "dependencies": {
     "@capstan/adapter-aster": "workspace:*",
+    "@capstan/adapter-hyperliquid": "workspace:*",
     "@capstan/catalog": "workspace:*",
     "@capstan/core": "workspace:*",
     "@capstan/schema": "workspace:*",

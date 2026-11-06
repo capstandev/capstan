@@ -5,5 +5,18 @@
   "type": "module",
   "description": "Hyperliquid core + HIP-3 adapter",
   "main": "src/index.ts",
-  "types": "src/index.ts"
+  "types": "src/index.ts",
+  "dependencies": {
+    "@capstan/core": "workspace:*",
+    "@capstan/schema": "workspace:*",
+    "@capstan/signer-hl": "workspace:*",
+    "@capstan/venue-client": "workspace:*",
+    "@noble/hashes": "2.4.0",
+    "canonicalize": "5.1.0"
+  },
+  "devDependencies": {
+    "@capstan/catalog": "workspace:*",
+    "@noble/curves": "2.4.0",
+    "viem": "2.57.14"
+  }
 }

@@ -1,0 +1,42 @@
+{
+ "name": "hyperliquid/perpDexLimits_mkts",
+ "capturedAt": "2026-11-06T03:00:48.689Z",
+ "source": "live",
+ "venue": "hyperliquid",
+ "request": {
+  "method": "POST",
+  "url": "https://api.hyperliquid.xyz/info",
+  "body": {
+   "type": "perpDexLimits",
+   "dex": "mkts"
+  }
+ },
+ "status": 200,
+ "response": {
+  "totalOiCap": "100000000.0",
+  "oiSzCapPerPerp": "10000000000.0",
+  "maxTransferNtl": "300000000.0",
+  "coinToOiCap": [
+   [
+    "mkts:BVIV",
+    "2000000.0"
+   ],
+   [
+    "mkts:SMALL2000",
+    "390000.0"
+   ],
+   [
+    "mkts:US500",
+    "2300000.0"
+   ],
+   [
+    "mkts:USBOND",
+    "910000.0"
+   ],
+   [
+    "mkts:USTECH",
+    "5000000.0"
+   ]
+  ]
+ }
+}

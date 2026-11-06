@@ -1,0 +1,16 @@
+{
+ "name": "hyperliquid/openOrders_userA",
+ "capturedAt": "2026-11-06T03:00:54.951Z",
+ "source": "live",
+ "venue": "hyperliquid",
+ "request": {
+  "method": "POST",
+  "url": "https://api.hyperliquid.xyz/info",
+  "body": {
+   "type": "frontendOpenOrders",
+   "user": "0x2ac6e76aeb3102d322ee9a82bd67d447d8781014"
+  }
+ },
+ "status": 200,
+ "response": []
+}
