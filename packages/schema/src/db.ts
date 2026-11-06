@@ -302,6 +302,8 @@ export const eligibilityRules = pgTable(
     kyc: text("kyc").notNull(),
     source: text("source").notNull(),
     sourceDate: text("source_date").notNull(),
+    // { refusedRegions?: ISO 3166-2[], refuseForEquity?: ISO 3166-1[], dataOnly?: boolean } (todo 23)
+    extra: jsonb("extra").notNull().default({}),
   },
   (t) => [primaryKey({ columns: [t.version, t.venue] })],
 );

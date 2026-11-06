@@ -5,5 +5,13 @@
   "type": "module",
   "description": "Geo/KYC matrix and decision engine",
   "main": "src/index.ts",
-  "types": "src/index.ts"
+  "types": "src/index.ts",
+  "dependencies": {
+    "@capstan/core": "workspace:*",
+    "@capstan/receipts": "workspace:*",
+    "@capstan/schema": "workspace:*",
+    "drizzle-orm": "0.45.4",
+    "hono": "4.13.16",
+    "viem": "2.57.14"
+  }
 }

@@ -1,7 +1,7 @@
 // @capstan/api: Hono REST app. Routes are drop-in files (src/routes/*.routes.ts, each exporting `routes: RouteSpec[]`),
 // found by a sorted glob scan at boot. Every route is wrapped by authGate(spec.auth); a route without a known auth
 // value is refused at mount (deny by default), and auth kinds with no verifier registered answer 401.
-import { ROUTE_AUTHS, type RouteAuth, type RouteSpec } from "@capstan/core";
+import { ROUTE_AUTHS, type RouteAuth, type RouteSpec, type RouteWrite } from "@capstan/core";
 import { CapstanError, errorBody } from "@capstan/schema";
 import { Hono, type Context, type MiddlewareHandler } from "hono";
 import { join, relative } from "node:path";
@@ -16,6 +16,8 @@ export interface CreateAppOptions {
   routesDir?: string;
   verifiers?: Partial<Record<RouteAuth, AuthVerifier>>;
   extraRoutes?: RouteSpec[];
+  /** Eligibility edge for write routes (todo 23, `edgeFor` in @capstan/eligibility). Required when any route writes. */
+  edge?: (spec: RouteSpec) => MiddlewareHandler;
 }
 
 export interface MountedRoute {
@@ -23,6 +25,7 @@ export interface MountedRoute {
   path: string;
   auth: RouteAuth;
   file: string;
+  write?: RouteWrite["action"];
 }
 
 export class MountError extends Error {
@@ -52,6 +55,7 @@ function validateSpec(spec: unknown, file: string): RouteSpec {
   if (typeof s.path !== "string" || !s.path.startsWith("/")) throw new MountError(`${file}: route path must start with /`);
   if (typeof s.handler !== "function") throw new MountError(`${file}: route ${s.method} ${s.path} has no handler`);
   if (s.auth === "x402" && !s.priced) throw new MountError(`${file}: x402 route ${s.method} ${s.path} has no price`);
+  if (s.write !== undefined && !["onboarding", "order", "spread_leg"].includes((s.write as { action?: string } | null)?.action ?? "")) throw new MountError(`${file}: route ${s.method} ${s.path} has a bad write action`);
   return s as RouteSpec;
 }
 
@@ -81,8 +85,17 @@ export async function createApp(opts: CreateAppOptions = {}): Promise<{ app: Hon
     const key = `${spec.method} ${spec.path}`;
     if (seen.has(key)) throw new MountError(`${file}: duplicate route ${key}`);
     seen.add(key);
-    v1.on(spec.method, spec.path, authGate(spec.auth, spec, verifiers), (c) => spec.handler(c));
-    mounted.push({ method: spec.method, path: spec.path, auth: spec.auth, file });
+    if (spec.write) {
+      // a write route never mounts without the eligibility edge, and its handler never runs without a decision id
+      if (!opts.edge) throw new MountError(`${file}: write route ${key} has no eligibility edge`);
+      v1.on(spec.method, spec.path, authGate(spec.auth, spec, verifiers), opts.edge(spec), (c) => {
+        if (!(c as unknown as { get(k: string): unknown }).get("eligibilityDecisionId")) return c.json(errorBody("INTERNAL_ERROR"), 500);
+        return spec.handler(c);
+      });
+    } else {
+      v1.on(spec.method, spec.path, authGate(spec.auth, spec, verifiers), (c) => spec.handler(c));
+    }
+    mounted.push({ method: spec.method, path: spec.path, auth: spec.auth, file, ...(spec.write ? { write: spec.write.action } : {}) });
   }
   const app = new Hono();
   app.route("/v1", v1);

@@ -11,6 +11,7 @@
     "@capstan/adapter-aster": "workspace:*",
     "@capstan/adapter-variational": "workspace:*",
     "@capstan/core": "workspace:*",
+    "@capstan/eligibility": "workspace:*",
     "@capstan/plans": "workspace:*",
     "@capstan/quote": "workspace:*",
     "@capstan/schema": "workspace:*",

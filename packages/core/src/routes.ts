@@ -7,6 +7,19 @@ export const ROUTE_AUTHS: readonly RouteAuth[] = ["public", "owner_sig", "api_ke
 
 export type Handler = (c: Context) => Response | Promise<Response>;
 
+/**
+ * A route that routes an action to a venue (spec 10: orders, onboarding, spread legs). The api mount refuses a write
+ * route unless an eligibility edge is wired, and the edge runs before the handler on every call (todo 23).
+ * Default extraction: venue from `?venue=` or the JSON body's `venue`, else the prefix of `marketId`.
+ */
+export interface RouteWrite {
+  action: "onboarding" | "order" | "spread_leg";
+  venue?: (c: Context, body: unknown) => string | null | Promise<string | null>;
+  marketId?: (c: Context, body: unknown) => string | null | Promise<string | null>;
+  /** True for equity (stock) markets. Default: every Hyperliquid HIP-3 dex market counts as equity (strict). */
+  isEquityMarket?: (c: Context, body: unknown, marketId: string | null) => boolean | Promise<boolean>;
+}
+
 export interface RouteSpec {
   method: "GET" | "POST" | "DELETE";
   path: string; // relative to /v1, e.g. '/markets/:id/book'
@@ -14,4 +27,5 @@ export interface RouteSpec {
   handler: Handler;
   priced?: { usd: string }; // x402 price, decimal string
   description?: string;
+  write?: RouteWrite;
 }

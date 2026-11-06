@@ -56,23 +56,31 @@ export interface Running {
   stop(): Promise<void>;
 }
 
-/** Start one Worker per job on its queue (a queue can host several job names; each worker filters by name). */
+/**
+ * Start one Worker per queue that dispatches by job name. Several jobs share a queue (reconcile-daily hosts many), and
+ * BullMQ hands any job on a queue to any worker on it, so a worker per job name would complete other jobs' runs
+ * without running them. A name with no handler here fails loudly instead.
+ */
 export async function startJobs(jobs: JobDef[], deps: JobDeps, connection: Redis, prefix = "capstan"): Promise<Running> {
   const workers: Worker[] = [];
   const queues: Queue[] = [];
-  for (const job of jobs) {
-    const q = createQueue(job.queue, connection, prefix);
+  const byQueue = new Map<JobDef["queue"], JobDef[]>();
+  for (const job of jobs) byQueue.set(job.queue, [...(byQueue.get(job.queue) ?? []), job]);
+  for (const [key, group] of byQueue) {
+    const q = createQueue(key, connection, prefix);
     queues.push(q);
-    if (job.schedule) await upsertSchedule(q, job.name, job.schedule);
+    for (const job of group) if (job.schedule) await upsertSchedule(q, job.name, job.schedule);
+    const handlers = new Map(group.map((j) => [j.name, j]));
     const w = new Worker(
-      QUEUES[job.queue],
+      QUEUES[key],
       async (bj) => {
-        if (bj.name !== job.name) return undefined;
+        const job = handlers.get(bj.name);
+        if (!job) throw new RunnerError(`no handler for job ${bj.name} on queue ${QUEUES[key]} in this worker`);
         return job.handler(bj, { ...deps, log: deps.log.child({ job: job.name }) });
       },
-      { connection, prefix, concurrency: job.concurrency },
+      { connection, prefix, concurrency: group.reduce((n, j) => n + j.concurrency, 0) },
     );
-    w.on("failed", (bj, err) => deps.log.error("job failed", { job: job.name, id: bj?.id, error: err.message }));
+    w.on("failed", (bj, err) => deps.log.error("job failed", { job: bj?.name, id: bj?.id, error: err.message }));
     workers.push(w);
   }
   return {

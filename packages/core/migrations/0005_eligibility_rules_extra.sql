@@ -1,0 +1,1 @@
+ALTER TABLE "eligibility_rules" ADD COLUMN "extra" jsonb DEFAULT '{}'::jsonb NOT NULL;
