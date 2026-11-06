@@ -3,6 +3,7 @@
 // POST /v1/spreads/{id}/ack       the owner's (or an active agent's) spread_ack signature over ACK_TEXT(planId)
 // POST /v1/spreads/{id}/events    the client executor's step events, cross-checked against venue reads, with receipts
 // GET  /v1/spreads/{id}           plan and events
+// plan, events and GET serve only the plan's owner: the owner_sig signer must be that owner or one of its active agents.
 // Each publishes on PUBSUB.plan(id). Nothing here moves collateral, nets margin or rebalances.
 import { createDb, createMarketDataCache, createQueue, createRedis, PUBSUB, redisNonceStore, schema, type Db, type NonceStore, type RouteSpec } from "@capstan/core";
 import { activePolicyFor } from "@capstan/policy";
@@ -45,6 +46,18 @@ async function json(c: Context): Promise<Record<string, unknown> | null> {
   }
 }
 
+const ctxGet = (c: Context, k: string): unknown => (c as unknown as { get(k: string): unknown }).get(k);
+
+/**
+ * The owner_sig gate sets `owner` to the owner the signature was made for (by that owner or one of its active
+ * agents). A plan is served only to its owner: anyone else's valid signature is refused (fail closed when unset).
+ */
+function signedForOwner(c: Context, owner: string): boolean {
+  const authed = ctxGet(c, "owner");
+  return typeof authed === "string" && authed.toLowerCase() === owner.toLowerCase();
+}
+const notOwner = (c: Context) => c.json(errorBody("UNAUTHORIZED", "The signature does not belong to this plan's owner."), 401);
+
 const issues = (e: { issues: { path: PropertyKey[]; message: string }[] }) => e.issues.map((i) => `${i.path.map(String).join(".") || "body"}: ${i.message}`).join("; ");
 
 /** spread.leg / spread.plan receipts through the receipt issuer (checked drafts from packages/receipts). */
@@ -69,6 +82,7 @@ export function createSpreadRoutes(getDeps: () => Promise<SpreadRouteDeps> | Spr
         if (!body) return c.json(errorBody("INVALID_INPUT", "body must be a JSON object"), 400);
         const p = SpreadPlanZ.safeParse(body);
         if (!p.success) return c.json(errorBody("INVALID_INPUT", issues(p.error)), 400);
+        if (!signedForOwner(c, p.data.owner)) return notOwner(c);
         const deps = await getDeps();
         const extra = {
           ...(Array.isArray(body.marketIds) && body.marketIds.length === 2 && body.marketIds.every((x) => typeof x === "string") ? { marketIds: body.marketIds as [string, string] } : {}),
@@ -118,6 +132,9 @@ export function createSpreadRoutes(getDeps: () => Promise<SpreadRouteDeps> | Spr
         const ev = SpreadEventZ.safeParse(body);
         if (!ev.success) return c.json(errorBody("INVALID_INPUT", issues(ev.error)), 400);
         const deps = await getDeps();
+        const owned = await deps.store.get(id);
+        if (!owned) return c.json(errorBody("NOT_FOUND", "Unknown plan."), 404);
+        if (!signedForOwner(c, owned.owner)) return notOwner(c);
         try {
           const r = await recordEvent(id, { kind: ev.data.kind as SpreadEventKind, data: ev.data.data, ...(ev.data.signedPayloadHash ? { signedPayloadHash: ev.data.signedPayloadHash as Hex } : {}) }, { ...deps.events, store: deps.store, events: deps.store, now: () => new Date((deps.now ?? Date.now)()) });
           if (deps.onPlanEvent) {
@@ -140,6 +157,7 @@ export function createSpreadRoutes(getDeps: () => Promise<SpreadRouteDeps> | Spr
         const deps = await getDeps();
         const sp = await deps.store.get(id);
         if (!sp) return c.json(errorBody("NOT_FOUND", "Unknown plan."), 404);
+        if (!signedForOwner(c, sp.owner)) return notOwner(c);
         return c.json({ plan: sp.plan, owner: sp.owner, events: await deps.store.list(id) });
       },
     },

@@ -17,7 +17,8 @@ import type { ToolCtx, ToolDef } from "./tools/types";
 /** x402 over MCP for paid tools (@x402/mcp createPaymentWrapper): an unpaid call gets PaymentRequired, a paid retry runs. */
 export interface McpPayments {
   resourceServer: x402ResourceServer;
-  accepts(tool: ToolDef): PaymentRequirements[];
+  /** The payment options for a paid tool (async on the production host: the rail state is read from chain). */
+  accepts(tool: ToolDef): PaymentRequirements[] | Promise<PaymentRequirements[]>;
   /** Token the MCP server sends to the API's priced route once it holds the payment (the API's internal caller). */
   internalToken: string;
 }
@@ -46,9 +47,22 @@ export function buildServer(deps: McpAppDeps, ctx: ToolCtx): McpServer {
     let base: (args: unknown, extra: unknown) => Promise<unknown> = free;
     if (t.priced) {
       // a paid call is never served free: with payments off it answers "payments unavailable"
+      // (no rail left, facilitator unreachable or the rail state unreadable answers the same: fail closed)
       const p = deps.payments;
-      const paid = p ? createPaymentWrapper(p.resourceServer, { accepts: p.accepts(t), resource: { description: t.description, mimeType: "application/json" } })(async (args) => (await t.handler(args, { ...ctx, auth: { ...ctx.auth, internal: p.internalToken } })) as never) : null;
-      base = async (args, extra) => (isPaidCall(t, args) ? (paid ? paid(args as Record<string, unknown>, extra) : unavailable) : free(args));
+      const paid = p
+        ? async (args: unknown, extra: unknown) => {
+            let accepts: PaymentRequirements[];
+            try {
+              accepts = await p.accepts(t);
+            } catch {
+              return unavailable;
+            }
+            if (!accepts.length) return unavailable;
+            const run = createPaymentWrapper(p.resourceServer, { accepts, resource: { description: t.description, mimeType: "application/json" } })(async (a) => (await t.handler(a, { ...ctx, auth: { ...ctx.auth, internal: p.internalToken } })) as never);
+            return run(args as Record<string, unknown>, extra as never);
+          }
+        : null;
+      base = async (args, extra) => (isPaidCall(t, args) ? (paid ? paid(args, extra) : unavailable) : free(args));
     }
     const cb = deps.wrap ? deps.wrap(t, base) : base;
     server.registerTool(

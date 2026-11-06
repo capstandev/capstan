@@ -33,6 +33,14 @@ export const SELF_VERIFIED: Record<string, string> = {
   "POST /spreads/:id/ack": "spread_ack signature (ack)",
 };
 
+/**
+ * SELF_VERIFIED routes where the handler's signature is the ONLY authority, so the gate never looks at request
+ * signature headers: the kill (spec 7.6: the owner's signature, or the agent itself for self-halt). Re-checking an
+ * api_request header there could only refuse a valid kill, e.g. an agent retrying its own halt after the first one
+ * already moved it out of the active set. The handler (verifyKillAuth) admits the owner and the agent, nobody else.
+ */
+export const HANDLER_ONLY_AUTH: ReadonlySet<string> = new Set(["POST /agents/:agentRef/kill"]);
+
 export const routeKey = (s: Pick<RouteSpec, "method" | "path">) => `${s.method} ${s.path}`;
 
 /** The text an api_request signature binds: method, path with query, and the sha256 of the raw body. */
@@ -75,6 +83,7 @@ const unauthorized = (c: Context, why: string) => c.json(errorBody("UNAUTHORIZED
 
 export function ownerSigVerifier(deps: OwnerSigDeps): AuthVerifier {
   return async (c, spec) => {
+    if (HANDLER_ONLY_AUTH.has(routeKey(spec))) return null;
     const b64 = c.req.header(MESSAGE_HEADER);
     const sig = c.req.header(SIGNATURE_HEADER);
     if (!b64 || !sig) return SELF_VERIFIED[routeKey(spec)] ? null : unauthorized(c, "missing");

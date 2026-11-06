@@ -18,9 +18,11 @@ describe("spreads over MCP", () => {
     const s = setup();
     const store = memoryPlanStore();
     const routes = createSpreadRoutes(() => ({ planDeps: { ...s.deps, store }, store, events: { receipts: { issue: async () => ({ receiptId: "r" }) }, venueFill: async () => null }, nonces: memoryNonceStore(), host: "api.capstan.test", agentsOf: async () => [] }));
-    const { api, seen } = await localApi(routes);
-    const app = mcp(api);
     const owner = testWallet("mcp spread owner").address;
+    // stand-in for a valid owner_sig by this owner (the owner check itself is apps/api/test/spreads-owner.test.ts)
+    const signedByOwner = (c: { set(k: string, v: unknown): void }) => (c.set("owner", owner.toLowerCase()), null);
+    const { api, seen } = await localApi(routes, { verifiers: { owner_sig: signedByOwner as never } });
+    const app = mcp(api);
     const r = await callTool(app, "capstan_spread_plan", { owner, equivalenceId: "eq-eth", sizeBase: "1", leverage: 3, hedgeFailurePolicy: "flatten_leg_a" });
     expect(r.isError).toBeUndefined();
     const p = r.structuredContent as unknown as SpreadPlan;

@@ -29,6 +29,11 @@ describe("spread routes", () => {
       now: () => NOW.getTime(),
     };
     const h = new Hono();
+    // stand-in for the owner_sig gate (spreads-owner.test.ts runs the real one): the signature was for this owner
+    h.use("*", async (c, next) => {
+      (c as unknown as { set(k: string, v: unknown): void }).set("owner", owner.address.toLowerCase());
+      await next();
+    });
     for (const r of createSpreadRoutes(() => deps)) h.on(r.method, `/v1${r.path}`, (c) => r.handler(c));
     const post = (path: string, body: unknown) => h.request(`/v1${path}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
 

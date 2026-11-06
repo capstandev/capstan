@@ -2,7 +2,7 @@
 // Chainlink ETH/USD; a stale feed or an unreadable token drops the rail (fail closed). Live part skips without RPCs.
 import { describe, expect, test } from "bun:test";
 import { createPublicClient, encodeAbiParameters, http } from "viem";
-import { buildX402State, readEthUsd, type BootClient } from "../src/boot";
+import { buildX402State, railStateLoader, readEthUsd, type BootClient } from "../src/boot";
 import { acceptsFor, railOf } from "../src/accepts";
 import { NETWORKS } from "../src/networks";
 
@@ -40,6 +40,23 @@ describe("boot state", () => {
     expect(economics.dropped).toEqual(["base-usdc", "rhc-usdg-permit2", "rhc-usdg-eip3009"]);
     expect(alerts.filter((a) => a.kind === "x402.token_facts_failed").length).toBe(2);
     expect(acceptsFor(ROUTES.forecast, state, "testnet").map((a) => railOf(a, "testnet"))).toEqual(["solana-usdc"]);
+  });
+
+  test("rail state loader re-reads detections and fails closed", async () => {
+    let t = 0;
+    let calls = 0;
+    let flags: () => Promise<{ "4663": boolean; "46630": boolean }> = async () => ({ "4663": false, "46630": true });
+    const alerts: string[] = [];
+    const dead: BootClient = { call: async () => Promise.reject(new Error("down")), getGasPrice: async () => Promise.reject(new Error("down")) };
+    const l = railStateLoader({ env: "testnet", routes: ROUTES, clients: { [NETWORKS.rhcTestnet]: dead }, payTo: PAY, detections: () => (calls++, flags()), refreshMs: 1000, now: () => t, alert: (a) => void alerts.push(a.kind) });
+    expect((await l.load()).usdgEip3009).toEqual({ "4663": false, "46630": true });
+    flags = async () => Promise.reject(new Error("db down"));
+    expect((await l.load()).usdgEip3009["46630"]).toBe(true); // cached inside the refresh window
+    expect(calls).toBe(1);
+    t = 1000;
+    expect((await l.load()).usdgEip3009).toEqual({ "4663": false, "46630": false }); // unreadable = absent
+    expect(alerts).toContain("x402.detections_unreadable");
+    expect(l.current()?.usdgEip3009["46630"]).toBe(false);
   });
 
   const M = process.env.RHC_RPC_URL;

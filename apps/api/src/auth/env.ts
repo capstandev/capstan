@@ -1,10 +1,11 @@
 // The gateway from the environment: verifiers, rate limiter and the x402 payment middleware for createApp. The api
 // role's config (loadConfig('api')) holds the ports, Redis, the database and the x402 switch; payTo addresses and the
-// public RPCs for the token facts come from X402_PAY_TO_EVM, X402_PAY_TO_SOL, BASE_RPC_URL and RHC_RPC_URL.
+// public RPCs for the token facts come from X402_PAY_TO_EVM, X402_PAY_TO_SOL, BASE_RPC_URL (BASE_SEPOLIA_RPC_URL on
+// testnet), RHC_RPC_URL (mainnet rails and the ETH/USD feed) and RHC_TESTNET_RPC_URL (testnet rails and detection).
 // With X402_ENABLED off (the default) every priced route answers 503 "payments unavailable": never served free.
-import { createDb, createRedis, redisNonceStore, schema, type ConfigFor, type Db, type RouteSpec } from "@capstan/core";
+import { createDb, createRedis, logger, redisNonceStore, schema, type ConfigFor, type Db, type RouteSpec } from "@capstan/core";
 import { clientIp } from "@capstan/eligibility";
-import { LIMITS, limitsFor, multiplierOf, spendCredit, tierOf, verifyApiKey, type LockReader } from "@capstan/plans";
+import { LIMITS, limitsFor, multiplierOf, spendCredit, tierOf, topupSettleHook, verifyApiKey, type LockReader } from "@capstan/plans";
 import { errorBody, type Hex } from "@capstan/schema";
 import { and, eq, isNotNull } from "drizzle-orm";
 import type { MiddlewareHandler } from "hono";
@@ -29,25 +30,69 @@ export function pricedRoutes(specs: RouteSpec[]): Record<string, { usd: string; 
 
 const unavailable: MiddlewareHandler = async (c) => c.json(errorBody("X402_PAYMENTS_UNAVAILABLE", "payments unavailable"), 503);
 
-async function paymentFromEnv(cfg: ConfigFor<"api">, env: Record<string, string | undefined>, specs: RouteSpec[]): Promise<MiddlewareHandler> {
+type X402Mod = typeof import("@capstan/x402");
+type EvmClients = Parameters<X402Mod["buildX402State"]>[0]["clients"];
+type DetectRpcs = Parameters<X402Mod["runUsdgDetection"]>[1];
+
+/** Test and host seams for the payment wiring; each defaults to the environment. */
+export interface PaymentOverrides {
+  db?: Db;
+  facilitator?: import("@x402/core/server").FacilitatorClient;
+  /** Boot clients for token facts, gas and the ETH/USD feed (keyed by CAIP-2 network). */
+  clients?: EvmClients;
+  /** Read clients for the USDG EIP-3009 detection run at boot (keyed by chain id). */
+  detectRpcs?: DetectRpcs;
+  log?: { info(m: string, f?: Record<string, unknown>): void; warn(m: string, f?: Record<string, unknown>): void };
+  now?: () => number;
+}
+
+/**
+ * The x402 payment middleware for the api process. With X402_ENABLED and both payTo addresses set it:
+ * 1. runs the USDG EIP-3009 detection before serving and writes x402_detections (an unhealthy or unreadable rail is
+ *    recorded absent, so the eip3009 option is never offered; the workers job refreshes it every 24 h);
+ * 2. registers the credit top-up after-settle hook (topupSettleHook) on the resource server, so a settled
+ *    POST /v1/credits/topup/<pack> really adds the credit;
+ * 3. serves the gate from railStateLoader: token facts and rail economics read once, detection flags every minute.
+ * Anything missing answers 503 "payments unavailable" on priced routes: never served free.
+ */
+export async function paymentFromEnv(cfg: ConfigFor<"api">, env: Record<string, string | undefined>, specs: RouteSpec[], o: PaymentOverrides = {}): Promise<MiddlewareHandler> {
   if (!cfg.X402_ENABLED) return unavailable;
   const payEvm = env.X402_PAY_TO_EVM as Hex | undefined;
   const paySol = env.X402_PAY_TO_SOL;
   if (!payEvm || !paySol) return unavailable;
   const x = await import("@capstan/x402");
-  const { HTTPFacilitatorClient } = await import("@x402/core/server");
-  const { createPublicClient, http } = await import("viem");
   const net: "mainnet" | "testnet" = cfg.CAPSTAN_NETWORK === "mainnet" ? "mainnet" : "testnet";
+  const log = o.log ?? logger("api");
+  const db = o.db ?? createDb(cfg.DATABASE_URL, { max: 2 });
+  const now = o.now ?? Date.now;
+  const fromEnv = o.clients && o.detectRpcs ? null : await x.bootClientsFromEnv(net, env);
+  const clients = o.clients ?? fromEnv!.clients;
+  const detectRpcs = o.detectRpcs ?? fromEnv!.detectRpcs;
+  const alert = (a: { kind: string; [k: string]: unknown }) => log.warn("x402 rail alert", a);
+  // 1. detection at boot, before the first request is served (fail closed: an error leaves every eip3009 rail off)
+  try {
+    const run = await x.runUsdgDetection(db, detectRpcs, now);
+    log.info("x402 detection at boot", Object.fromEntries(Object.entries(run.results).map(([c, r]) => [c, { supported: r?.supported, reason: r?.reason }])));
+    for (const chain of run.flippedToAbsent) alert({ kind: "x402.eip3009_absent", chain, reason: run.results[chain]?.reason ?? "" });
+  } catch (err) {
+    alert({ kind: "x402.detection_failed", reason: String((err as Error).message) });
+  }
   const routes = pricedRoutes(specs);
-  const clients: Record<string, unknown> = {};
-  if (env.BASE_RPC_URL) clients[net === "mainnet" ? "eip155:8453" : "eip155:84532"] = createPublicClient({ transport: http(env.BASE_RPC_URL) });
-  if (env.RHC_RPC_URL) clients[net === "mainnet" ? "eip155:4663" : "eip155:46630"] = createPublicClient({ transport: http(env.RHC_RPC_URL) });
-  let state: Awaited<ReturnType<typeof x.buildX402State>>["state"] | null = null;
-  const loadState = async () =>
-    (state ??= (
-      await x.buildX402State({ env: net, routes, clients: clients as never, usdgEip3009: { "4663": cfg.X402_USDG_EIP3009_MAINNET, "46630": true }, payTo: { evm: payEvm, sol: paySol } })
-    ).state);
-  const gate = x.paymentGate(routes, x.createResourceServer(new HTTPFacilitatorClient({ url: cfg.FACILITATOR_URL })), { env: net, state: loadState });
+  const rails = x.railStateLoader({
+    env: net,
+    routes,
+    clients,
+    payTo: { evm: payEvm, sol: paySol },
+    detections: () => x.loadUsdgEip3009(db, now()),
+    eip3009MainnetEnabled: cfg.X402_USDG_EIP3009_MAINNET,
+    alert,
+    now,
+  });
+  const facilitator = o.facilitator ?? new (await import("@x402/core/server")).HTTPFacilitatorClient({ url: cfg.FACILITATOR_URL });
+  const rs = x.createResourceServer(facilitator);
+  // 2. the credit lands only through this hook (it reads the served path and ?account=, never the client's resource.url)
+  rs.onAfterSettle(topupSettleHook(db, { log, decimalsOf: (n, a) => x.decimalsFromState(rails.current(), net)(n, a) }));
+  const gate = x.paymentGate(routes, rs, { env: net, state: rails.load });
   return guardedPayment(gate);
 }
 
@@ -78,7 +123,7 @@ export function guardedPayment(gate: MiddlewareHandler): MiddlewareHandler {
 }
 
 /** Build the createApp options for the api process. */
-export async function gatewayFromEnv(cfg: ConfigFor<"api">, env: Record<string, string | undefined>, specs: RouteSpec[]): Promise<Pick<CreateAppOptions, "verifiers" | "limiter" | "payment">> {
+export async function gatewayFromEnv(cfg: ConfigFor<"api">, env: Record<string, string | undefined>, specs: RouteSpec[], overrides: Omit<PaymentOverrides, "db"> = {}): Promise<Pick<CreateAppOptions, "verifiers" | "limiter" | "payment">> {
   const db = createDb(cfg.DATABASE_URL, { max: 6 });
   const redis = createRedis(cfg.REDIS_URL);
   const check = apiKeyCheck({ verify: (k) => verifyApiKey(db, k) });
@@ -106,7 +151,7 @@ export async function gatewayFromEnv(cfg: ConfigFor<"api">, env: Record<string, 
         return m;
       },
     }),
-    payment: await paymentFromEnv(cfg, env, specs),
+    payment: await paymentFromEnv(cfg, env, specs, { db, ...overrides }),
   };
 }
 

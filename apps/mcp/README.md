@@ -50,6 +50,12 @@ wallet or by the agent itself; it stops the Capstan relay at once and cannot rem
 the payment in `_meta["x402/payment"]`; the answer carries `_meta["x402/payment-response"]`. Base USDC is offered first.
 With payments off, a paid call answers "payments unavailable" and is never served free.
 
+The hosted server turns paid tools on only when all of these are set: `X402_ENABLED=1`, `FACILITATOR_URL`,
+`X402_PAY_TO_EVM`, `X402_PAY_TO_SOL` and `CAPSTAN_INTERNAL_TOKEN` (32 or more characters, the same value as the api).
+Rails are read from chain at boot (`BASE_RPC_URL` or `BASE_SEPOLIA_RPC_URL`, `RHC_RPC_URL`, `RHC_TESTNET_RPC_URL`);
+a rail that cannot be read is not offered. The RHC USDG EIP-3009 option also needs `DATABASE_URL` to read the
+detection results; without it that option is not offered.
+
 ## Sign locally
 
 The key stays on your host. With the Capstan SDK (`packages/sdk`):

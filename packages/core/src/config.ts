@@ -115,6 +115,10 @@ const ROLE_SCHEMAS = {
     MCP_PORT: port(8713),
     API_BASE_URL: url.default("http://127.0.0.1:8710/v1"),
     MCP_RATE_LIMIT_PER_MIN: posInt(60),
+    // paid tools (x402 over MCP, apps/mcp/src/payments.ts): off unless set, plus payTo and CAPSTAN_INTERNAL_TOKEN
+    X402_ENABLED: flag(false),
+    FACILITATOR_URL: url.default("http://127.0.0.1:8714"),
+    X402_USDG_EIP3009_MAINNET: flag(false),
   }),
   workers: z.object({
     ...common,
