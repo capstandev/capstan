@@ -1,0 +1,19 @@
+{
+  "name": "@capstan/plans",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Plans and tiers: free, pay-as-you-go, pro credits, CPST lock tiers, lock snapshots",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "dependencies": {
+    "@capstan/core": "workspace:*",
+    "@capstan/schema": "workspace:*",
+    "drizzle-orm": "0.45.4",
+    "viem": "2.57.14"
+  },
+  "devDependencies": {
+    "@capstan/adapter-aster": "workspace:*",
+    "@capstan/adapter-hyperliquid": "workspace:*"
+  }
+}

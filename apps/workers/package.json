@@ -15,11 +15,13 @@
     "@capstan/catalog": "workspace:*",
     "@capstan/core": "workspace:*",
     "@capstan/ops-usage": "workspace:*",
+    "@capstan/plans": "workspace:*",
     "@capstan/quote": "workspace:*",
     "@capstan/receipts": "workspace:*",
     "@capstan/schema": "workspace:*",
     "@capstan/telemetry": "workspace:*",
     "@capstan/venue-client": "workspace:*",
+    "@capstan/x402": "workspace:*",
     "bullmq": "6.5.4",
     "drizzle-orm": "0.45.4",
     "viem": "2.57.14"

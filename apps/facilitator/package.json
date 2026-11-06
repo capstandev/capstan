@@ -8,6 +8,16 @@
   "types": "src/index.ts",
   "dependencies": {
     "@capstan/core": "workspace:*",
-    "@capstan/telemetry": "workspace:*"
+    "@capstan/telemetry": "workspace:*",
+    "@capstan/schema": "workspace:*",
+    "@capstan/x402": "workspace:*",
+    "@solana/kit": "8.6.0",
+    "@x402/core": "2.29.0",
+    "@x402/evm": "2.29.0",
+    "@x402/svm": "2.29.0",
+    "drizzle-orm": "0.45.4",
+    "hono": "4.13.16",
+    "viem": "2.57.14",
+    "zod": "4.6.7"
   }
 }

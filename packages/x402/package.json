@@ -5,5 +5,20 @@
   "type": "module",
   "description": "x402 client and server helpers (Permit2 + EIP-3009)",
   "main": "src/index.ts",
-  "types": "src/index.ts"
+  "types": "src/index.ts",
+  "dependencies": {
+    "@capstan/core": "workspace:*",
+    "@capstan/schema": "workspace:*",
+    "@noble/hashes": "2.4.0",
+    "@solana/kit": "8.6.0",
+    "@x402/core": "2.29.0",
+    "@x402/evm": "2.29.0",
+    "@x402/fetch": "2.29.0",
+    "@x402/hono": "2.29.0",
+    "@x402/svm": "2.29.0",
+    "drizzle-orm": "0.45.4",
+    "hono": "4.13.16",
+    "viem": "2.57.14",
+    "zod": "4.6.7"
+  }
 }

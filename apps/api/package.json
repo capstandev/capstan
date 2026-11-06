@@ -11,6 +11,7 @@
     "@capstan/adapter-aster": "workspace:*",
     "@capstan/adapter-variational": "workspace:*",
     "@capstan/core": "workspace:*",
+    "@capstan/plans": "workspace:*",
     "@capstan/quote": "workspace:*",
     "@capstan/schema": "workspace:*",
     "@capstan/telemetry": "workspace:*",
@@ -19,6 +20,7 @@
     "@trpc/server": "11.23.0",
     "drizzle-orm": "0.45.4",
     "hono": "4.13.16",
+    "viem": "2.57.14",
     "zod": "4.6.7"
   }
 }
