@@ -1,0 +1,296 @@
+[
+  {
+    "method": "GET",
+    "path": "/v1/account",
+    "auth": "api_key",
+    "write": false
+  },
+  {
+    "method": "POST",
+    "path": "/v1/account/keys",
+    "auth": "owner_sig",
+    "write": false
+  },
+  {
+    "method": "POST",
+    "path": "/v1/agents/:agentRef/kill",
+    "auth": "owner_sig",
+    "write": false
+  },
+  {
+    "method": "POST",
+    "path": "/v1/agents/policy",
+    "auth": "owner_sig",
+    "write": false
+  },
+  {
+    "method": "GET",
+    "path": "/v1/alerts/webhooks",
+    "auth": "owner_sig",
+    "write": false
+  },
+  {
+    "method": "POST",
+    "path": "/v1/alerts/webhooks",
+    "auth": "owner_sig",
+    "write": false
+  },
+  {
+    "method": "DELETE",
+    "path": "/v1/alerts/webhooks/:id",
+    "auth": "owner_sig",
+    "write": false
+  },
+  {
+    "method": "GET",
+    "path": "/v1/credits",
+    "auth": "api_key",
+    "write": false
+  },
+  {
+    "method": "POST",
+    "path": "/v1/credits/topup/100",
+    "auth": "x402",
+    "priced": "100",
+    "write": false
+  },
+  {
+    "method": "POST",
+    "path": "/v1/credits/topup/20",
+    "auth": "x402",
+    "priced": "20",
+    "write": false
+  },
+  {
+    "method": "POST",
+    "path": "/v1/credits/topup/5",
+    "auth": "x402",
+    "priced": "5",
+    "write": false
+  },
+  {
+    "method": "GET",
+    "path": "/v1/eligibility",
+    "auth": "public",
+    "write": false
+  },
+  {
+    "method": "GET",
+    "path": "/v1/funding",
+    "auth": "public",
+    "write": false
+  },
+  {
+    "method": "GET",
+    "path": "/v1/funding/forecast",
+    "auth": "x402",
+    "priced": "0.01",
+    "write": false
+  },
+  {
+    "method": "GET",
+    "path": "/v1/health",
+    "auth": "public",
+    "write": false
+  },
+  {
+    "method": "GET",
+    "path": "/v1/history/funding",
+    "auth": "x402",
+    "priced": "0.05",
+    "write": false
+  },
+  {
+    "method": "GET",
+    "path": "/v1/markets",
+    "auth": "public",
+    "write": false
+  },
+  {
+    "method": "GET",
+    "path": "/v1/markets/:id/book",
+    "auth": "public",
+    "write": false
+  },
+  {
+    "method": "POST",
+    "path": "/v1/onboarding/build",
+    "auth": "owner_sig",
+    "authAlt": [
+      "api_key"
+    ],
+    "write": true,
+    "action": "onboarding"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/onboarding/preflight",
+    "auth": "public",
+    "write": false
+  },
+  {
+    "method": "POST",
+    "path": "/v1/onboarding/submit",
+    "auth": "owner_sig",
+    "authAlt": [
+      "api_key"
+    ],
+    "write": true,
+    "action": "onboarding"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/orders/build",
+    "auth": "owner_sig",
+    "authAlt": [
+      "api_key"
+    ],
+    "write": true,
+    "action": "order"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/orders/cancel/build",
+    "auth": "owner_sig",
+    "authAlt": [
+      "api_key"
+    ],
+    "write": true,
+    "action": "order"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/orders/close-all/build",
+    "auth": "owner_sig",
+    "authAlt": [
+      "api_key"
+    ],
+    "write": true,
+    "action": "order"
+  },
+  {
+    "method": "POST",
+    "path": "/v1/orders/submit",
+    "auth": "owner_sig",
+    "authAlt": [
+      "api_key"
+    ],
+    "write": true,
+    "action": "order"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/positions",
+    "auth": "owner_sig",
+    "write": false
+  },
+  {
+    "method": "GET",
+    "path": "/v1/quote",
+    "auth": "public",
+    "write": false
+  },
+  {
+    "method": "POST",
+    "path": "/v1/quote",
+    "auth": "public",
+    "write": false
+  },
+  {
+    "method": "GET",
+    "path": "/v1/receipts",
+    "auth": "owner_sig",
+    "write": false
+  },
+  {
+    "method": "GET",
+    "path": "/v1/receipts/:id",
+    "auth": "public",
+    "write": false
+  },
+  {
+    "method": "GET",
+    "path": "/v1/receipts/:id/proof",
+    "auth": "public",
+    "write": false
+  },
+  {
+    "method": "GET",
+    "path": "/v1/receipts/:id/verify",
+    "auth": "public",
+    "write": false
+  },
+  {
+    "method": "POST",
+    "path": "/v1/receipts/claim",
+    "auth": "owner_sig",
+    "authAlt": [
+      "api_key"
+    ],
+    "write": true,
+    "action": "order"
+  },
+  {
+    "method": "GET",
+    "path": "/v1/risk",
+    "auth": "owner_sig",
+    "write": false
+  },
+  {
+    "method": "POST",
+    "path": "/v1/risk/ingest",
+    "auth": "owner_sig",
+    "write": false
+  },
+  {
+    "method": "GET",
+    "path": "/v1/risk/liq-heatmap",
+    "auth": "x402",
+    "priced": "0.02",
+    "write": false
+  },
+  {
+    "method": "POST",
+    "path": "/v1/risk/snapshot",
+    "auth": "x402",
+    "priced": "0.01",
+    "write": false
+  },
+  {
+    "method": "GET",
+    "path": "/v1/spreads/:id",
+    "auth": "owner_sig",
+    "write": false
+  },
+  {
+    "method": "POST",
+    "path": "/v1/spreads/:id/ack",
+    "auth": "owner_sig",
+    "write": false
+  },
+  {
+    "method": "POST",
+    "path": "/v1/spreads/:id/events",
+    "auth": "owner_sig",
+    "write": false
+  },
+  {
+    "method": "POST",
+    "path": "/v1/spreads/plan",
+    "auth": "owner_sig",
+    "write": false
+  },
+  {
+    "method": "GET",
+    "path": "/v1/spreads/scan",
+    "auth": "x402",
+    "priced": "0.02",
+    "write": false
+  },
+  {
+    "method": "GET",
+    "path": "/v1/venues",
+    "auth": "public",
+    "write": false
+  }
+]

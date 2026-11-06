@@ -33,7 +33,8 @@
     "contracts:build": "cd contracts && forge build",
     "contracts:test": "cd contracts && forge test",
     "db:up": "docker compose up -d --wait",
-    "db:down": "docker compose down"
+    "db:down": "docker compose down",
+    "openapi": "bun apps/api/src/openapi/generate.ts"
   },
   "devDependencies": {
     "@types/bun": "1.4.4",

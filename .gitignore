@@ -65,3 +65,6 @@ coverage/
 *.db
 *.sqlite*
 .DS_Store
+
+# ws load run output (ops/load/ws-load.ts)
+ops/load/last-run.json

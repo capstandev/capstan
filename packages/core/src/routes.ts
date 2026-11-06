@@ -24,6 +24,8 @@ export interface RouteSpec {
   method: "GET" | "POST" | "DELETE";
   path: string; // relative to /v1, e.g. '/markets/:id/book'
   auth: RouteAuth;
+  /** Other auth kinds that also admit the request (e.g. owner_sig or api_key on a build route). */
+  authAlt?: RouteAuth[];
   handler: Handler;
   priced?: { usd: string }; // x402 price, decimal string
   description?: string;

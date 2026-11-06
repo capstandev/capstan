@@ -18,12 +18,18 @@ export interface CreateAppOptions {
   extraRoutes?: RouteSpec[];
   /** Eligibility edge for write routes (todo 23, `edgeFor` in @capstan/eligibility). Required when any route writes. */
   edge?: (spec: RouteSpec) => MiddlewareHandler;
+  /** Rate limiter per route (ratelimit/), after auth so it knows the signed wallet or API key. */
+  limiter?: (spec: RouteSpec) => MiddlewareHandler;
+  /** The x402 payment middleware (todo 33 paymentGate) for priced routes; skipped when credits paid (x402PaidBy). */
+  payment?: MiddlewareHandler;
 }
 
 export interface MountedRoute {
   method: RouteSpec["method"];
   path: string;
   auth: RouteAuth;
+  authAlt?: RouteAuth[];
+  priced?: string;
   file: string;
   write?: RouteWrite["action"];
 }
@@ -38,12 +44,23 @@ export class MountError extends Error {
 const allowPublic: AuthVerifier = () => null;
 
 export function authGate(auth: RouteAuth | undefined, spec: RouteSpec, verifiers: Partial<Record<RouteAuth, AuthVerifier>>): MiddlewareHandler {
+  const kinds = [auth, ...(spec.authAlt ?? [])].filter((k): k is RouteAuth => k !== undefined);
   return async (c, next) => {
-    const verify = auth === "public" ? (verifiers.public ?? allowPublic) : auth ? verifiers[auth] : undefined;
-    if (!verify) return c.json(errorBody("UNAUTHORIZED"), 401);
-    const refusal = await verify(c, spec);
-    if (refusal) return refusal;
-    await next();
+    let first: Response | null = null;
+    for (const kind of kinds) {
+      const verify = kind === "public" ? (verifiers.public ?? allowPublic) : verifiers[kind];
+      if (!verify) {
+        first ??= c.json(errorBody("UNAUTHORIZED"), 401);
+        continue;
+      }
+      const refusal = await verify(c, spec);
+      if (!refusal) {
+        await next();
+        return;
+      }
+      first ??= refusal;
+    }
+    return first ?? c.json(errorBody("UNAUTHORIZED"), 401);
   };
 }
 
@@ -54,6 +71,7 @@ function validateSpec(spec: unknown, file: string): RouteSpec {
   if (s.method !== "GET" && s.method !== "POST" && s.method !== "DELETE") throw new MountError(`${file}: route ${s.path ?? "?"} has a bad method`);
   if (typeof s.path !== "string" || !s.path.startsWith("/")) throw new MountError(`${file}: route path must start with /`);
   if (typeof s.handler !== "function") throw new MountError(`${file}: route ${s.method} ${s.path} has no handler`);
+  if (s.authAlt !== undefined && (!Array.isArray(s.authAlt) || s.authAlt.some((a) => !ROUTE_AUTHS.includes(a) || a === "public"))) throw new MountError(`${file}: route ${s.method} ${s.path} has a bad authAlt`);
   if (s.auth === "x402" && !s.priced) throw new MountError(`${file}: x402 route ${s.method} ${s.path} has no price`);
   if (s.write !== undefined && !["onboarding", "order", "spread_leg"].includes((s.write as { action?: string } | null)?.action ?? "")) throw new MountError(`${file}: route ${s.method} ${s.path} has a bad write action`);
   return s as RouteSpec;
@@ -74,8 +92,44 @@ export async function discoverRoutes(dir = ROUTES_DIR): Promise<{ spec: RouteSpe
   return out;
 }
 
+/**
+ * The edge from the environment, built on the first write request: DB-IP country file, the decision tables and
+ * refusal receipts through the receipt-sign worker. Without DATABASE_URL and REDIS_URL every write is refused (503).
+ */
+export function envEdge(env: Record<string, string | undefined> = process.env): (spec: RouteSpec) => MiddlewareHandler {
+  let made: Promise<(spec: RouteSpec) => MiddlewareHandler> | null = null;
+  const make = async () => {
+    if (!env.DATABASE_URL || !env.REDIS_URL) return null;
+    const { createDb, createRedis } = await import("@capstan/core");
+    const { edgeFor, fileGeo, GEO_FILE } = await import("@capstan/eligibility");
+    const { queuedReceipts } = await import("@capstan/relay");
+    const db = createDb(env.DATABASE_URL, { max: 4 });
+    const receipts = queuedReceipts(createRedis(env.REDIS_URL, { forBullmq: true }), db);
+    return edgeFor({ geo: fileGeo(join(env.CAPSTAN_GEO_DIR ?? "var/geo", GEO_FILE)), db, now: () => new Date(), issue: (d) => receipts.issue(d), trustForwardedFor: env.CAPSTAN_TRUST_FORWARDED_FOR === "1" });
+  };
+  return (spec) => {
+    let mw: MiddlewareHandler | null = null;
+    return async (c, next) => {
+      if (!mw) {
+        const f = await (made ??= make().then((x) => x ?? (() => ((cc: Context) => cc.json(errorBody("INTERNAL_ERROR", "Eligibility is not configured on this host."), 503)) as unknown as MiddlewareHandler)));
+        mw = f(spec);
+      }
+      return mw(c, next);
+    };
+  };
+}
+
+/** The route auth table (API-2): every mounted route with its auth kind, price and write flag. */
+export function routeTable(routes: MountedRoute[]): { method: string; path: string; auth: RouteAuth; authAlt?: RouteAuth[]; priced?: string; write: boolean; action?: string }[] {
+  return routes
+    .map((r) => ({ method: r.method, path: `/v1${r.path}`, auth: r.auth, ...(r.authAlt ? { authAlt: r.authAlt } : {}), ...(r.priced ? { priced: r.priced } : {}), write: r.write !== undefined, ...(r.write ? { action: r.write } : {}) }))
+    .sort((a, b) => (a.path === b.path ? a.method.localeCompare(b.method) : a.path.localeCompare(b.path)));
+}
+
 export async function createApp(opts: CreateAppOptions = {}): Promise<{ app: Hono; routes: MountedRoute[] }> {
   const found = await discoverRoutes(opts.routesDir);
+  // the real routes folder always mounts with an edge; a custom folder must pass its own (mount check, todo 23)
+  if (!opts.edge && opts.routesDir === undefined) opts = { ...opts, edge: envEdge() };
   for (const r of opts.extraRoutes ?? []) found.push({ spec: validateSpec(r, "extraRoutes"), file: "extraRoutes" });
   const verifiers = opts.verifiers ?? {};
   const v1 = new Hono();
@@ -85,21 +139,25 @@ export async function createApp(opts: CreateAppOptions = {}): Promise<{ app: Hon
     const key = `${spec.method} ${spec.path}`;
     if (seen.has(key)) throw new MountError(`${file}: duplicate route ${key}`);
     seen.add(key);
-    if (spec.write) {
-      // a write route never mounts without the eligibility edge, and its handler never runs without a decision id
-      if (!opts.edge) throw new MountError(`${file}: write route ${key} has no eligibility edge`);
-      v1.on(spec.method, spec.path, authGate(spec.auth, spec, verifiers), opts.edge(spec), (c) => {
-        if (!(c as unknown as { get(k: string): unknown }).get("eligibilityDecisionId")) return c.json(errorBody("INTERNAL_ERROR"), 500);
-        return spec.handler(c);
-      });
-    } else {
-      v1.on(spec.method, spec.path, authGate(spec.auth, spec, verifiers), (c) => spec.handler(c));
+    if (spec.write && !opts.edge) throw new MountError(`${file}: write route ${key} has no eligibility edge`);
+    const chain: MiddlewareHandler[] = [authGate(spec.auth, spec, verifiers)];
+    if (opts.limiter) chain.push(opts.limiter(spec));
+    if (spec.auth === "x402" && opts.payment) {
+      const pay = opts.payment;
+      chain.push((c, next) => (["credits", "internal"].includes(String((c as unknown as { get(k: string): unknown }).get("x402PaidBy"))) ? next() : pay(c, next)));
     }
-    mounted.push({ method: spec.method, path: spec.path, auth: spec.auth, file, ...(spec.write ? { write: spec.write.action } : {}) });
+    if (spec.write) chain.push(opts.edge!(spec));
+    const final: MiddlewareHandler = async (c) => {
+      // a write route's handler never runs without a decision id
+      if (spec.write && !(c as unknown as { get(k: string): unknown }).get("eligibilityDecisionId")) return c.json(errorBody("INTERNAL_ERROR"), 500);
+      return spec.handler(c);
+    };
+    (v1.on as unknown as (m: string, p: string, ...h: MiddlewareHandler[]) => void)(spec.method, spec.path, ...chain, final);
+    mounted.push({ method: spec.method, path: spec.path, auth: spec.auth, ...(spec.authAlt ? { authAlt: spec.authAlt } : {}), ...(spec.priced ? { priced: spec.priced.usd } : {}), file, ...(spec.write ? { write: spec.write.action } : {}) });
   }
   const app = new Hono();
   app.route("/v1", v1);
-  mountTrpc(app);
+  mountTrpc(app, mounted);
   app.notFound((c) => c.json(errorBody("NOT_FOUND"), 404));
   app.onError((err, c) => {
     if (err instanceof CapstanError) return c.json(err.toBody(), err.status as 400);

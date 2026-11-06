@@ -8,6 +8,8 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { dbFixture, geo, IP, NOW, PG, wallet, type DbFixture } from "../../../packages/eligibility/test/helpers";
+// the real routes folder now has its own write routes at these paths (todo 30), so these mount alone
+const EMPTY_ROUTES = mkdtempSync(join(tmpdir(), "capstan-edge-routes-"));
 import { createApp, MountError } from "../src/app";
 
 const get = (c: Context, k: string) => (c as unknown as { get(k: string): unknown }).get(k);
@@ -60,13 +62,13 @@ describe.skipIf(!PG)("eligibility edge", () => {
     await f.declare(owner, ["hyperliquid", "aster", "lighter-rh"]);
   });
   afterAll(() => f?.drop());
-  const app = async () => (await createApp({ extraRoutes: writes, edge: edgeFor({ geo, db: f.db, now: () => new Date(NOW), issue: (d) => f.receipts.issue(d), ipOf: () => ip }) })).app;
+  const app = async () => (await createApp({ routesDir: EMPTY_ROUTES, extraRoutes: writes, edge: edgeFor({ geo, db: f.db, now: () => new Date(NOW), issue: (d) => f.receipts.issue(d), ipOf: () => ip }) })).app;
   const post = (a: Awaited<ReturnType<typeof app>>, path: string, body: unknown, method = "POST") =>
     a.request(`/v1${path}`, { method, headers: { "content-type": "application/json" }, body: method === "DELETE" ? undefined : JSON.stringify(body) });
 
   test("every-write", async () => {
     const a = await app();
-    const { routes } = await createApp({ extraRoutes: writes, edge: edgeFor({ geo, db: f.db, now: () => new Date(NOW), issue: (d) => f.receipts.issue(d) }) });
+    const { routes } = await createApp({ routesDir: EMPTY_ROUTES, extraRoutes: writes, edge: edgeFor({ geo, db: f.db, now: () => new Date(NOW), issue: (d) => f.receipts.issue(d) }) });
     expect(routes.filter((r) => r.write).length).toBe(writes.length);
     expect(new Set<string>(writes.map((w) => w.write!.action))).toEqual(new Set<string>(WRITE_ACTIONS));
     const body = { venue: "hyperliquid", owner: owner.address, marketId: "hyperliquid:-:BTC" };
@@ -88,7 +90,7 @@ describe.skipIf(!PG)("eligibility edge", () => {
       expect(seen).toEqual([{ path: `/v1${path}`, id: j.decision }]);
     }
     // the authenticated owner wins over the body
-    const authed = await createApp({ extraRoutes: writes, verifiers: { public: (c) => { (c as unknown as { set(k: string, v: unknown): void }).set("owner", owner.address); return null; } }, edge: edgeFor({ geo, db: f.db, now: () => new Date(NOW), issue: (d) => f.receipts.issue(d), ipOf: () => ip }) });
+    const authed = await createApp({ routesDir: EMPTY_ROUTES, extraRoutes: writes, verifiers: { public: (c) => { (c as unknown as { set(k: string, v: unknown): void }).set("owner", owner.address); return null; } }, edge: edgeFor({ geo, db: f.db, now: () => new Date(NOW), issue: (d) => f.receipts.issue(d), ipOf: () => ip }) });
     expect((await authed.app.request("/v1/orders/p1?v=hyperliquid", { method: "DELETE" })).status).toBe(200);
 
     // refused: the handler never runs, the answer is 403 with the code and a receipt id

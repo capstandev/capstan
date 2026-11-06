@@ -8,6 +8,29 @@
   "types": "src/index.ts",
   "dependencies": {
     "@capstan/core": "workspace:*",
-    "@capstan/telemetry": "workspace:*"
+    "@capstan/schema": "workspace:*",
+    "@capstan/telemetry": "workspace:*",
+    "@modelcontextprotocol/sdk": "1.32.2",
+    "@noble/hashes": "2.4.0",
+    "@x402/core": "2.29.0",
+    "@x402/mcp": "2.29.0",
+    "hono": "4.13.16",
+    "viem": "2.57.14",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@capstan/adapter-hyperliquid": "workspace:*",
+    "@capstan/api": "workspace:*",
+    "@capstan/eligibility": "workspace:*",
+    "@capstan/plans": "workspace:*",
+    "@capstan/policy": "workspace:*",
+    "@capstan/quote": "workspace:*",
+    "@capstan/receipts": "workspace:*",
+    "@capstan/relay": "workspace:*",
+    "@capstan/risk": "workspace:*",
+    "@capstan/sdk": "workspace:*",
+    "@capstan/spreads": "workspace:*",
+    "@capstan/x402": "workspace:*",
+    "@x402/evm": "2.29.0"
   }
 }

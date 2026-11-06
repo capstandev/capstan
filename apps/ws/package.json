@@ -8,6 +8,11 @@
   "types": "src/index.ts",
   "dependencies": {
     "@capstan/core": "workspace:*",
-    "@capstan/telemetry": "workspace:*"
+    "@capstan/plans": "workspace:*",
+    "@capstan/schema": "workspace:*",
+    "@capstan/telemetry": "workspace:*",
+    "@noble/hashes": "2.4.0",
+    "drizzle-orm": "0.45.4",
+    "viem": "2.57.14"
   }
 }
