@@ -176,6 +176,24 @@
     "packages/sdk": {
       "name": "@capstan/sdk",
       "version": "0.0.0",
+      "dependencies": {
+        "@capstan/receipts": "workspace:*",
+        "@capstan/schema": "workspace:*",
+        "@capstan/signer-aster": "workspace:*",
+        "@capstan/signer-hl": "workspace:*",
+        "@capstan/signer-lighter-wasm": "workspace:*",
+        "@noble/curves": "2.4.0",
+        "@noble/hashes": "2.4.0",
+        "canonicalize": "5.1.0",
+      },
+      "devDependencies": {
+        "@capstan/adapter-aster": "workspace:*",
+        "@capstan/adapter-hyperliquid": "workspace:*",
+        "@capstan/adapter-lighter": "workspace:*",
+        "@capstan/core": "workspace:*",
+        "@capstan/venue-client": "workspace:*",
+        "viem": "2.57.14",
+      },
     },
     "packages/signers/aster": {
       "name": "@capstan/signer-aster",

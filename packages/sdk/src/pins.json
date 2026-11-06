@@ -1,0 +1,124 @@
+{
+  "comment": "The one pins file for this SDK release. Hashes are stored without the 0x prefix. null means not known yet: the SDK refuses that path (fail closed). Regenerate the computed parts with: bun packages/sdk/scripts/gen-pins.ts",
+  "sdkRelease": "0.1.0",
+  "networks": {
+    "mainnet": {
+      "builders": {
+        "hyperliquid": null,
+        "aster": null
+      },
+      "approvalCeilings": {
+        "hyperliquid": "0.03%",
+        "aster": "0.0003"
+      },
+      "allowedFees": {
+        "hyperliquid": [
+          10,
+          20
+        ],
+        "aster": [
+          "0.0001",
+          "0.0002"
+        ]
+      },
+      "lighterIntegratorIndex": {
+        "lighter-mainnet": null,
+        "lighter-rh": null
+      },
+      "lighterSigningIds": {
+        "lighter-mainnet": 304,
+        "lighter-rh": 466324
+      },
+      "hlNetwork": "Mainnet",
+      "asterNetwork": "Mainnet",
+      "templateHashes": {
+        "hyperliquid": [],
+        "aster": [],
+        "lighter-mainnet": [
+          "67f8c7bd249f45c88dd0d17caa3cae9a46104a5f067ff1a41b55e3ef976f01ef",
+          "e5e0c795adba9fd177e9cf514787b19483a794653353207c4ddc1ef1b5314a55",
+          "eae3dff21caa39f9746fe87d0c99a803613aaf7f54d29c6cf7f1ec7795c3e5ca",
+          "4f91b71dcbd9c998bae53a9814c0d59d8ffce6d286e75567e6c0a39807af4cd3",
+          "04a6563a756556c2b61c1512e90bc23b5be955ddec4193150ccfeb121c617710",
+          "8613b42b2215b3d2a01c3761b6f9b41c71151cd46997a8361eebb00f0eb879f1",
+          "70b9801d3c0b39cb383776d66c7ac964f093b6453028b13b1080eb37aa6767b0",
+          "490dfba0975f46cb962f06eb084f5b768da0b06244071d93c3ab53b2a9042d4b"
+        ],
+        "lighter-rh": [
+          "c48378e01de06f17904a75aca0b13084c6ff4d997fa853fb856a8d91d40a6fc8",
+          "65b5207197910c1f498218b888812fb64988ac47ee431833d89c5d680c50c01a",
+          "da4b2ce5bd5bf62b138625f35f7e48486d149fa85ce6cba4bf1c4234dcce34db",
+          "489ee0018ae0c14f87b0cc384369d00a68580044d70e22df20a3a3e7b44d321c",
+          "fa436c8bcc4bc7de41bd70977c8a4a6932371051f3006c0e15f774bac247632e",
+          "c65d2ea1842830e0539e0de932b154b430c8db1010c2b35d5cd7a7547139d0aa",
+          "6f255108a07188f0a63b5c8b30ee69bcdebba45387122acf9e2dfdf41dbf1ba3",
+          "5af3382cc6f2c5e10cdc9d2a0c0ef6f6e24bd9697c29db48ecb7968670b2a54b"
+        ]
+      },
+      "receiptSigners": [],
+      "anchor": {
+        "chainId": 4663,
+        "address": null
+      }
+    },
+    "testnet": {
+      "builders": {
+        "hyperliquid": null,
+        "aster": null
+      },
+      "approvalCeilings": {
+        "hyperliquid": "0.03%",
+        "aster": "0.0003"
+      },
+      "allowedFees": {
+        "hyperliquid": [
+          10,
+          20
+        ],
+        "aster": [
+          "0.0001",
+          "0.0002"
+        ]
+      },
+      "lighterIntegratorIndex": {
+        "lighter-mainnet": null,
+        "lighter-rh": null
+      },
+      "lighterSigningIds": {
+        "lighter-mainnet": 300,
+        "lighter-rh": 300
+      },
+      "hlNetwork": "Testnet",
+      "asterNetwork": "Testnet",
+      "templateHashes": {
+        "hyperliquid": [],
+        "aster": [],
+        "lighter-mainnet": [
+          "745f832fb720a7704395273915c3960f266fb9f3ceec0ecb938b20d1088072a6",
+          "695ee8215bdd6074cdc23e7e65fa52475fd0ec469b2192a93887c7ed59e76527",
+          "e33db54d4c804c31d9262dd2e919a0c6a8c3baa704c48a52dde8c8ce95b22e53",
+          "89be52b135e32648d689be13ea42e92191b1afc85b3d32ac75903fc481f14929",
+          "c58212432051033aab32791f1315a5071b4717dc66b3a71ed430f977a6bd9d5b",
+          "2639fa4450abd0593f56801cc165b39081b5293dbac93df4813751ef459035cf",
+          "212d84a18784be54e0ed411dc94db03d1419194a5b92baeb98c3fe6e18d754d9",
+          "8799e3c63c656aba41236e39b983f7a903858591c4840420c8dfce613d77ae6b"
+        ],
+        "lighter-rh": [
+          "1eaea4821b26ca9ca57b10edd016b3279fa2c4ee3b96833042c3a577b4f7a62c",
+          "778e4a17edc8caad44f0040292b1badbf8c1d92b9f650dbee95d513640f417f8",
+          "738ccd2b4545f8ba17cfbc91e9d0ea1dd6733057c84af470db5642be310b7e15",
+          "0e87c1c67c18dacad33910215258c39e6bf68e14c94fdd5cd2dd85ac343f1cc3",
+          "d60f201c55757a3cd59d73431fefca5d54506f947093a1680d9e97bfa5afeac1",
+          "374d7c2bb921322a95c636aee555f8256096ac97340beaa36300eb7ffb7196ff",
+          "d88def5eff56606e790214338a14e416f25cfc16c38a921d4ce4fc403a9edc83",
+          "8572dfa62af231d0bc1dcc07e9e1695d1a6476d22a05e415448c3e9eb00f2e64"
+        ]
+      },
+      "receiptSigners": [],
+      "anchor": {
+        "chainId": 46630,
+        "address": null
+      }
+    }
+  }
+}
