@@ -5,7 +5,7 @@ import { CapstanError, type Hex, type SignedEnvelope, type VerifyResult } from "
 import { actionMsgpack, l1Digest, recoverSigner, sigToHl, type HlL1Action, type HlOrderAction } from "@capstan/signer-hl";
 import { sha256Jcs, type AgentState, type HlUnsignedPayload } from "./orders";
 
-export type HlVerifyResult = VerifyResult | { ok: false; code: "RETIRED_AGENT" | "AGENT_KILLED"; field?: string };
+export type HlVerifyResult = VerifyResult;
 
 export interface HlSignedBody {
   action: HlL1Action;

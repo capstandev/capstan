@@ -195,7 +195,7 @@ export interface SignedEnvelope {
   payloadHash: Hex;
 }
 
-export type VerifyResult = { ok: true } | { ok: false; code: "PAYLOAD_MISMATCH" | "BUILD_EXPIRED" | "BAD_SIGNATURE"; field?: string };
+export type VerifyResult = { ok: true } | { ok: false; code: "PAYLOAD_MISMATCH" | "BUILD_EXPIRED" | "BAD_SIGNATURE" | "RETIRED_AGENT" | "AGENT_KILLED"; field?: string };
 
 export interface SubmitResult {
   // 'unknown': the venue gave no clear answer (Aster 503, Lighter "code 200" without a hash). Never retried blindly.

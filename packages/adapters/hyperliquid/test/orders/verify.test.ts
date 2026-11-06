@@ -91,7 +91,7 @@ describe("verify", () => {
     const b = await buildOrder(it, ctx(), deps);
     expect(verifySigned(sign(b), b, { nowMs: T0, agentState: "retired" })).toEqual({ ok: false, code: "RETIRED_AGENT" });
     expect(verifySigned(sign(b), b, { nowMs: T0, agentState: "killed" })).toEqual({ ok: false, code: "AGENT_KILLED" });
-    expect(adapter.verifySigned(sign(b), b)).toEqual({ ok: false, code: "AGENT_KILLED" } as never);
+    expect(adapter.verifySigned(sign(b), b)).toEqual({ ok: false, code: "AGENT_KILLED" });
     // and the build itself refuses a retired or killed agent
     expect((await buildOrder(it, ctx({ agentState: "retired" }), deps).catch((e) => e)).code).toBe("RETIRED_AGENT");
     expect((await buildOrder(it, ctx({ agentState: "killed" }), deps).catch((e) => e)).code).toBe("AGENT_KILLED");

@@ -2,7 +2,7 @@
 // the governed VenueHttp, the shared market-data cache, the reader, the eligibility declaration step (todo 23), the
 // onboarding-session lookup and, for HIP-3, the hook from ./hip3 (todo 08).
 import type { MarketDataCache } from "@capstan/core";
-import { CapstanError, type CancelIntent, type Hex, type OnboardingBundle, type OnboardingRequest, type OrderIntent, type SignedEnvelope, type SignedOnboarding, type VenueAdapter, type VenueIdentity, type VenueQuote, type VenueQuoteRequest, type VerifyResult, type BuildContext } from "@capstan/schema";
+import { CapstanError, type CancelIntent, type Hex, type OnboardingBundle, type OnboardingRequest, type OrderIntent, type SignedEnvelope, type SignedOnboarding, type VenueAdapter, type VenueIdentity, type VenueQuote, type VenueQuoteRequest, type BuildContext } from "@capstan/schema";
 import { toHex } from "@capstan/signer-hl";
 import type { VenueHttp } from "@capstan/venue-client";
 import { hlCaps } from "./caps";
@@ -92,7 +92,7 @@ export function createAdapter(cfg: HlConfig & { builderAddress: Hex }, deps: HlA
     verifySigned(env: SignedEnvelope, build) {
       const b = build as HlUnsignedPayload;
       const state = b.meta?.agentAddress && deps.agentState ? deps.agentState(b.meta.agentAddress) : undefined;
-      return verifyEnvelope(env, b, { nowMs: now(), agentState: state }) as VerifyResult;
+      return verifyEnvelope(env, b, { nowMs: now(), agentState: state });
     },
     submit: (env) => submitEnvelope(env, deps.http),
     async buildRevocation(id: VenueIdentity) {
