@@ -24,6 +24,8 @@ export const ERROR_CODES = {
   ASTER_NONCE_EXPIRED: { status: 422, message: "The Aster nonce is outside the accepted window." },
   X402_PAYMENT_REQUIRED: { status: 402, message: "Payment required." },
   X402_SETTLEMENT_PENDING: { status: 409, message: "The payment settlement is still pending." },
+  X402_PAYMENTS_PAUSED: { status: 503, message: "Payments are paused." },
+  X402_PAYMENTS_UNAVAILABLE: { status: 503, message: "No payment rail is available for this route." },
   AGENT_KILLED: { status: 403, message: "This agent was stopped." },
   RETIRED_AGENT: { status: 403, message: "This agent is retired. Onboard a new one." },
   UNSUPPORTED_VENUE: { status: 400, message: "Unsupported venue." },

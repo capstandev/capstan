@@ -55,6 +55,8 @@ const ROLE_SCHEMAS = {
     EQ_EXECUTION_ALLOWED: flag(false),
     X402_ENABLED: flag(false),
     FACILITATOR_URL: url.default("http://127.0.0.1:8714"),
+    // the x402 gate offers the USDG eip3009 rail on mainnet only with this switch (packages/x402/src/accepts.ts)
+    X402_USDG_EIP3009_MAINNET: flag(false),
   }),
   ws: z.object({
     ...common,
@@ -118,8 +120,10 @@ const ROLE_SCHEMAS = {
     FACILITATOR_PORT: port(8714),
     DATABASE_URL: pgUrl,
     REDIS_URL: redisUrl,
-    FACILITATOR_ARMED: flag(false),
-    X402_RHC_EIP3009_MAINNET: flag(false),
+    // mainnet settles need X402_SETTLE_ARMED=1 AND the file X402_SETTLE_ARMED_FILE names (apps/facilitator/src/env.ts)
+    X402_SETTLE_ARMED: flag(false),
+    X402_SETTLE_ARMED_FILE: path.optional(),
+    X402_USDG_EIP3009_MAINNET: flag(false),
     FACILITATOR_FLOAT_MAX_USD: posInt(200),
     FACILITATOR_SIGNER: signerKind,
     FACILITATOR_KEYSTORE_PATH: path.optional(),
@@ -171,10 +175,10 @@ export function loadConfig<R extends Role>(role: R, env: Record<string, string |
     }
   }
   // A broadcaster armed for a mainnet chain id needs CAPSTAN_NETWORK=mainnet said explicitly.
-  for (const p of ["ANCHOR", "FACILITATOR"]) {
-    const cid = cfg[`${p}_CHAIN_ID`];
-    if (cfg[`${p}_ARMED`] === true && (cid === 4663 || cid === 8453) && cfg.CAPSTAN_NETWORK !== "mainnet") {
-      throw new ConfigError(role, [`${p}_ARMED`, `${p}_CHAIN_ID`, "CAPSTAN_NETWORK"], "refused");
+  for (const [armed, chain] of [["ANCHOR_ARMED", "ANCHOR_CHAIN_ID"], ["X402_SETTLE_ARMED", "FACILITATOR_CHAIN_ID"]] as const) {
+    const cid = cfg[chain];
+    if (cfg[armed] === true && (cid === 4663 || cid === 8453) && cfg.CAPSTAN_NETWORK !== "mainnet") {
+      throw new ConfigError(role, [armed, chain, "CAPSTAN_NETWORK"], "refused");
     }
   }
   return { ...(cfg as object), role } as ConfigFor<R>;

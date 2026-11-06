@@ -25,7 +25,7 @@ export const CHAINS = {
   rhcTestnet: { chainId: 46630, caip2: "eip155:46630", name: "Robinhood Chain Testnet", publicRpc: "https://rpc.testnet.chain.robinhood.com", source: "chain-facts.md §1, 2026-11-05" },
   base: { chainId: 8453, caip2: "eip155:8453", name: "Base", publicRpc: "https://mainnet.base.org", source: "chain-facts.md §7, 2026-11-05" },
   baseSepolia: { chainId: 84532, caip2: "eip155:84532", name: "Base Sepolia", publicRpc: "https://sepolia.base.org", source: "chain-facts.md §7, 2026-11-05" },
-  solana: { chainId: 0, caip2: "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZ", name: "Solana", publicRpc: "https://api.mainnet-beta.solana.com", source: "chain-facts.md §8, 2026-11-05" },
+  solana: { chainId: 0, caip2: "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp", name: "Solana", publicRpc: "https://api.mainnet-beta.solana.com", source: "chain-facts.md §8, 2026-11-05" },
   solanaDevnet: { chainId: 0, caip2: "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1", name: "Solana Devnet", publicRpc: "https://api.devnet.solana.com", source: "chain-facts.md §8, 2026-11-05" },
 } as const satisfies Record<string, ChainConst>;
 
@@ -40,7 +40,7 @@ export const ADDRESSES = {
   usdgRhcTestnet: { chainId: 46630, address: "0x7E955252E15c84f5768B83c41a71F9eba181802F", symbol: "USDG", decimals: 6, note: "EIP-712 name 'Global Dollar', version '1'", source: "chain-facts.md §3, 2026-11-05" },
   usdcBase: { chainId: 8453, address: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", symbol: "USDC", decimals: 6, note: "EIP-712 name 'USD Coin', version '2'", source: "chain-facts.md §7, 2026-11-05" },
   usdcBaseSepolia: { chainId: 84532, address: "0x036CbD53842c5426634e7929541eC2318f3dCF7e", symbol: "USDC", decimals: 6, note: "EIP-712 name 'USDC', version '2'", source: "chain-facts.md §7, 2026-11-05" },
-  usdcSolana: { chainId: "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZ", address: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", symbol: "USDC", decimals: 6, note: "classic SPL Token program", source: "chain-facts.md §8, 2026-11-05" },
+  usdcSolana: { chainId: "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp", address: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", symbol: "USDC", decimals: 6, note: "classic SPL Token program", source: "chain-facts.md §8, 2026-11-05" },
   usdcSolanaDevnet: { chainId: "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1", address: "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU", symbol: "USDC", decimals: 6, source: "chain-facts.md §8, 2026-11-05" },
   wethRhc: { chainId: 4663, address: "0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73", symbol: "WETH", decimals: 18, note: "no code at this address on testnet", source: "chain-facts.md §4, 2026-11-05" },
   // Permit2 and the x402 Permit2 proxy (same address on every chain)

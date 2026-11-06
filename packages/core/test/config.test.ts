@@ -83,7 +83,7 @@ describe("config", () => {
       }
       expect(cfg.CAPSTAN_NETWORK).toBe("local");
       for (const [k, v] of Object.entries(cfg)) {
-        if (/_ARMED$|STAKER_BUCKET_ENABLED|EQ_EXECUTION_ALLOWED|X402_RHC_EIP3009_MAINNET/.test(k)) expect(v, `${role}: ${k}`).toBe(false);
+        if (/_ARMED$|STAKER_BUCKET_ENABLED|EQ_EXECUTION_ALLOWED|X402_USDG_EIP3009_MAINNET/.test(k)) expect(v, `${role}: ${k}`).toBe(false);
         if (/_SIGNER$/.test(k) && v === "dev") expect(cfg[k.replace(/_SIGNER$/, "_CHAIN_ID")], `${role}: ${k}`).toBe(31337);
         if (/RATE_LIMIT|PER_MIN|FLOAT_MAX/.test(k)) expect(typeof v === "number" && v > 0, `${role}: ${k}`).toBe(true);
       }

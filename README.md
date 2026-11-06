@@ -99,7 +99,7 @@ All config comes from environment variables. `.env.example` lists every variable
 | `REDIS_URL` | `redis://127.0.0.1:56379` | Local compose Redis |
 | `WORKER_JOBS` | empty (all) | Comma list; an unknown name stops the worker at boot |
 | `<ROLE>_SIGNER` | `keystore` | `keystore` (needs `<ROLE>_KEYSTORE_PATH` and `<ROLE>_KEYSTORE_PASSWORD_FILE`) or `dev` (chain 31337 only) |
-| `ANCHOR_ARMED` / `FACILITATOR_ARMED` / `RELAY_SUBMIT_ARMED` | `0` | Broadcasting stays off until set |
+| `ANCHOR_ARMED` / `X402_SETTLE_ARMED` / `RELAY_SUBMIT_ARMED` | `0` | Broadcasting stays off until set |
 | `RHC_RPC_URL` | `https://rpc.mainnet.chain.robinhood.com` | Public RPC |
 
 Each service validates only its own variables at boot and names any missing one (never a value). Variables named
