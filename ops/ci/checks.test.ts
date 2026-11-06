@@ -11,7 +11,7 @@ import { findKeyIdentifiers } from "./check-key-identifiers";
 import { contractsIn, missingNotices } from "./check-natspec";
 import { findPinProblems } from "./check-pins";
 import { findKeyishNames } from "./check-vector-files";
-import { deploymentDrift, END, renderTable, START } from "./deployments";
+import { deploymentDrift, END, renderTable, renderWebJson, START, WEB_JSON } from "./deployments";
 import { generateDeployments } from "./gen-deployments";
 import { lex } from "./lex";
 import { loadAllow, parseSlither, unallowed } from "./run-slither";
@@ -143,7 +143,7 @@ describe("check-deployments", () => {
   }
   test("deployments-equal", () => {
     const root = deployRepo();
-    expect(deploymentDrift(root).length).toBe(3); // ts module and both tables differ
+    expect(deploymentDrift(root).length).toBe(4); // ts module, web json and both tables differ
     generateDeployments(root);
     expect(deploymentDrift(root)).toEqual([]);
     const readme = readFileSync(join(root, "README.md"), "utf8");
@@ -162,6 +162,30 @@ describe("check-deployments", () => {
     expect(d).toContain("contracts/deployments/46630.json: file name must equal chainId");
     expect(d).toContain("contracts/deployments/46630.json: deployer must be an address");
     expect(d).toContain("SECURITY.md: no <!-- deployments:start --> ... <!-- deployments:end --> markers");
+  });
+  test("cpst-copy-equal", () => {
+    const root = deployRepo();
+    const withCpst = { ...dep, contracts: { ...dep.contracts, CPST: { address: "0x00000000000000000000000000000000000000d4", symbol: "CPST", decimals: 18, supply: "1000000000" } } };
+    writeFileSync(join(root, "contracts/deployments/46630.json"), JSON.stringify(withCpst));
+    generateDeployments(root);
+    expect(deploymentDrift(root)).toEqual([]);
+    const web = JSON.parse(readFileSync(join(root, WEB_JSON), "utf8"));
+    expect(web.cpst["46630"]).toEqual({ address: "0x00000000000000000000000000000000000000d4", symbol: "CPST", decimals: 18, supply: "1000000000", anchor: "0x00000000000000000000000000000000000000a1" });
+    // change the file: every copy is stale until regenerated
+    const moved = { ...withCpst, contracts: { ...withCpst.contracts, CPST: { ...withCpst.contracts.CPST, address: "0x00000000000000000000000000000000000000d5" } } };
+    writeFileSync(join(root, "contracts/deployments/46630.json"), JSON.stringify(moved));
+    const d = deploymentDrift(root);
+    expect(d).toContain(`${WEB_JSON} differs from contracts/deployments (run bun ops/ci/gen-deployments.ts)`);
+    expect(d).toContain("packages/schema/src/generated/deployments.ts differs from contracts/deployments (run bun ops/ci/gen-deployments.ts)");
+    generateDeployments(root);
+    expect(deploymentDrift(root)).toEqual([]);
+    // wrong decimals or symbol in the file is refused outright
+    writeFileSync(join(root, "contracts/deployments/46630.json"), JSON.stringify({ ...moved, contracts: { ...moved.contracts, CPST: { ...moved.contracts.CPST, decimals: 6, symbol: "CPS" } } }));
+    const bad = deploymentDrift(root);
+    expect(bad).toContain("contracts/deployments/46630.json: CPST.decimals must be 18");
+    expect(bad).toContain('contracts/deployments/46630.json: CPST.symbol must be "CPST"');
+    // no CPST: the box data is empty (hidden)
+    expect(JSON.parse(renderWebJson([])).cpst).toEqual({});
   });
   test("no deployment files: empty tables pass, and the real repo is in sync", () => {
     expect(renderTable([])).toBe("No contracts are deployed yet.");

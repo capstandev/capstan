@@ -12,9 +12,11 @@
     "@capstan/adapter-lighter": "workspace:*",
     "@capstan/catalog": "workspace:*",
     "@capstan/core": "workspace:*",
+    "@capstan/receipts": "workspace:*",
     "@capstan/schema": "workspace:*",
     "@capstan/venue-client": "workspace:*",
     "bullmq": "6.5.4",
-    "drizzle-orm": "0.45.4"
+    "drizzle-orm": "0.45.4",
+    "viem": "2.57.14"
   }
 }

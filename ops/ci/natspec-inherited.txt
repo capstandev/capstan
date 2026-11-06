@@ -1,0 +1,17 @@
+# Public functions CPST inherits unchanged from vendored OpenZeppelin Contracts v5.7.0 (documented upstream with @dev,
+# not @notice). One exact Contract.signature per line, then | and the source. Our own functions always need a @notice.
+CPST.DOMAIN_SEPARATOR() | OpenZeppelin ERC20, ERC20Permit, ERC20Burnable v5.7.0
+CPST.allowance(address,address) | OpenZeppelin ERC20, ERC20Permit, ERC20Burnable v5.7.0
+CPST.approve(address,uint256) | OpenZeppelin ERC20, ERC20Permit, ERC20Burnable v5.7.0
+CPST.balanceOf(address) | OpenZeppelin ERC20, ERC20Permit, ERC20Burnable v5.7.0
+CPST.burn(uint256) | OpenZeppelin ERC20, ERC20Permit, ERC20Burnable v5.7.0
+CPST.burnFrom(address,uint256) | OpenZeppelin ERC20, ERC20Permit, ERC20Burnable v5.7.0
+CPST.decimals() | OpenZeppelin ERC20, ERC20Permit, ERC20Burnable v5.7.0
+CPST.eip712Domain() | OpenZeppelin ERC20, ERC20Permit, ERC20Burnable v5.7.0
+CPST.name() | OpenZeppelin ERC20, ERC20Permit, ERC20Burnable v5.7.0
+CPST.nonces(address) | OpenZeppelin ERC20, ERC20Permit, ERC20Burnable v5.7.0
+CPST.permit(address,address,uint256,uint256,uint8,bytes32,bytes32) | OpenZeppelin ERC20, ERC20Permit, ERC20Burnable v5.7.0
+CPST.symbol() | OpenZeppelin ERC20, ERC20Permit, ERC20Burnable v5.7.0
+CPST.totalSupply() | OpenZeppelin ERC20, ERC20Permit, ERC20Burnable v5.7.0
+CPST.transfer(address,uint256) | OpenZeppelin ERC20, ERC20Permit, ERC20Burnable v5.7.0
+CPST.transferFrom(address,address,uint256) | OpenZeppelin ERC20, ERC20Permit, ERC20Burnable v5.7.0

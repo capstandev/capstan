@@ -50,6 +50,12 @@ export const ADDRESSES = {
   universalRouterRhc: { chainId: 4663, address: "0x8876789976decbfcbbbe364623c63652db8c0904", note: "also on 46630", source: "chain-facts.md §4, 2026-11-05" },
   v4PoolManagerRhc: { chainId: 4663, address: "0x8366a39cc670b4001a1121b8f6a443a643e40951", note: "also on 46630", source: "chain-facts.md §4, 2026-11-05" },
   v4QuoterRhc: { chainId: 4663, address: "0x8dc178efb8111bb0973dd9d722ebeff267c98f94", note: "also on 46630", source: "chain-facts.md §4, 2026-11-05" },
+  v4StateViewRhc: { chainId: 4663, address: "0xf3334192d15450cdd385c8b70e03f9a6bd9e673b", note: "also on 46630", source: "chain-facts.md §4, 2026-11-05" },
+  // Safe 1.4.1 canonical deployments (brand Safe check, contracts/script/lib/SafeCheck.sol)
+  safe141: { chainId: 4663, address: "0x41675C099F32341bf84BFc5382aF534df5C7461a", note: "Safe 1.4.1 singleton; also on 46630", source: "chain-facts.md §2, 2026-11-06" },
+  safeL2141: { chainId: 4663, address: "0x29fcB43b46531BcA003ddC8FCB67FFE91900C762", note: "SafeL2 1.4.1 singleton; also on 46630", source: "chain-facts.md §2, 2026-11-06" },
+  safeProxyFactory141: { chainId: 4663, address: "0x4e1DCf7AD4e460CfD30791CCC4F9c8a4f820ec67", note: "SafeProxyFactory 1.4.1; also on 46630", source: "chain-facts.md §2, 2026-11-06" },
+  safeFallbackHandler141: { chainId: 4663, address: "0xfd0732Dc9E303f09fCEf3a7388Ad10A83459Ec99", note: "CompatibilityFallbackHandler 1.4.1; also on 46630", source: "chain-facts.md §2, 2026-11-06" },
   v3FactoryRhc: { chainId: 4663, address: "0x1f7d7550b1b028f7571e69a784071f0205fd2efa", note: "mainnet only", source: "chain-facts.md §4, 2026-11-05" },
   v3QuoterV2Rhc: { chainId: 4663, address: "0x33e885ed0ec9bf04ecfb19341582aadcb4c8a9e7", note: "mainnet only", source: "chain-facts.md §4, 2026-11-05" },
   v3WethUsdg001: { chainId: 4663, address: "0x52e65B17fB6E5BA00Ed806f37Afcd2DaA50271Ca", note: "WETH/USDG 0.01% (deepest)", source: "chain-facts.md §4, 2026-11-05" },

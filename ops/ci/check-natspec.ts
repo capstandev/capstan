@@ -40,13 +40,20 @@ if (import.meta.main) {
   const root = resolve(process.argv[2] ?? join(import.meta.dir, "../.."));
   const forge = existsSync(join(homedir(), ".foundry/bin/forge")) ? join(homedir(), ".foundry/bin/forge") : "forge";
   const problems: string[] = [];
+  // Functions inherited unchanged from a vendored library (documented upstream with @dev): exact Contract.sig lines.
+  const inheritedFile = join(root, "ops/ci/natspec-inherited.txt");
+  const inherited = new Set(
+    existsSync(inheritedFile)
+      ? readFileSync(inheritedFile, "utf8").split("\n").map((l) => l.split("|")[0]!.trim()).filter((l) => l && !l.startsWith("#"))
+      : [],
+  );
   for (const c of contractsIn(root)) {
     const run = (what: string) => {
       const p = Bun.spawnSync([forge, "inspect", c, what, "--json"], { cwd: join(root, "contracts") });
       if (p.exitCode !== 0) throw new Error(`forge inspect ${c} ${what} failed: ${p.stderr.toString().slice(0, 400)}`);
       return JSON.parse(p.stdout.toString());
     };
-    for (const sig of missingNotices(run("abi"), run("userdoc"))) problems.push(`${c}.${sig} has no @notice`);
+    for (const sig of missingNotices(run("abi"), run("userdoc"))) if (!inherited.has(`${c}.${sig}`)) problems.push(`${c}.${sig} has no @notice`);
   }
   if (problems.length) {
     for (const p of problems) console.error(`check-natspec: ${p}`);

@@ -338,8 +338,10 @@ export const receipts = pgTable(
     leaf: text("leaf").notNull(),
     prevHash: text("prev_hash"),
     ts: tsz("ts").notNull(),
+    // idempotency: requestHash + ":" + (buildId ?? "-"); one receipt per request and build (todo 28)
+    idemKey: text("idem_key"),
   },
-  (t) => [index("rc_hour").on(t.hourEpoch), index("rc_owner").on(t.owner)],
+  (t) => [index("rc_hour").on(t.hourEpoch), index("rc_owner").on(t.owner), uniqueIndex("rc_idem").on(t.idemKey)],
 );
 
 export const receiptRoots = pgTable("receipt_roots", {
@@ -348,6 +350,9 @@ export const receiptRoots = pgTable("receipt_roots", {
   leafCount: integer("leaf_count").notNull(),
   txHash: text("tx_hash"),
   postedAt: tsz("posted_at"),
+  // posted | mismatch (an on-chain root differs from ours: the hour is frozen and never posted again)
+  status: text("status").notNull().default("posted"),
+  onchainRoot: text("onchain_root"),
 });
 
 /** Per-owner receipt hash-chain head; the receipt service row-locks it (SELECT ... FOR UPDATE). */
@@ -367,6 +372,17 @@ export const rootEvents = pgTable("root_events", {
   txHash: text("tx_hash").notNull(),
   blockNumber: bigint("block_number", { mode: "number" }).notNull(),
   logIndex: integer("log_index").notNull(),
+  blockHash: text("block_hash"),
+  // final once the block is at least the reorg depth deep; matches = equals receipt_roots for the hour
+  final: boolean("final").notNull().default(false),
+  matches: boolean("matches"),
+});
+
+/** Last block a chain reader has scanned (the RootPosted indexer). */
+export const chainCursors = pgTable("chain_cursors", {
+  key: text("key").primaryKey(), // e.g. 'root-indexer:46630:<anchor>'
+  block: bigint("block", { mode: "number" }).notNull(),
+  updatedAt: tsz("updated_at").notNull().defaultNow(),
 });
 
 export const quoteSnapshots = pgTable("quote_snapshots", {
@@ -537,6 +553,7 @@ export const ALL_TABLES = {
   receiptRoots,
   receiptHeads,
   rootEvents,
+  chainCursors,
   quoteSnapshots,
   serviceNonces,
   apiAccounts,

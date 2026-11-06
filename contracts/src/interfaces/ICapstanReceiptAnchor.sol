@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.26;
+pragma solidity 0.8.28;
 
 /// @title ICapstanReceiptAnchor
 /// @notice Anchors hourly Merkle roots of Capstan receipts. Non-upgradeable. No pause. No owner.

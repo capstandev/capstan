@@ -85,11 +85,21 @@ const ROLE_SCHEMAS = {
     WORKER_JOBS: z.string().default(""),
     ANCHOR_RPC_URL: url.default("http://127.0.0.1:8545"),
     ANCHOR_ARMED: flag(false),
+    // mainnet posting also needs this file to exist (set only in the production env; todo 28 R14)
+    ANCHOR_ARMED_FILE: path.optional(),
+    // poster balance alert threshold; default = 30 days of hourly posts at the measured fork gas (todo 28 R8)
+    ANCHOR_MIN_BALANCE_WEI: z.string().regex(/^\d+$/, "wei integer").default("2500000000000000"),
     STAKER_BUCKET_ENABLED: flag(false),
     ANCHOR_SIGNER: signerKind,
     ANCHOR_KEYSTORE_PATH: path.optional(),
     ANCHOR_KEYSTORE_PASSWORD_FILE: path.optional(),
     ANCHOR_CHAIN_ID: chainId.default(31337),
+    // the receipt-sign job signs receipts in the workers role too (todo 28); "none" (the default here) means this
+    // worker process does not sign receipts, and the receipt-sign job refuses to start
+    RECEIPT_SIGNER: z.enum(["keystore", "dev", "none"]).default("none"),
+    RECEIPT_KEYSTORE_PATH: path.optional(),
+    RECEIPT_KEYSTORE_PASSWORD_FILE: path.optional(),
+    RECEIPT_CHAIN_ID: chainId.default(31337),
   }),
   facilitator: z.object({
     ...common,
@@ -130,7 +140,8 @@ export function loadConfig<R extends Role>(role: R, env: Record<string, string |
     const names = new Set(parsed.error.issues.map((i) => String(i.path[0] ?? "?")));
     // report the keystore paths too, so one boot attempt lists everything that is missing
     for (const p of SIGNER_PREFIXES) {
-      if (!(`${p}_SIGNER` in schema.shape) || (input[`${p}_SIGNER`] ?? "keystore") !== "keystore") continue;
+      const fallback = role === "workers" && p === "RECEIPT" ? "none" : "keystore";
+      if (!(`${p}_SIGNER` in schema.shape) || (input[`${p}_SIGNER`] ?? fallback) !== "keystore") continue;
       for (const n of [`${p}_KEYSTORE_PATH`, `${p}_KEYSTORE_PASSWORD_FILE`]) if (!input[n]) names.add(n);
     }
     throw new ConfigError(role, [...names].sort(), "missing or invalid");

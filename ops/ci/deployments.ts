@@ -7,6 +7,8 @@ import { join } from "node:path";
 export const DEPLOYMENTS_DIR = "contracts/deployments";
 export const GENERATED_TS = "packages/schema/src/generated/deployments.ts";
 export const TABLE_FILES = ["README.md", "SECURITY.md"] as const;
+/** Token-address box data for the web app (todo 38 renders it; hidden while `cpst` is empty). */
+export const WEB_JSON = "web/public/contracts.json";
 export const START = "<!-- deployments:start -->";
 export const END = "<!-- deployments:end -->";
 const CONTRACT_NAMES = ["CapstanReceiptAnchor", "CPSTLock", "CPST"] as const;
@@ -50,6 +52,12 @@ export function validateDeployment(file: string, d: unknown): string[] {
       if (cc?.poster !== undefined && !ADDR.test(cc.poster)) errs.push(`${file}: ${name}.poster must be an address`);
       if (cc?.block !== undefined && !Number.isInteger(cc.block)) errs.push(`${file}: ${name}.block must be an integer`);
       if (cc?.decimals !== undefined && !Number.isInteger(cc.decimals)) errs.push(`${file}: ${name}.decimals must be an integer`);
+      if (name === "CPST" && cc) {
+        // the token's fixed facts (todo 26): every copy (web, SDK) reads these generated values
+        if (cc.symbol !== "CPST") errs.push(`${file}: CPST.symbol must be "CPST"`);
+        if (cc.decimals !== 18) errs.push(`${file}: CPST.decimals must be 18`);
+        if (cc.supply !== "1000000000") errs.push(`${file}: CPST.supply must be "1000000000" (whole tokens)`);
+      }
     }
   }
   return errs;
@@ -100,6 +108,24 @@ export function renderTs(deps: Deployment[]): string {
   return `${head}export const DEPLOYMENTS: Record<number, Deployment> = ${JSON.stringify(body, null, 2)};\n`;
 }
 
+/** web/public/contracts.json: CPST per chain plus the lock and anchor addresses; `cpst` is empty until deployed. */
+export function renderWebJson(deps: Deployment[]): string {
+  const cpst: Record<string, { address: string; symbol: string; decimals: number; supply: string; lock?: string; anchor?: string }> = {};
+  for (const d of deps) {
+    const c = d.contracts.CPST;
+    if (!c) continue;
+    cpst[String(d.chainId)] = {
+      address: c.address,
+      symbol: c.symbol ?? "CPST",
+      decimals: c.decimals ?? 18,
+      supply: c.supply ?? "1000000000",
+      ...(d.contracts.CPSTLock ? { lock: d.contracts.CPSTLock.address } : {}),
+      ...(d.contracts.CapstanReceiptAnchor ? { anchor: d.contracts.CapstanReceiptAnchor.address } : {}),
+    };
+  }
+  return `${JSON.stringify({ generatedBy: "ops/ci/gen-deployments.ts", cpst }, null, 2)}\n`;
+}
+
 export function replaceBetweenMarkers(text: string, inner: string): string | null {
   const a = text.indexOf(START);
   const b = text.indexOf(END);
@@ -113,6 +139,8 @@ export function deploymentDrift(root: string): string[] {
   const out = [...errors];
   const ts = join(root, GENERATED_TS);
   if (!existsSync(ts) || readFileSync(ts, "utf8") !== renderTs(deployments)) out.push(`${GENERATED_TS} differs from ${DEPLOYMENTS_DIR} (run bun ops/ci/gen-deployments.ts)`);
+  const web = join(root, WEB_JSON);
+  if (!existsSync(web) || readFileSync(web, "utf8") !== renderWebJson(deployments)) out.push(`${WEB_JSON} differs from ${DEPLOYMENTS_DIR} (run bun ops/ci/gen-deployments.ts)`);
   const table = renderTable(deployments);
   for (const f of TABLE_FILES) {
     const p = join(root, f);

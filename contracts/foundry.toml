@@ -2,6 +2,8 @@
 # contracts (CapstanReceiptAnchor, CPSTLock) plus the fixed-supply CPST ERC-20.
 # Vendored: forge-std v1.17.0 (forge install --no-git, commit f3dae6e6ee381f25eb6a246f7da9b85c91a68219), trimmed to
 # src/, licences, README, foundry.toml and package.json (its own tests, fixtures and CI are not needed here).
+# Vendored: OpenZeppelin Contracts v5.7.0 (released 2026-07-29; forge install --no-git, tag commit
+# cab19933c33c2ad1d4c7a84864a3601dddfd16f3), trimmed to the 21 sources CPST imports plus LICENSE, README, package.json.
 [profile.default]
 src = "src"
 test = "test"
@@ -13,7 +15,13 @@ evm_version = "cancun"        # RHC (Arbitrum Orbit) supports PUSH0/MCOPY/TSTORE
 optimizer = true
 optimizer_runs = 200
 bytecode_hash = "none"
-fs_permissions = [{ access = "read", path = "./" }, { access = "read-write", path = "./deployments" }]
+fs_permissions = [
+  { access = "read", path = "./" },
+  { access = "read", path = "../packages/receipts/test/vectors" },
+  { access = "read", path = "../packages/schema/src/constants" },
+  { access = "read-write", path = "../out/burn" },
+  { access = "read-write", path = "./deployments" },
+]
 
 [profile.default.fuzz]
 runs = 512
@@ -27,9 +35,29 @@ fail_on_revert = false
 [profile.ci.fuzz]
 runs = 4096
 
+# R13: >= 100,000 handler calls per invariant (256 runs x depth 400 = 102,400)
+[profile.ci.invariant]
+runs = 256
+depth = 400
+fail_on_revert = false
+
+# Mutation pass (ops/ci/mutation.sh): fewer runs so every mutant finishes fast; the kill list is still deterministic.
+[profile.mutation.fuzz]
+runs = 128
+
+[profile.mutation.invariant]
+runs = 16
+depth = 50
+fail_on_revert = false
+
 [rpc_endpoints]
 rhc = "${RHC_RPC_URL}"
 rhc_testnet = "https://rpc.testnet.chain.robinhood.com"
 
 [fmt]
 line_length = 120
+
+[lint]
+# block.timestamp is the clock both contracts are defined by (finished hours, lock durations); a sequencer can skew
+# it by seconds, which moves nothing that matters at hour or day granularity.
+exclude_lints = ["block-timestamp"]

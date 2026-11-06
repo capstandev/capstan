@@ -54,10 +54,12 @@
         "@capstan/adapter-lighter": "workspace:*",
         "@capstan/catalog": "workspace:*",
         "@capstan/core": "workspace:*",
+        "@capstan/receipts": "workspace:*",
         "@capstan/schema": "workspace:*",
         "@capstan/venue-client": "workspace:*",
         "bullmq": "6.5.4",
         "drizzle-orm": "0.45.4",
+        "viem": "2.57.14",
       },
     },
     "apps/ws": {
@@ -153,6 +155,15 @@
     "packages/receipts": {
       "name": "@capstan/receipts",
       "version": "0.0.0",
+      "dependencies": {
+        "@capstan/core": "workspace:*",
+        "@capstan/schema": "workspace:*",
+        "@noble/curves": "2.4.0",
+        "@noble/hashes": "2.4.0",
+        "canonicalize": "5.1.0",
+        "drizzle-orm": "0.45.4",
+        "viem": "2.57.14",
+      },
     },
     "packages/schema": {
       "name": "@capstan/schema",

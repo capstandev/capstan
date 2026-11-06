@@ -1,0 +1,5 @@
+# Surviving mutants that are equivalent or accepted, one per line: file | original line | mutated line | reason
+# (original and mutated are the trimmed source lines, exactly as ops/ci/mutate.ts prints them in contracts/test/MUTATION.md).
+src/CapstanReceiptAnchor.sol | if (prevRoot != bytes32(0) && hourEpoch <= latest) revert NotIncreasing(hourEpoch, latest); | if (prevRoot != bytes32(0) && hourEpoch < latest) revert NotIncreasing(hourEpoch, latest); | Equivalent: hourEpoch == latest already has a nonzero root, so the AlreadyPosted check on the line before reverts first.
+src/CPSTLock.sol | uint64 unlockAt = l.unlockAt > target ? l.unlockAt : target; | uint64 unlockAt = l.unlockAt >= target ? l.unlockAt : target; | Equivalent: when l.unlockAt == target both branches give the same value.
+src/libs/SortedPairMerkle.sol | (bytes32 lo, bytes32 hi) = a < b ? (a, b) : (b, a); | (bytes32 lo, bytes32 hi) = a <= b ? (a, b) : (b, a); | Equivalent: when a == b both orders give the same pair.
