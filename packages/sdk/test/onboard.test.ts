@@ -12,7 +12,11 @@ import { secp256k1 } from "@noble/curves/secp256k1.js";
 import { addressOfSecret } from "../src/keys/secp";
 import { asterTemplateHash, checkOnboardingBundle, lighterTemplateHash } from "../src/onboard";
 import { PINS } from "../src/pins";
-import { AGENT, BUILDER_ASTER, BUILDER_HL, labelAddr, OWNER, T0, testPins } from "./helpers";
+import { AGENT, BUILDER_ASTER, BUILDER_HL, labelAddr, OWNER, T0, testKey, testPins } from "./helpers";
+import { privateKeyToAccount } from "viem/accounts";
+import { toHex } from "../src/bytes";
+import { defaultStepPresenter, STEPS_HEADING } from "../src/present";
+import { accountWallet, type WalletSigner } from "../src/wallet";
 import { hlTemplatePin, startStack, type Tamper } from "./stack";
 import { testWallet } from "./wallet-fixture";
 
@@ -107,6 +111,57 @@ describe("onboarding", () => {
     expect(r.agentRef).not.toBe(`hl:${repeat}`);
     expect((await flaky.usedPublicParts!()).includes(repeat)).toBe(true); // made, refused, tombstoned
     expect((await flaky.list()).map((k) => k.publicPart)).not.toContain(repeat);
+  });
+
+  test("steps-shown-by-default", async () => {
+    // a wallet with no confirm hook and no presentSteps option: the SDK still shows every step before any prompt
+    const order: string[] = [];
+    const account = privateKeyToAccount(toHex(testKey("plain-owner"))); // test-key (seed-derived)
+    const bare = accountWallet(account);
+    const plain: WalletSigner = {
+      address: () => bare.address(),
+      signTypedData: async (td) => (order.push(`prompt:${td.primaryType}`), bare.signTypedData(td)),
+      signMessage: async (t) => (order.push("prompt:message"), bare.signMessage(t)),
+    };
+    const write = process.stderr.write.bind(process.stderr);
+    const written: string[] = [];
+    process.stderr.write = ((chunk: string | Uint8Array) => (written.push(String(chunk)), order.push("shown"), true)) as typeof process.stderr.write;
+    try {
+      const s = await stackWith();
+      const { c } = await clientOn(s, pin, { walletSigner: plain });
+      await c.onboard("hyperliquid");
+      expect(order[0]).toBe("shown");
+      expect(order.filter((x) => x === "shown").length).toBe(1);
+      expect(order.slice(1)).toEqual(["prompt:Declaration", "prompt:HyperliquidTransaction:ApproveAgent", "prompt:HyperliquidTransaction:ApproveBuilderFee"]);
+      const text = written.join("");
+      expect(text).toContain(STEPS_HEADING);
+      expect(text).toContain("at most 0.03% (3 bps)");
+      expect(text).toContain("It cannot withdraw or transfer.");
+
+      // in a browser page the default is the page's confirm dialog; Cancel stops before any wallet prompt
+      order.length = 0;
+      const asked: string[] = [];
+      const page = { window: { confirm: (m: string) => (asked.push(m), false) }, document: {} } as unknown as typeof globalThis;
+      const s2 = await stackWith();
+      const { c: c2, ks: ks2 } = await clientOn(s2, pin, { walletSigner: plain, presentSteps: defaultStepPresenter(page) });
+      const e = (await c2.onboard("hyperliquid").catch((x) => x)) as SdkError;
+      expect(e.code).toBe("WALLET_DECLINED");
+      expect(asked.length).toBe(1);
+      expect(asked[0]).toContain("at most 0.03% (3 bps)");
+      expect(order).toEqual([]);
+      expect(await ks2.list()).toEqual([]);
+
+      // opt-out is explicit only: presentSteps false shows nothing and goes straight to the wallet
+      order.length = 0;
+      written.length = 0;
+      const s3 = await stackWith();
+      const { c: c3 } = await clientOn(s3, pin, { walletSigner: plain, presentSteps: false });
+      await c3.onboard("hyperliquid");
+      expect(written).toEqual([]);
+      expect(order[0]).toBe("prompt:Declaration");
+    } finally {
+      process.stderr.write = write;
+    }
   });
 
   test("aster bundle: pinned template, perp only, no withdraw, pinned builder and ceiling", () => {

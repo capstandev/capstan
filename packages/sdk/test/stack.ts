@@ -14,6 +14,13 @@ import { route } from "../../adapters/hyperliquid/test/helpers";
 import { sha256Jcs } from "../src/bytes";
 import { hlTemplateHash } from "../src/onboard";
 import { BUILDER_ASTER, BUILDER_HL, labelAddr, T0, testKey } from "./helpers";
+import { memoryNonceStore, type RouteAuth, type RouteSpec } from "@capstan/core";
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { createApp } from "../../../apps/api/src/app";
+import { apiKeyCheck, apiKeyVerifier, ownerSigVerifier } from "../../../apps/api/src/auth";
+import ROUTE_TABLE from "../../../apps/api/test/route-table.snap.json";
 
 export const RECEIPT_KEY = testKey("receipt-signer");
 
@@ -109,6 +116,11 @@ export interface StackOptions {
   closeAllNotReduceOnly?: boolean;
   /** Answer every API call with this status (server unreachable or broken). */
   down?: boolean;
+  /**
+   * Put the real API's auth gate in front of every route: the committed route table (apps/api route-table.snap.json)
+   * gives each path its auth kind, and the real owner_sig and API key verifiers check each request.
+   */
+  gate?: boolean;
 }
 
 export async function startStack(o: StackOptions = {}) {
@@ -164,10 +176,36 @@ export async function startStack(o: StackOptions = {}) {
   const lock = memoryLock();
   let rid = 0;
   const issueR = (d: Parameters<typeof issue>[0]) => issue(d, { store: rStore, signer: rSigner, now: () => new Date(T0), id: () => `r${String(++rid).padStart(6, "0")}`, lock });
-  const hits: { method: string; path: string; body: unknown }[] = [];
+  const hits: { method: string; path: string; body: unknown; headers: Record<string, string>; search: string }[] = [];
   const ingests: unknown[] = [];
   const kills: { ref: string; body: unknown }[] = [];
   const t = o.tamper ?? {};
+  const apiKeys = new Map<string, string>(); // key -> account id (anonymous keys made by POST /account/keys)
+  const issueKey = (): string => {
+    const id = `ACCT${apiKeys.size + 1}`.padEnd(26, "0");
+    const key = `cpst_${id}_${Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString("base64url").slice(0, 43)}`;
+    apiKeys.set(key, id);
+    return key;
+  };
+  let gateApp: Promise<{ fetch(r: Request): Response | Promise<Response> }> | null = null;
+  const gateFor = (host: string) =>
+    (gateApp ??= (async () => {
+      const verifiers = {
+        owner_sig: ownerSigVerifier({
+          nonces: memoryNonceStore(),
+          host,
+          now: () => T0,
+          agentsOf: async (owner: Hex) => (venue.st.agents.get(owner.toLowerCase()) ?? []).map((a) => ({ address: a.address as Hex, agentRef: `hl:${a.address}` })),
+        }),
+        api_key: apiKeyVerifier(apiKeyCheck({ verify: async (k) => (apiKeys.has(k) ? { id: apiKeys.get(k)!, ownerWallet: null, tier: "free" } : null), now: () => T0 })),
+      };
+      // every route of the real table, its auth kind and alternates, in front of a handler that only says "passed"
+      const specs = (ROUTE_TABLE as { method: RouteSpec["method"]; path: string; auth: RouteAuth; authAlt?: RouteAuth[]; priced?: string }[]).map(
+        (r) => ({ method: r.method, path: r.path.replace(/^\/v1/, ""), auth: r.auth, ...(r.authAlt ? { authAlt: r.authAlt } : {}), ...(r.priced ? { priced: { usd: r.priced } } : {}), handler: () => new Response("passed", { status: 299 }) }) as RouteSpec,
+      );
+      const { app } = await createApp({ routesDir: mkdtempSync(join(tmpdir(), "capstan-sdk-gate-")), extraRoutes: specs, verifiers });
+      return app;
+    })());
   const err = (code: string, message: string, status = 400) => Response.json({ error: { code, message } }, { status });
 
   const server = Bun.serve({
@@ -175,14 +213,31 @@ export async function startStack(o: StackOptions = {}) {
     hostname: "127.0.0.1",
     async fetch(req) {
       const u = new URL(req.url);
-      const body = req.method === "POST" ? await req.json().catch(() => null) : null;
-      hits.push({ method: req.method, path: u.pathname, body });
+      const raw = req.method === "POST" ? await req.text() : "";
+      let body: any = null;
+      try {
+        body = raw ? JSON.parse(raw) : null;
+      } catch {
+        body = null;
+      }
+      const headers: Record<string, string> = {};
+      req.headers.forEach((v, k) => (headers[k] = v));
+      hits.push({ method: req.method, path: u.pathname, body, headers, search: u.search });
       if (o.down) return new Response("unavailable", { status: 503 });
+      if (o.gate) {
+        const g = await (await gateFor(u.host.toLowerCase())).fetch(new Request(req.url, { method: req.method, headers: req.headers, ...(raw ? { body: raw } : {}) }));
+        if (g.status !== 299) return g;
+      }
       const p = u.pathname.replace(/^\/v1/, "");
       try {
         if (p === "/venues") {
           const caps: VenueCapabilities[] = [adapter.caps, { venue: "aster", execution: true, keyType: "secp256k1", delegation: "agent", canWithdraw: false, builderFee: { kind: "aster_code", unit: "decimal_rate", capBps: 10, chargeBps: 2, approvalSignedBy: "main_wallet", builderAddress: BUILDER_ASTER }, collateral: ["USDT"], directSubmitSupported: true, publicAccountReads: false }];
           return Response.json(t.venues ? t.venues(caps) : caps);
+        }
+        if (p === "/account/keys") {
+          if (body?.owner !== null) return err("INVALID_INPUT", "the stand-in API makes anonymous keys only");
+          const key = issueKey();
+          return Response.json({ id: apiKeys.get(key), key }, { status: 201 });
         }
         if (p === "/onboarding/preflight") return Response.json({ slotsFree: 3, builderApprovedBps: 0, depositRequired: false, eligibility: { allowed: true }, agents: o.knownAgents ?? [] });
         if (p === "/onboarding/build") {
@@ -298,6 +353,9 @@ export async function startStack(o: StackOptions = {}) {
     ingests,
     kills,
     hits,
+    apiKeys,
+    /** A key made here, not over HTTP (test setup on a gated stack). */
+    issueKey,
     receiptSigner: rSigner.address as Hex,
     receipts: rStore,
     builds,
@@ -311,8 +369,8 @@ export async function startStack(o: StackOptions = {}) {
 }
 
 /** The HL template hash the stack's bundles carry, recomputed by the SDK (and required equal to the adapter's). */
-export async function hlTemplatePin(apiBase: string, policy?: unknown): Promise<Hex> {
-  const r = await fetch(`${apiBase}/onboarding/build`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ venue: "hyperliquid", owner: labelAddr("sample-owner"), agentAddress: labelAddr("sample-agent"), builderMaxBps: 3, ...(policy ? { policy } : {}) }) });
+export async function hlTemplatePin(apiBase: string, policy?: unknown, apiKey?: string): Promise<Hex> {
+  const r = await fetch(`${apiBase}/onboarding/build`, { method: "POST", headers: { "content-type": "application/json", ...(apiKey ? { authorization: `Bearer ${apiKey}` } : {}) }, body: JSON.stringify({ venue: "hyperliquid", owner: labelAddr("sample-owner"), agentAddress: labelAddr("sample-agent"), builderMaxBps: 3, ...(policy ? { policy } : {}) }) });
   const b = await r.json();
   const h = hlTemplateHash(b);
   if (h !== b.templateHash) throw new Error("SDK and adapter template hashes differ");
@@ -327,8 +385,9 @@ export async function sdkClient(stack: Awaited<ReturnType<typeof startStack>>, o
   const { PINS } = await import("../src/pins");
   const { asterTemplateHash } = await import("../src/onboard");
   const { testWallet } = await import("./wallet-fixture");
-  const pins = [await hlTemplatePin(stack.apiBase)];
-  if (o.policy) pins.push(await hlTemplatePin(stack.apiBase, o.policy));
+  const setupKey = stack.issueKey();
+  const pins = [await hlTemplatePin(stack.apiBase, undefined, setupKey)];
+  if (o.policy) pins.push(await hlTemplatePin(stack.apiBase, o.policy, setupKey));
   const ks = o.keystore ?? memoryKeyStore();
   const wallet = o.wallet ?? testWallet();
   const client = createClient({

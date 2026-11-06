@@ -4,7 +4,7 @@
 import type { AgentPolicy, CancelIntent, CanonicalAsset, DelegationState, FundingSnapshot, Hex, Market, OnboardingBundle, Order, OrderIntent, QuoteRequest, Receipt, RouteQuote, SignedEnvelope, UnsignedVenuePayload, VenueCapabilities, VenueId } from "@capstan/schema";
 import { digestTrade, queryString, type Param } from "@capstan/signer-aster";
 import type { LighterChainId } from "@capstan/signer-lighter-wasm";
-import { createApi, type Api } from "./api";
+import { createApi, type Api, type RequestAuth } from "./api";
 import { eqAddr, toHex } from "./bytes";
 import { checkBuild, checkCancelBuild, type CheckContext } from "./check";
 import { postDirect, type DirectResult } from "./direct";
@@ -14,10 +14,13 @@ import type { KeyStore } from "./keys/types";
 import { personalDigest } from "./keys/secp";
 import { defaultVenueHosts, publicVenueMarkets, type MarketSource, type VenueMarketSpec } from "./markets";
 import { checkOnboardingBundle } from "./onboard";
+import { resolvePresenter, type StepPresenter } from "./present";
 import { assertServerMatchesPins, mergePins, PINS, type Network, type NetworkPins, type Pins, type PinsOverride } from "./pins";
 import { sumDec, type PolicyChecker } from "./policy";
 import { rpcAnchorReader, verifyReceiptOffline, type AnchorReader, type ReceiptProof, type VerifyChecks } from "./receipts";
 import { capstanMessage } from "./signed-message";
+import { sha256 } from "@noble/hashes/sha2.js";
+import { bytesToHex } from "@noble/hashes/utils.js";
 import { signEnvelope } from "./sign";
 import type { WalletSigner } from "./wallet";
 import { payingFetch, sdkSpendControls, type SpendControls, type X402Payer } from "./x402";
@@ -40,10 +43,24 @@ export interface CapstanClientOptions {
   markets?: MarketSource;
   anchor?: AnchorReader | { rpcUrl: string; address?: Hex };
   policyChecker?: PolicyChecker;
+  /**
+   * A Capstan API key (Authorization: Bearer). Sent on every API call when set. Without one, onboarding calls use an
+   * anonymous key the client makes once (see anonymousApiKey), because no wallet prompt may come before the bundle
+   * check; every agent-scoped call is owner-signed by the agent key (owner_sig, no wallet prompt).
+   */
+  apiKey?: string;
+  /** Make an anonymous API key (POST /v1/account/keys, owner null, no signature) when one is needed (default true). */
+  anonymousApiKey?: boolean;
   /** Compare /v1/venues with the pins once before the first build or onboarding (default true). */
   checkServerPins?: boolean;
   /** Slippage allowed on close-all and amend builds read from the payload (default 300 bps). */
   closeAllSlippageBps?: number;
+  /**
+   * Shows the SDK's plain-English steps before the first wallet prompt of an onboarding (default on). Order: this
+   * option, then walletSigner.confirm, then the default (the page's confirm dialog in a browser, stderr elsewhere).
+   * Pass false to turn it off; that is the only way to skip it.
+   */
+  presentSteps?: StepPresenter | false;
   now?: () => number;
 }
 
@@ -147,7 +164,7 @@ export function createClient(o: CapstanClientOptions): CapstanClient {
   const ks = o.keystore;
   const baseFetch = o.fetch ?? fetch;
   const apiFetch = o.x402 ? payingFetch(baseFetch, o.x402.payer, o.x402.controls ?? sdkSpendControls(o.network, o.x402.maxUsdPerCall), o.x402.maxUsdPerCall) : baseFetch;
-  const api: Api = createApi(o.apiBase, apiFetch);
+  const api: Api = createApi(o.apiBase, apiFetch, o.apiKey ? { headers: () => ({ authorization: `Bearer ${o.apiKey}` }) } : {});
   const venueFetch = o.venueFetch ?? fetch;
   const hosts: Record<string, string> = { ...defaultVenueHosts(o.network), ...(o.venueHosts ?? {}) } as Record<string, string>;
   const markets: MarketSource = o.markets ?? publicVenueMarkets({ network: o.network, fetch: venueFetch, hosts });
@@ -177,6 +194,41 @@ export function createClient(o: CapstanClientOptions): CapstanClient {
   };
 
   const lighterChain = (venue: VenueId): LighterChainId => np.lighterSigningIds[venue as "lighter-mainnet" | "lighter-rh"];
+
+  // ---- request auth (DECISIONS #125, #126). owner_sig: the Capstan api_request message over method, path and the
+  // body's sha256, signed by the agent key of the owner the request names (the server accepts an active agent).
+  const REQUEST_TTL_MS = 4 * 60_000;
+  const b64 = (t: string) => btoa(String.fromCharCode(...new TextEncoder().encode(t)));
+  const agentAuth = (a: AgentRecord): RequestAuth | undefined => {
+    if (!SECP.has(a.venue)) return undefined;
+    return async ({ method, signedPath, rawBody }) => {
+      const issuedAt = now();
+      const text = capstanMessage({ purpose: "api_request", owner: a.owner, host: api.host, chainId: np.anchor.chainId, nonce: toHex(crypto.getRandomValues(new Uint8Array(12))).slice(2), issuedAt, expiresAt: issuedAt + REQUEST_TTL_MS, body: `${method} ${signedPath} ${bytesToHex(sha256(new TextEncoder().encode(rawBody)))}` });
+      const sig = (await ks.sign(a.keyRef, personalDigest(text))) as Hex;
+      return { "x-capstan-message": b64(text), "x-capstan-signature": sig };
+    };
+  };
+  let anonKey: Promise<string | null> | null = null;
+  /** The key for calls no agent can sign (onboarding, Lighter agents): the configured key, else an anonymous one. */
+  const keyAuth: RequestAuth = async (): Promise<Record<string, string>> => {
+    if (o.apiKey) return {}; // already on every call
+    if (o.anonymousApiKey === false) return {};
+    anonKey ??= api
+      .post<{ key?: unknown }>("/account/keys", { owner: null })
+      .then((r) => (typeof r?.key === "string" && /^cpst_[A-Za-z0-9_-]{20,200}$/.test(r.key) ? r.key : null))
+      .catch(() => null);
+    const k = await anonKey;
+    if (!k) {
+      anonKey = null; // try again next time; this call goes without a key and the server answers 401
+      return {};
+    }
+    return { authorization: `Bearer ${k}` };
+  };
+  /** Agent-scoped calls: the agent's owner signature, or the key when the agent is not a secp key (Lighter). */
+  const authAs = (a: AgentRecord | undefined): RequestAuth => {
+    const viaAgent = a ? agentAuth(a) : undefined;
+    return viaAgent ?? keyAuth;
+  };
 
   function agentFor(venue: VenueId, agentRef?: string): AgentRecord {
     if (agentRef) {
@@ -317,7 +369,9 @@ export function createClient(o: CapstanClientOptions): CapstanClient {
           ? { ...opts.policy, owner, agents: opts.policy.agents.some((a) => a.agentRef === expectedRef) ? opts.policy.agents : [...opts.policy.agents, { venue, agentRef: expectedRef }] }
           : undefined;
         if (policy && !eqAddr(opts.policy!.owner, owner)) throw new SdkError("INVALID_INPUT", "the policy names another owner", { field: "policy.owner" });
-        const bundle = await api.post<OnboardingBundle>("/onboarding/build", {
+        const bundle = await api.post<OnboardingBundle>(
+          "/onboarding/build",
+          {
           venue,
           owner,
           ...(lighter ? { lighterPubKey: key.publicPart } : { agentAddress: key.publicPart, builderMaxBps: 3 }),
@@ -325,10 +379,13 @@ export function createClient(o: CapstanClientOptions): CapstanClient {
           ...(opts.directIp ? { directIp: opts.directIp } : {}),
           ...(policy ? { policy } : {}),
           ...(opts.collateralMoves ? { collateralMoves: opts.collateralMoves } : {}),
-        });
+          },
+          { auth: keyAuth },
+        );
         const chk = checkOnboardingBundle(bundle, { venue, network: o.network, pins, owner, nowMs: now(), ...(lighter ? { lighterPubKey: key.publicPart } : { agentAddress: key.publicPart as Hex }), ...(policy ? { policy } : {}), ...(opts.collateralMoves ? { collateralMoves: opts.collateralMoves } : {}) });
         if (!chk.ok) throw new SdkError(chk.code, `${chk.code}: ${chk.field}`, { field: chk.field });
-        if (wallet.confirm && !(await wallet.confirm(chk.lines))) throw new SdkError("WALLET_DECLINED", "the user declined the onboarding");
+        const present = resolvePresenter(o.presentSteps, wallet.confirm ? (lines) => wallet.confirm!(lines) : undefined);
+        if (present && !(await present(chk.lines))) throw new SdkError("WALLET_DECLINED", "the user declined the onboarding");
         const signatures: { step: number; sig: Hex }[] = [];
         let lighterSignedTx: { txType: number; txInfo: string } | undefined;
         let lighterSignedApproveIntegrator: { txType: number; txInfo: string } | undefined;
@@ -356,7 +413,7 @@ export function createClient(o: CapstanClientOptions): CapstanClient {
           ...(lighterSignedTx ? { lighterSignedTx } : {}),
           ...(lighterSignedApproveIntegrator ? { lighterSignedApproveIntegrator } : {}),
           ...(opts.policySig ? { policySig: opts.policySig } : {}),
-        });
+        }, { auth: keyAuth });
         let acct: { accountIndex?: number; apiKeyIndex?: number } = {};
         if (lighter) {
           const a = (bundle.steps.find((s) => s.kind === "lighter_change_pubkey")!.venueTx as { args: { accountIndex: number; apiKeyIndex: number } }).args;
@@ -394,7 +451,7 @@ export function createClient(o: CapstanClientOptions): CapstanClient {
       const a = agentFor(venue);
       const m: Mode = a.policy ? "relay" : mode; // agent-safe mode forces relay
       if (m === "direct" && a.venue === "aster" && a.mode === "relay") throw new SdkError("INVALID_INPUT", "this Aster agent only works from the relay (IP whitelist); onboard a direct-mode agent", { field: "mode" });
-      const b = await api.post<UnsignedVenuePayload>("/orders/build", { owner: a.owner, agentRef: a.agentRef, intent, mode: m });
+      const b = await api.post<UnsignedVenuePayload>("/orders/build", { owner: a.owner, agentRef: a.agentRef, intent, mode: m }, { auth: authAs(a) });
       return checkOrderBuild(a, intent, b, m);
     },
 
@@ -406,7 +463,7 @@ export function createClient(o: CapstanClientOptions): CapstanClient {
     async cancel(c, venue, mode) {
       const a = agentFor(venue);
       const m: Mode = a.policy ? "relay" : (mode ?? a.mode);
-      const b = await api.post<UnsignedVenuePayload>("/orders/cancel/build", { owner: a.owner, agentRef: a.agentRef, marketId: c.marketId, ...(c.venueOrderId ? { venueOrderId: c.venueOrderId } : {}), ...(c.clientOrderId ? { clientOrderId: c.clientOrderId } : {}), mode: m });
+      const b = await api.post<UnsignedVenuePayload>("/orders/cancel/build", { owner: a.owner, agentRef: a.agentRef, marketId: c.marketId, ...(c.venueOrderId ? { venueOrderId: c.venueOrderId } : {}), ...(c.clientOrderId ? { clientOrderId: c.clientOrderId } : {}), mode: m }, { auth: authAs(a) });
       const cb = await checkCancel(a, c, b, m);
       const r = await submitChecked(cb);
       return { receiptId: r.receiptId, status: r.order.status };
@@ -417,7 +474,8 @@ export function createClient(o: CapstanClientOptions): CapstanClient {
       const owners = new Set([...agents.values()].filter((a) => !venues || venues.includes(a.venue)).map((a) => a.owner));
       const out: { venue: VenueId; marketId: string; receiptId: string | null; error?: string }[] = [];
       for (const owner of owners) {
-        const builds = await api.post<UnsignedVenuePayload[]>("/orders/close-all/build", { owner, ...(venues ? { venues } : {}) });
+        const signerAgent = [...agents.values()].filter((x) => x.owner === owner && SECP.has(x.venue)).at(-1);
+        const builds = await api.post<UnsignedVenuePayload[]>("/orders/close-all/build", { owner, ...(venues ? { venues } : {}) }, { auth: authAs(signerAgent) });
         for (const b of builds) {
           try {
             const a = agentFor(b.venue);
@@ -441,9 +499,9 @@ export function createClient(o: CapstanClientOptions): CapstanClient {
       const m: Mode = a.policy ? "relay" : a.mode;
       // build and check BOTH before signing anything (DECISIONS #54)
       const cancelIntent: CancelIntent = { marketId: intent.marketId, venueOrderId };
-      const cancelBuild = await api.post<UnsignedVenuePayload>("/orders/cancel/build", { owner: a.owner, agentRef: a.agentRef, marketId: intent.marketId, venueOrderId, mode: m });
+      const cancelBuild = await api.post<UnsignedVenuePayload>("/orders/cancel/build", { owner: a.owner, agentRef: a.agentRef, marketId: intent.marketId, venueOrderId, mode: m }, { auth: authAs(a) });
       const cancelChecked = await checkCancel(a, cancelIntent, cancelBuild, m);
-      const orderBuild = await api.post<UnsignedVenuePayload>("/orders/build", { owner: a.owner, agentRef: a.agentRef, intent, mode: m });
+      const orderBuild = await api.post<UnsignedVenuePayload>("/orders/build", { owner: a.owner, agentRef: a.agentRef, intent, mode: m }, { auth: authAs(a) });
       const orderChecked = await checkOrderBuild(a, intent, orderBuild, m);
       const cancelEnv = await envelopeFor(cancelChecked);
       const orderEnv = await envelopeFor(orderChecked);
@@ -517,13 +575,13 @@ export function createClient(o: CapstanClientOptions): CapstanClient {
       const signedRead = { path, query, signature, signer: a.publicPart as Hex, owner: a.owner, fetchedAtMs: now() };
       if (a.mode === "relay") {
         // the agent is whitelisted to the relay egress IP: the API host sends the signed read for us
-        const r = await api.post<{ ok: boolean }>("/risk/ingest", { venue: "aster", mode: "relay", signedRead });
+        const r = await api.post<{ ok: boolean }>("/risk/ingest", { venue: "aster", mode: "relay", signedRead }, { auth: authAs(a) });
         return { ok: r.ok === true, mode: "relay" };
       }
       const res = await venueFetch(`${hosts.aster!.replace(/\/$/, "")}${path}?${query}&signature=${signature}`, { method: "GET" });
       const snapshot = await res.json().catch(() => null);
       if (!res.ok) throw new SdkError("VENUE_ERROR", `Aster read failed (${res.status})`);
-      const r = await api.post<{ ok: boolean }>("/risk/ingest", { venue: "aster", mode: "direct", snapshot, signedRead: { ...signedRead, fetchedAtMs: now() } });
+      const r = await api.post<{ ok: boolean }>("/risk/ingest", { venue: "aster", mode: "direct", snapshot, signedRead: { ...signedRead, fetchedAtMs: now() } }, { auth: authAs(a) });
       return { ok: r.ok === true, mode: "direct", venueResponse: snapshot };
     },
 
@@ -543,12 +601,12 @@ export function createClient(o: CapstanClientOptions): CapstanClient {
 
   async function submitEnvelope(cb: CheckedBuild, env: SignedEnvelope): Promise<SubmitOutcome> {
     if (cb.mode === "relay") {
-      const r = await api.post<{ order: Order; receiptId: string }>("/orders/submit", { buildId: cb.build.buildId, signedEnvelope: env });
+      const r = await api.post<{ order: Order; receiptId: string }>("/orders/submit", { buildId: cb.build.buildId, signedEnvelope: env }, { auth: authAs(agents.get(cb.agentRef)) });
       account(cb);
       return r;
     }
     const d = await postDirect(cb.venue, env, { hosts, fetch: venueFetch, ...(cb.cancel && cb.venue === "aster" ? { method: "DELETE" as const } : {}) });
-    const claim = await api.post<{ receiptId: string; order?: Order }>("/receipts/claim", { buildId: cb.build.buildId, signedEnvelope: env, venueResponse: d.venueResponse });
+    const claim = await api.post<{ receiptId: string; order?: Order }>("/receipts/claim", { buildId: cb.build.buildId, signedEnvelope: env, venueResponse: d.venueResponse }, { auth: authAs(agents.get(cb.agentRef)) });
     if (d.status !== "accepted") return { order: claim.order ?? orderOf(cb, null, "rejected"), receiptId: claim.receiptId, venueResponse: d.venueResponse };
     account(cb);
     return { order: claim.order ?? orderOf(cb, d.venueOrderId ?? d.txHash, "open"), receiptId: claim.receiptId, venueResponse: d.venueResponse };
@@ -569,7 +627,7 @@ export function createClient(o: CapstanClientOptions): CapstanClient {
         const d = await postDirect(a.venue, env, { hosts, fetch: venueFetch });
         let receiptId: string | null = null;
         try {
-          receiptId = (await api.post<{ receiptId: string }>("/receipts/claim", { buildId: b.buildId, signedEnvelope: env, venueResponse: d.venueResponse })).receiptId;
+          receiptId = (await api.post<{ receiptId: string }>("/receipts/claim", { buildId: b.buildId, signedEnvelope: env, venueResponse: d.venueResponse }, { auth: authAs(a) })).receiptId;
         } catch {
           receiptId = null;
         }

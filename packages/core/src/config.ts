@@ -43,6 +43,36 @@ const common = {
 // A service signer is either a keystore (path + password file) or, on the local chain only, the dev signer.
 const signerKind = z.enum(["keystore", "dev"]).default("keystore");
 
+/**
+ * CAPSTAN_WEB_ORIGINS: the comma list of exact web origins the API answers CORS for (scheme, host, optional port; no
+ * path, no wildcard, no credentials). Empty means no CORS. A bad entry refuses the boot rather than opening more.
+ */
+export function parseWebOrigins(raw: string): string[] {
+  const out: string[] = [];
+  for (const part of raw.split(",")) {
+    const v = part.trim();
+    if (!v) continue;
+    if (!/^https?:\/\/[a-z0-9.-]+(:\d{1,5})?$/i.test(v)) throw new Error("web origin must be scheme://host[:port], no path and no wildcard");
+    const u = new URL(v);
+    if (u.username || u.password || u.pathname !== "/" || u.search || u.hash) throw new Error("web origin must be scheme://host[:port]");
+    const o = u.origin.toLowerCase();
+    if (!out.includes(o)) out.push(o);
+  }
+  return out;
+}
+
+const webOrigins = z
+  .string()
+  .default("")
+  .transform((s, ctx) => {
+    try {
+      return parseWebOrigins(s);
+    } catch {
+      ctx.addIssue({ code: "custom", message: "web origins" });
+      return z.NEVER;
+    }
+  });
+
 const ROLE_SCHEMAS = {
   api: z.object({
     ...common,
@@ -57,6 +87,8 @@ const ROLE_SCHEMAS = {
     FACILITATOR_URL: url.default("http://127.0.0.1:8714"),
     // the x402 gate offers the USDG eip3009 rail on mainnet only with this switch (packages/x402/src/accepts.ts)
     X402_USDG_EIP3009_MAINNET: flag(false),
+    // the dashboard's origins (exact match, apps/api/src/cors.ts); empty = no CORS
+    CAPSTAN_WEB_ORIGINS: webOrigins,
   }),
   ws: z.object({
     ...common,

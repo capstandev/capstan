@@ -17,6 +17,7 @@ export { publicVenueMarkets, staticMarketSource, parseMarketId, hlAssetId, type 
 export { verifyReceiptOffline, rpcAnchorReader, type AnchorReader, type ReceiptProof, type VerifyChecks } from "./receipts";
 export { sdkSpendControls, selectPayment, payingFetch, usdToAtomic, X402_NETWORKS, type SpendControls, type X402Payer, type PaymentRequired, type PaymentRequirements } from "./x402";
 export { capstanMessage, type CapstanMessageFields, type SignedPurpose } from "./signed-message";
+export { defaultStepPresenter, resolvePresenter, stepsText, STEPS_HEADING, type StepPresenter } from "./present";
 export { intentFromPayload } from "./intent";
 export { SdkError, SDK_ERROR_CODES, type SdkErrorCode } from "./errors";
 export { clientSpreadPorts, executeSpread, executeSpreadPlan, spreadAckMessage, SPREAD_ACK_TEXT, type ExecuteResult, type ExecutorEvent, type ExecutorPorts, type SpreadPortOptions } from "./spreads";

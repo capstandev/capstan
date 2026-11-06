@@ -5,6 +5,7 @@ import { ROUTE_AUTHS, type RouteAuth, type RouteSpec, type RouteWrite } from "@c
 import { CapstanError, errorBody } from "@capstan/schema";
 import { Hono, type Context, type MiddlewareHandler } from "hono";
 import { join, relative } from "node:path";
+import { corsFor } from "./cors";
 import { mountTrpc } from "./trpc";
 
 export const ROUTES_DIR = join(import.meta.dir, "routes");
@@ -22,6 +23,8 @@ export interface CreateAppOptions {
   limiter?: (spec: RouteSpec) => MiddlewareHandler;
   /** The x402 payment middleware (todo 33 paymentGate) for priced routes; skipped when credits paid (x402PaidBy). */
   payment?: MiddlewareHandler;
+  /** Exact web origins answered with CORS (CAPSTAN_WEB_ORIGINS, parsed by parseWebOrigins). Default none. */
+  corsOrigins?: readonly string[];
 }
 
 export interface MountedRoute {
@@ -156,6 +159,7 @@ export async function createApp(opts: CreateAppOptions = {}): Promise<{ app: Hon
     mounted.push({ method: spec.method, path: spec.path, auth: spec.auth, ...(spec.authAlt ? { authAlt: spec.authAlt } : {}), ...(spec.priced ? { priced: spec.priced.usd } : {}), file, ...(spec.write ? { write: spec.write.action } : {}) });
   }
   const app = new Hono();
+  app.use("*", corsFor(opts.corsOrigins ?? []));
   app.route("/v1", v1);
   mountTrpc(app, mounted);
   app.notFound((c) => c.json(errorBody("NOT_FOUND"), 404));
