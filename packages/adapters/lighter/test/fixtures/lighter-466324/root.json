@@ -1,0 +1,17 @@
+{
+ "name": "lighter-466324/root",
+ "capturedAt": "2026-11-06T02:55:43.687Z",
+ "source": "live",
+ "venue": "lighter-466324",
+ "request": {
+  "method": "GET",
+  "url": "https://api.rh.lighter.xyz/",
+  "body": null
+ },
+ "status": 200,
+ "response": {
+  "status": 200,
+  "network_id": 1,
+  "timestamp": 1793933743
+ }
+}

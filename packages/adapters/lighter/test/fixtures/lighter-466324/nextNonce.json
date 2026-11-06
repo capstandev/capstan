@@ -1,0 +1,16 @@
+{
+ "name": "lighter-466324/nextNonce",
+ "capturedAt": "2026-11-06T02:55:53.647Z",
+ "source": "live",
+ "venue": "lighter-466324",
+ "request": {
+  "method": "GET",
+  "url": "https://api.rh.lighter.xyz/api/v1/nextNonce?account_index=3&api_key_index=4",
+  "body": null
+ },
+ "status": 200,
+ "response": {
+  "code": 200,
+  "nonce": 0
+ }
+}

@@ -1,0 +1,494 @@
+{
+ "name": "lighter-304/ws_market0",
+ "capturedAt": "2026-11-06T02:56:55.250Z",
+ "source": "live",
+ "venue": "lighter-304",
+ "request": {
+  "url": "wss://mainnet.zklighter.elliot.ai/stream?readonly=true",
+  "subscribe": [
+   "order_book/0",
+   "market_stats/0"
+  ]
+ },
+ "messages": [
+  {
+   "session_id": "fbc2ee1c-5b05-4946-866a-4ac626af438e",
+   "type": "connected"
+  },
+  {
+   "channel": "market_stats:0",
+   "market_stats": {
+    "symbol": "ETH",
+    "market_id": 0,
+    "index_price": "2243.97",
+    "mark_price": "2243.03",
+    "mid_price": "2243.07",
+    "best_ask_price": "2243.15",
+    "best_bid_price": "2242.99",
+    "open_interest": "69950570.355167",
+    "open_interest_limit": "72057594037927936.000000",
+    "open_interest_usd": "139901140.710334",
+    "funding_clamp_small": "0.0500",
+    "funding_clamp_big": "4.0000",
+    "last_trade_price": "2243.15",
+    "current_funding_rate": "0.0012",
+    "funding_rate": "0.0012",
+    "funding_timestamp": 1793930400001,
+    "daily_base_token_volume": 303495.7605,
+    "daily_quote_token_volume": 698623256.4559441,
+    "daily_price_low": 2204.58,
+    "daily_price_high": 2436.3,
+    "daily_price_change": -7.4666710678874555,
+    "base_interest_rate": "0.0100",
+    "premium": "-0.0373"
+   },
+   "timestamp": 1793933811981,
+   "type": "subscribed/market_stats"
+  },
+  {
+   "channel": "order_book:0",
+   "last_updated_at": 1793933811951205,
+   "offset": 13723607,
+   "order_book": {
+    "code": 0,
+    "asks": [
+     {
+      "price": "2243.15",
+      "size": "7.9960"
+     },
+     {
+      "price": "2243.16",
+      "size": "7.1506"
+     },
+     {
+      "price": "2243.17",
+      "size": "1.2116"
+     },
+     {
+      "price": "2243.18",
+      "size": "10.7219"
+     },
+     {
+      "price": "2243.20",
+      "size": "4.6282"
+     },
+     {
+      "price": "2243.25",
+      "size": "6.6871"
+     },
+     {
+      "price": "2243.26",
+      "size": "4.7855"
+     },
+     {
+      "price": "2243.27",
+      "size": "0.0100"
+     },
+     {
+      "price": "2243.28",
+      "size": "1.1144"
+     },
+     {
+      "price": "2243.30",
+      "size": "0.0092"
+     },
+     {
+      "price": "2243.31",
+      "size": "2.5916"
+     },
+     {
+      "price": "2243.33",
+      "size": "0.9766"
+     },
+     {
+      "price": "2243.34",
+      "size": "7.8872"
+     },
+     {
+      "price": "2243.35",
+      "size": "2.2288"
+     },
+     {
+      "price": "2243.37",
+      "size": "0.0891"
+     },
+     {
+      "price": "2243.38",
+      "size": "3.2185"
+     },
+     {
+      "price": "2243.40",
+      "size": "6.6961"
+     },
+     {
+      "price": "2243.41",
+      "size": "0.3319"
+     },
+     {
+      "price": "2243.42",
+      "size": "0.0892"
+     },
+     {
+      "price": "2243.43",
+      "size": "135.5344"
+     }
+    ],
+    "bids": [
+     {
+      "price": "2242.99",
+      "size": "4.7440"
+     },
+     {
+      "price": "2242.98",
+      "size": "0.8540"
+     },
+     {
+      "price": "2242.92",
+      "size": "4.5092"
+     },
+     {
+      "price": "2242.91",
+      "size": "2.3262"
+     },
+     {
+      "price": "2242.89",
+      "size": "4.5463"
+     },
+     {
+      "price": "2242.88",
+      "size": "2.8347"
+     },
+     {
+      "price": "2242.87",
+      "size": "2.2292"
+     },
+     {
+      "price": "2242.86",
+      "size": "10.6953"
+     },
+     {
+      "price": "2242.84",
+      "size": "7.8872"
+     },
+     {
+      "price": "2242.82",
+      "size": "154.7480"
+     },
+     {
+      "price": "2242.81",
+      "size": "1.5512"
+     },
+     {
+      "price": "2242.76",
+      "size": "18.7850"
+     },
+     {
+      "price": "2242.75",
+      "size": "25.4568"
+     },
+     {
+      "price": "2242.72",
+      "size": "4.3628"
+     },
+     {
+      "price": "2242.69",
+      "size": "3.3441"
+     },
+     {
+      "price": "2242.66",
+      "size": "2.3879"
+     },
+     {
+      "price": "2242.65",
+      "size": "1.0328"
+     },
+     {
+      "price": "2242.64",
+      "size": "6.6870"
+     },
+     {
+      "price": "2242.63",
+      "size": "8.1561"
+     },
+     {
+      "price": "2242.62",
+      "size": "154.8372"
+     }
+    ],
+    "offset": 13723607,
+    "nonce": 26779677391,
+    "last_updated_at": 1793933811951205,
+    "begin_nonce": 0
+   },
+   "timestamp": 1793933811981,
+   "type": "subscribed/order_book"
+  },
+  {
+   "channel": "order_book:0",
+   "last_updated_at": 1793933811973241,
+   "offset": 13723608,
+   "order_book": {
+    "code": 0,
+    "asks": [
+     {
+      "price": "2244.28",
+      "size": "0.0000"
+     }
+    ],
+    "bids": [],
+    "offset": 13723608,
+    "nonce": 26779677463,
+    "last_updated_at": 1793933811973241,
+    "begin_nonce": 26779677391
+   },
+   "timestamp": 1793933812010,
+   "type": "update/order_book"
+  },
+  {
+   "channel": "order_book:0",
+   "last_updated_at": 1793933812042190,
+   "offset": 13723615,
+   "order_book": {
+    "code": 0,
+    "asks": [],
+    "bids": [
+     {
+      "price": "2243.00",
+      "size": "0.4886"
+     },
+     {
+      "price": "2242.99",
+      "size": "4.2554"
+     },
+     {
+      "price": "2242.90",
+      "size": "7.1214"
+     },
+     {
+      "price": "2242.86",
+      "size": "3.5739"
+     },
+     {
+      "price": "2242.58",
+      "size": "14.6630"
+     }
+    ],
+    "offset": 13723615,
+    "nonce": 26779677532,
+    "last_updated_at": 1793933812042190,
+    "begin_nonce": 26779677463
+   },
+   "timestamp": 1793933812068,
+   "type": "update/order_book"
+  },
+  {
+   "channel": "order_book:0",
+   "last_updated_at": 1793933812102251,
+   "offset": 13723626,
+   "order_book": {
+    "code": 0,
+    "asks": [
+     {
+      "price": "2243.15",
+      "size": "3.9564"
+     },
+     {
+      "price": "2243.16",
+      "size": "0.0000"
+     },
+     {
+      "price": "2243.17",
+      "size": "0.0000"
+     },
+     {
+      "price": "2243.18",
+      "size": "0.0000"
+     },
+     {
+      "price": "2243.22",
+      "size": "10.7219"
+     },
+     {
+      "price": "2243.26",
+      "size": "3.5739"
+     },
+     {
+      "price": "2243.36",
+      "size": "1.2116"
+     }
+    ],
+    "bids": [
+     {
+      "price": "2243.01",
+      "size": "4.2189"
+     },
+     {
+      "price": "2243.00",
+      "size": "3.9598"
+     },
+     {
+      "price": "2242.97",
+      "size": "1.6155"
+     },
+     {
+      "price": "2242.58",
+      "size": "29.3671"
+     }
+    ],
+    "offset": 13723626,
+    "nonce": 26779677627,
+    "last_updated_at": 1793933812102251,
+    "begin_nonce": 26779677532
+   },
+   "timestamp": 1793933812109,
+   "type": "update/order_book"
+  },
+  {
+   "channel": "order_book:0",
+   "last_updated_at": 1793933812129794,
+   "offset": 13723633,
+   "order_book": {
+    "code": 0,
+    "asks": [
+     {
+      "price": "2243.30",
+      "size": "0.0000"
+     },
+     {
+      "price": "2243.40",
+      "size": "6.6869"
+     },
+     {
+      "price": "2243.46",
+      "size": "3.3622"
+     },
+     {
+      "price": "2243.55",
+      "size": "0.0092"
+     },
+     {
+      "price": "2243.59",
+      "size": "143.1466"
+     },
+     {
+      "price": "2244.85",
+      "size": "39.5960"
+     }
+    ],
+    "bids": [
+     {
+      "price": "2242.91",
+      "size": "5.9001"
+     },
+     {
+      "price": "2242.86",
+      "size": "0.0000"
+     },
+     {
+      "price": "2242.78",
+      "size": "0.0112"
+     },
+     {
+      "price": "2242.74",
+      "size": "0.0112"
+     },
+     {
+      "price": "2242.61",
+      "size": "134.9440"
+     },
+     {
+      "price": "2242.51",
+      "size": "2.1780"
+     },
+     {
+      "price": "2242.48",
+      "size": "0.0000"
+     },
+     {
+      "price": "2242.36",
+      "size": "0.0000"
+     },
+     {
+      "price": "2241.20",
+      "size": "39.6600"
+     },
+     {
+      "price": "2240.50",
+      "size": "0.0000"
+     }
+    ],
+    "offset": 13723633,
+    "nonce": 26779677698,
+    "last_updated_at": 1793933812129794,
+    "begin_nonce": 26779677627
+   },
+   "timestamp": 1793933812166,
+   "type": "update/order_book"
+  },
+  {
+   "channel": "order_book:0",
+   "last_updated_at": 1793933812194219,
+   "offset": 13723636,
+   "order_book": {
+    "code": 0,
+    "asks": [
+     {
+      "price": "2243.50",
+      "size": "0.0092"
+     },
+     {
+      "price": "2243.55",
+      "size": "0.0000"
+     },
+     {
+      "price": "2244.39",
+      "size": "1.0562"
+     }
+    ],
+    "bids": [
+     {
+      "price": "2242.41",
+      "size": "1.0763"
+     }
+    ],
+    "offset": 13723636,
+    "nonce": 26779677770,
+    "last_updated_at": 1793933812194219,
+    "begin_nonce": 26779677698
+   },
+   "timestamp": 1793933812215,
+   "type": "update/order_book"
+  },
+  {
+   "channel": "market_stats:0",
+   "market_stats": {
+    "symbol": "ETH",
+    "market_id": 0,
+    "index_price": "2244.00",
+    "mark_price": "2243.04",
+    "mid_price": "2243.08",
+    "best_ask_price": "2243.15",
+    "best_bid_price": "2243.01",
+    "open_interest": "69950882.212656",
+    "open_interest_limit": "72057594037927936.000000",
+    "open_interest_usd": "139901764.425312",
+    "funding_clamp_small": "0.0500",
+    "funding_clamp_big": "4.0000",
+    "last_trade_price": "2243.15",
+    "current_funding_rate": "0.0012",
+    "funding_rate": "0.0012",
+    "funding_timestamp": 1793930400001,
+    "daily_base_token_volume": 303495.9127,
+    "daily_quote_token_volume": 698623597.787008,
+    "daily_price_low": 2204.58,
+    "daily_price_high": 2436.3,
+    "daily_price_change": -7.447278188787615,
+    "base_interest_rate": "0.0100",
+    "premium": "-0.0373"
+   },
+   "timestamp": 1793933812835,
+   "type": "update/market_stats"
+  }
+ ],
+ "note": "books trimmed to 20 levels per side"
+}

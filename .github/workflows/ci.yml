@@ -180,9 +180,22 @@ jobs:
           tar -xzf "$RUNNER_TEMP/gitleaks.tgz" -C "$RUNNER_TEMP" gitleaks
           "$RUNNER_TEMP/gitleaks" detect --source . --config .github/gitleaks.toml --redact --no-banner --exit-code 1
 
+  lighter-wasm:
+    # rebuild the lighter-go wasm signer in the pinned golang image (digest in packages/signers/lighter-wasm/build/common.sh)
+    # and fail unless the bytes equal the committed artifacts/SHA256SUMS
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with: { persist-credentials: false }
+      - name: rebuild and compare with SHA256SUMS
+        run: bash packages/signers/lighter-wasm/build/build.sh --check
+      - name: committed artifacts match SHA256SUMS
+        run: sha256sum -c packages/signers/lighter-wasm/artifacts/SHA256SUMS
+
   ci-summary:
     # the single required check: green only when every job passed
-    needs: [ts, coverage, contracts, contracts-fork, slither, semgrep, gitleaks]
+    needs: [ts, coverage, contracts, contracts-fork, slither, semgrep, gitleaks, lighter-wasm]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 5

@@ -64,6 +64,7 @@ export const ADDRESSES = {
   chainlinkBtcUsd: { chainId: 4663, address: "0xa2c5184bF03d373Dc9dE4876eb4Bce595B460251", decimals: 8, source: "chain-facts.md §5, 2026-11-05" },
   // Venue contracts
   lighterRhDeposit: { chainId: 4663, address: "0x94bAB9693Ba2f6358507eFfcbd372b0660AFfF9d", note: "ERC-1967 proxy; re-read from Lighter-RH GET /info at boot and refuse deposit builds on mismatch", source: "venue-lighter.md §deposit-contract, 2026-11-05" },
+  lighterRhDepositImpl: { chainId: 4663, address: "0x998ecf039eb110b72f5f6c1ea31c2fa41a458faa", note: "EIP-1967 implementation of lighterRhDeposit at the pin; the nightly health job alerts when the slot changes", source: "venue-lighter.md §deposit-contract, 2026-11-05" },
   lighterMainnetL1: { chainId: 1, address: "0x3B4D794a66304F130a4Db8F2551B0070dfCf5ca7", note: "Lighter contract on Ethereum (from GET /info)", source: "venue-lighter.md §configs, 2026-11-05" },
 } as const satisfies Record<string, AddressConst>;
 

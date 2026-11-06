@@ -1,0 +1,16 @@
+{
+ "name": "lighter-304/accountsByL1Address_none",
+ "capturedAt": "2026-11-06T02:55:40.377Z",
+ "source": "live",
+ "venue": "lighter-304",
+ "request": {
+  "method": "GET",
+  "url": "https://mainnet.zklighter.elliot.ai/api/v1/accountsByL1Address?l1_address=0x000000000000000000000000000000000000dEaD",
+  "body": null
+ },
+ "status": 400,
+ "response": {
+  "code": 21100,
+  "message": "account not found"
+ }
+}

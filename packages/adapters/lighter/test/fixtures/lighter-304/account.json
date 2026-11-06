@@ -1,0 +1,74 @@
+{
+ "name": "lighter-304/account",
+ "capturedAt": "2026-11-06T02:55:41.391Z",
+ "source": "live",
+ "venue": "lighter-304",
+ "request": {
+  "method": "GET",
+  "url": "https://mainnet.zklighter.elliot.ai/api/v1/account?by=index&value=3",
+  "body": null
+ },
+ "status": 200,
+ "response": {
+  "code": 200,
+  "total": 1,
+  "accounts": [
+   {
+    "code": 0,
+    "account_type": 0,
+    "index": 3,
+    "l1_address": "0x00000000000000000000000000000000000A11CE",
+    "cancel_all_time": 0,
+    "total_order_count": 0,
+    "total_isolated_order_count": 0,
+    "pending_order_count": 0,
+    "available_balance": "97449.990000",
+    "status": 0,
+    "collateral": "97449.990000",
+    "transaction_time": 1780841336544753,
+    "account_trading_mode": 0,
+    "account_index": 3,
+    "name": "",
+    "description": "",
+    "can_invite": true,
+    "referral_points_percentage": "",
+    "can_rfq": true,
+    "can_rfq_market_ids": [],
+    "agent_enabled": false,
+    "created_at": 0,
+    "metadata": {
+     "color": ""
+    },
+    "positions": [],
+    "bo_positions": [],
+    "assets": [
+     {
+      "symbol": "LIT",
+      "asset_id": 2,
+      "balance": "460.00000000",
+      "locked_balance": "0.00000000",
+      "margin_mode": "disabled",
+      "margin_balance": "0.00000000",
+      "multiplier": "1.000000000000000000"
+     },
+     {
+      "symbol": "USDC",
+      "asset_id": 3,
+      "balance": "5.000000",
+      "locked_balance": "0.000000",
+      "margin_mode": "disabled",
+      "margin_balance": "97449.990000",
+      "multiplier": "1.000000000000000000"
+     }
+    ],
+    "total_asset_value": "97449.99",
+    "cross_asset_value": "97449.99",
+    "cross_initial_margin_requirement": "0.000000",
+    "cross_maintenance_margin_requirement": "0.000000",
+    "shares": [],
+    "pending_unlocks": []
+   }
+  ]
+ },
+ "note": "l1_address replaced with a placeholder"
+}

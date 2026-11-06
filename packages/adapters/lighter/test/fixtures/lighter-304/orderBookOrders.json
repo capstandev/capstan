@@ -1,0 +1,421 @@
+{
+ "name": "lighter-304/orderBookOrders",
+ "capturedAt": "2026-11-06T02:59:35.326Z",
+ "source": "live",
+ "venue": "lighter-304",
+ "request": {
+  "method": "GET",
+  "url": "https://mainnet.zklighter.elliot.ai/api/v1/orderBookOrders?market_id=0&limit=20",
+  "body": null
+ },
+ "status": 200,
+ "response": {
+  "code": 200,
+  "total_asks": 20,
+  "asks": [
+   {
+    "order_index": 281478187963734,
+    "order_id": "281478187963734",
+    "owner_account_index": 702389,
+    "initial_base_amount": "2.3514",
+    "remaining_base_amount": "2.3514",
+    "price": "2242.34",
+    "order_expiry": 1794020375107,
+    "transaction_time": 0
+   },
+   {
+    "order_index": 281478187963725,
+    "order_id": "281478187963725",
+    "owner_account_index": 314236,
+    "initial_base_amount": "2.4800",
+    "remaining_base_amount": "2.4800",
+    "price": "2242.37",
+    "order_expiry": 1796353175061,
+    "transaction_time": 0
+   },
+   {
+    "order_index": 281478187963702,
+    "order_id": "281478187963702",
+    "owner_account_index": 702389,
+    "initial_base_amount": "2.3036",
+    "remaining_base_amount": "2.3036",
+    "price": "2242.38",
+    "order_expiry": 1794020374753,
+    "transaction_time": 0
+   },
+   {
+    "order_index": 281478187963682,
+    "order_id": "281478187963682",
+    "owner_account_index": 702389,
+    "initial_base_amount": "2.0817",
+    "remaining_base_amount": "2.0817",
+    "price": "2242.39",
+    "order_expiry": 1794020374656,
+    "transaction_time": 0
+   },
+   {
+    "order_index": 281478187963590,
+    "order_id": "281478187963590",
+    "owner_account_index": 702389,
+    "initial_base_amount": "2.3761",
+    "remaining_base_amount": "2.3761",
+    "price": "2242.40",
+    "order_expiry": 1794020373309,
+    "transaction_time": 0
+   },
+   {
+    "order_index": 281478187963583,
+    "order_id": "281478187963583",
+    "owner_account_index": 702389,
+    "initial_base_amount": "3.8617",
+    "remaining_base_amount": "3.8617",
+    "price": "2242.41",
+    "order_expiry": 1794020373255,
+    "transaction_time": 0
+   },
+   {
+    "order_index": 281478187963732,
+    "order_id": "281478187963732",
+    "owner_account_index": 281474976618239,
+    "initial_base_amount": "10.7219",
+    "remaining_base_amount": "10.7219",
+    "price": "2242.41",
+    "order_expiry": 1796525975074,
+    "transaction_time": 0
+   },
+   {
+    "order_index": 281478187961903,
+    "order_id": "281478187961903",
+    "owner_account_index": 281474976509475,
+    "initial_base_amount": "0.8540",
+    "remaining_base_amount": "0.8540",
+    "price": "2242.42",
+    "order_expiry": 1796353152915,
+    "transaction_time": 0
+   },
+   {
+    "order_index": 281478187963509,
+    "order_id": "281478187963509",
+    "owner_account_index": 281474976624610,
+    "initial_base_amount": "0.0892",
+    "remaining_base_amount": "0.0892",
+    "price": "2242.49",
+    "order_expiry": 1796353172969,
+    "transaction_time": 0
+   },
+   {
+    "order_index": 281478187962853,
+    "order_id": "281478187962853",
+    "owner_account_index": 702389,
+    "initial_base_amount": "2.1841",
+    "remaining_base_amount": "2.1841",
+    "price": "2242.50",
+    "order_expiry": 1794020365009,
+    "transaction_time": 0
+   },
+   {
+    "order_index": 281478187962847,
+    "order_id": "281478187962847",
+    "owner_account_index": 702389,
+    "initial_base_amount": "2.0085",
+    "remaining_base_amount": "2.0085",
+    "price": "2242.51",
+    "order_expiry": 1794020364967,
+    "transaction_time": 0
+   },
+   {
+    "order_index": 281478187963125,
+    "order_id": "281478187963125",
+    "owner_account_index": 668649,
+    "initial_base_amount": "0.0090",
+    "remaining_base_amount": "0.0090",
+    "price": "2242.51",
+    "order_expiry": 1796525967423,
+    "transaction_time": 0
+   },
+   {
+    "order_index": 281478187963564,
+    "order_id": "281478187963564",
+    "owner_account_index": 702389,
+    "initial_base_amount": "7.0806",
+    "remaining_base_amount": "7.0806",
+    "price": "2242.53",
+    "order_expiry": 1794020373108,
+    "transaction_time": 0
+   },
+   {
+    "order_index": 281478187925427,
+    "order_id": "281478187925427",
+    "owner_account_index": 220807,
+    "initial_base_amount": "0.0100",
+    "remaining_base_amount": "0.0100",
+    "price": "2242.54",
+    "order_expiry": 1796525617010,
+    "transaction_time": 0
+   },
+   {
+    "order_index": 281478187963724,
+    "order_id": "281478187963724",
+    "owner_account_index": 281474976499586,
+    "initial_base_amount": "1.5921",
+    "remaining_base_amount": "1.5921",
+    "price": "2242.55",
+    "order_expiry": 1796353175045,
+    "transaction_time": 0
+   },
+   {
+    "order_index": 281478187963718,
+    "order_id": "281478187963718",
+    "owner_account_index": 281474976489125,
+    "initial_base_amount": "3.5739",
+    "remaining_base_amount": "3.5739",
+    "price": "2242.56",
+    "order_expiry": 1796525974997,
+    "transaction_time": 0
+   },
+   {
+    "order_index": 281478187963507,
+    "order_id": "281478187963507",
+    "owner_account_index": 281474976624611,
+    "initial_base_amount": "0.0892",
+    "remaining_base_amount": "0.0892",
+    "price": "2242.60",
+    "order_expiry": 1796353172969,
+    "transaction_time": 0
+   },
+   {
+    "order_index": 281478187963558,
+    "order_id": "281478187963558",
+    "owner_account_index": 30323,
+    "initial_base_amount": "8.4220",
+    "remaining_base_amount": "8.4220",
+    "price": "2242.62",
+    "order_expiry": 1796353173085,
+    "transaction_time": 0
+   },
+   {
+    "order_index": 281478187963727,
+    "order_id": "281478187963727",
+    "owner_account_index": 268998,
+    "initial_base_amount": "0.3975",
+    "remaining_base_amount": "0.3975",
+    "price": "2242.62",
+    "order_expiry": 1796353175064,
+    "transaction_time": 0
+   },
+   {
+    "order_index": 281478187963278,
+    "order_id": "281478187963278",
+    "owner_account_index": 433672,
+    "initial_base_amount": "1.0144",
+    "remaining_base_amount": "1.0144",
+    "price": "2242.64",
+    "order_expiry": 1796353169134,
+    "transaction_time": 0
+   }
+  ],
+  "total_bids": 20,
+  "bids": [
+   {
+    "order_index": 562946627628587,
+    "order_id": "562946627628587",
+    "owner_account_index": 702389,
+    "initial_base_amount": "4.1152",
+    "remaining_base_amount": "4.1152",
+    "price": "2242.24",
+    "order_expiry": 1794020375167,
+    "transaction_time": 0
+   },
+   {
+    "order_index": 562946627628594,
+    "order_id": "562946627628594",
+    "owner_account_index": 702389,
+    "initial_base_amount": "4.0896",
+    "remaining_base_amount": "4.0896",
+    "price": "2242.21",
+    "order_expiry": 1794020375067,
+    "transaction_time": 0
+   },
+   {
+    "order_index": 562946627628605,
+    "order_id": "562946627628605",
+    "owner_account_index": 268998,
+    "initial_base_amount": "2.3604",
+    "remaining_base_amount": "2.3604",
+    "price": "2242.20",
+    "order_expiry": 1796353175029,
+    "transaction_time": 0
+   },
+   {
+    "order_index": 562946627628616,
+    "order_id": "562946627628616",
+    "owner_account_index": 702389,
+    "initial_base_amount": "4.7328",
+    "remaining_base_amount": "4.7328",
+    "price": "2242.18",
+    "order_expiry": 1794020375007,
+    "transaction_time": 0
+   },
+   {
+    "order_index": 562946627628626,
+    "order_id": "562946627628626",
+    "owner_account_index": 702389,
+    "initial_base_amount": "4.3720",
+    "remaining_base_amount": "4.3720",
+    "price": "2242.17",
+    "order_expiry": 1794020374953,
+    "transaction_time": 0
+   },
+   {
+    "order_index": 562946627628655,
+    "order_id": "562946627628655",
+    "owner_account_index": 702389,
+    "initial_base_amount": "3.9862",
+    "remaining_base_amount": "3.9862",
+    "price": "2242.15",
+    "order_expiry": 1794020374556,
+    "transaction_time": 0
+   },
+   {
+    "order_index": 562946627628668,
+    "order_id": "562946627628668",
+    "owner_account_index": 366058,
+    "initial_base_amount": "6.6899",
+    "remaining_base_amount": "6.6899",
+    "price": "2242.14",
+    "order_expiry": 1793935774206,
+    "transaction_time": 0
+   },
+   {
+    "order_index": 562946627628607,
+    "order_id": "562946627628607",
+    "owner_account_index": 268998,
+    "initial_base_amount": "1.3054",
+    "remaining_base_amount": "1.3054",
+    "price": "2242.13",
+    "order_expiry": 1796353175029,
+    "transaction_time": 0
+   },
+   {
+    "order_index": 562946627628592,
+    "order_id": "562946627628592",
+    "owner_account_index": 281474976527760,
+    "initial_base_amount": "1.1150",
+    "remaining_base_amount": "1.1150",
+    "price": "2242.12",
+    "order_expiry": 1793934574074,
+    "transaction_time": 0
+   },
+   {
+    "order_index": 562946627628838,
+    "order_id": "562946627628838",
+    "owner_account_index": 724216,
+    "initial_base_amount": "161.3490",
+    "remaining_base_amount": "161.3490",
+    "price": "2242.11",
+    "order_expiry": 1796353172967,
+    "transaction_time": 0
+   },
+   {
+    "order_index": 562946627628590,
+    "order_id": "562946627628590",
+    "owner_account_index": 281474976489125,
+    "initial_base_amount": "3.5739",
+    "remaining_base_amount": "3.5739",
+    "price": "2242.11",
+    "order_expiry": 1796525975077,
+    "transaction_time": 0
+   },
+   {
+    "order_index": 562946627628604,
+    "order_id": "562946627628604",
+    "owner_account_index": 268998,
+    "initial_base_amount": "2.2004",
+    "remaining_base_amount": "2.2004",
+    "price": "2242.08",
+    "order_expiry": 1796353175029,
+    "transaction_time": 0
+   },
+   {
+    "order_index": 562946627628622,
+    "order_id": "562946627628622",
+    "owner_account_index": 281474976618239,
+    "initial_base_amount": "10.7219",
+    "remaining_base_amount": "10.7219",
+    "price": "2242.06",
+    "order_expiry": 1796525974973,
+    "transaction_time": 0
+   },
+   {
+    "order_index": 562946627628591,
+    "order_id": "562946627628591",
+    "owner_account_index": 281474976527760,
+    "initial_base_amount": "2.2300",
+    "remaining_base_amount": "2.2300",
+    "price": "2242.06",
+    "order_expiry": 1793934574074,
+    "transaction_time": 0
+   },
+   {
+    "order_index": 562946627628606,
+    "order_id": "562946627628606",
+    "owner_account_index": 268998,
+    "initial_base_amount": "3.2447",
+    "remaining_base_amount": "3.2447",
+    "price": "2242.03",
+    "order_expiry": 1796353175029,
+    "transaction_time": 0
+   },
+   {
+    "order_index": 562946627628848,
+    "order_id": "562946627628848",
+    "owner_account_index": 702389,
+    "initial_base_amount": "4.2068",
+    "remaining_base_amount": "4.2068",
+    "price": "2242.02",
+    "order_expiry": 1794020372957,
+    "transaction_time": 0
+   },
+   {
+    "order_index": 562946627628839,
+    "order_id": "562946627628839",
+    "owner_account_index": 702389,
+    "initial_base_amount": "4.0618",
+    "remaining_base_amount": "4.0618",
+    "price": "2242.01",
+    "order_expiry": 1794020372957,
+    "transaction_time": 0
+   },
+   {
+    "order_index": 562946627628910,
+    "order_id": "562946627628910",
+    "owner_account_index": 702389,
+    "initial_base_amount": "4.5640",
+    "remaining_base_amount": "4.5640",
+    "price": "2242.00",
+    "order_expiry": 1794020372256,
+    "transaction_time": 0
+   },
+   {
+    "order_index": 562946627628891,
+    "order_id": "562946627628891",
+    "owner_account_index": 747640,
+    "initial_base_amount": "0.0176",
+    "remaining_base_amount": "0.0176",
+    "price": "2241.99",
+    "order_expiry": 1796525972088,
+    "transaction_time": 0
+   },
+   {
+    "order_index": 562946627628596,
+    "order_id": "562946627628596",
+    "owner_account_index": 281474976527760,
+    "initial_base_amount": "3.3452",
+    "remaining_base_amount": "3.3452",
+    "price": "2241.99",
+    "order_expiry": 1793934574055,
+    "transaction_time": 0
+   }
+  ]
+ }
+}

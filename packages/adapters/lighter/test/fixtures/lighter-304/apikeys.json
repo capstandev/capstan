@@ -1,0 +1,52 @@
+{
+ "name": "lighter-304/apikeys",
+ "capturedAt": "2026-11-06T02:55:42.373Z",
+ "source": "live",
+ "venue": "lighter-304",
+ "request": {
+  "method": "GET",
+  "url": "https://mainnet.zklighter.elliot.ai/api/v1/apikeys?account_index=3&api_key_index=255",
+  "body": null
+ },
+ "status": 200,
+ "response": {
+  "code": 200,
+  "api_keys": [
+   {
+    "account_index": 3,
+    "api_key_index": 0,
+    "nonce": 75,
+    "public_key": "a0aa44216efd6e01bb999e364b9949e255d92981fa76801de5850bb8f0b57c7e887087751040e316",
+    "transaction_time": 1780841336544753
+   },
+   {
+    "account_index": 3,
+    "api_key_index": 1,
+    "nonce": 17717,
+    "public_key": "00000000000000000000000000000000000000000000000000000000000000000000000000000000",
+    "transaction_time": 0
+   },
+   {
+    "account_index": 3,
+    "api_key_index": 58,
+    "nonce": 1066,
+    "public_key": "00000000000000000000000000000000000000000000000000000000000000000000000000000000",
+    "transaction_time": 0
+   },
+   {
+    "account_index": 3,
+    "api_key_index": 250,
+    "nonce": 739,
+    "public_key": "00000000000000000000000000000000000000000000000000000000000000000000000000000000",
+    "transaction_time": 0
+   },
+   {
+    "account_index": 3,
+    "api_key_index": 251,
+    "nonce": 15444,
+    "public_key": "00000000000000000000000000000000000000000000000000000000000000000000000000000000",
+    "transaction_time": 0
+   }
+  ]
+ }
+}

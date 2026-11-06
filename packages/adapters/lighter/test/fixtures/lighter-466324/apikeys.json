@@ -1,0 +1,24 @@
+{
+ "name": "lighter-466324/apikeys",
+ "capturedAt": "2026-11-06T02:55:52.602Z",
+ "source": "live",
+ "venue": "lighter-466324",
+ "request": {
+  "method": "GET",
+  "url": "https://api.rh.lighter.xyz/api/v1/apikeys?account_index=3&api_key_index=255",
+  "body": null
+ },
+ "status": 200,
+ "response": {
+  "code": 200,
+  "api_keys": [
+   {
+    "account_index": 3,
+    "api_key_index": 0,
+    "nonce": 1791470190743,
+    "public_key": "2387a185d116a08a86597f005f19112de96fcc1e412ea417cead9a456473112bed3a7148e35c1334",
+    "transaction_time": 1791470191708462
+   }
+  ]
+ }
+}

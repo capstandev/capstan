@@ -51,14 +51,13 @@
       "dependencies": {
         "@capstan/adapter-aster": "workspace:*",
         "@capstan/adapter-hyperliquid": "workspace:*",
+        "@capstan/adapter-lighter": "workspace:*",
         "@capstan/catalog": "workspace:*",
         "@capstan/core": "workspace:*",
         "@capstan/schema": "workspace:*",
+        "@capstan/venue-client": "workspace:*",
         "bullmq": "6.5.4",
         "drizzle-orm": "0.45.4",
-      },
-      "devDependencies": {
-        "@capstan/venue-client": "workspace:*",
       },
     },
     "apps/ws": {
@@ -107,6 +106,13 @@
     "packages/adapters/lighter": {
       "name": "@capstan/adapter-lighter",
       "version": "0.0.0",
+      "dependencies": {
+        "@capstan/core": "workspace:*",
+        "@capstan/schema": "workspace:*",
+        "@capstan/signer-lighter-wasm": "workspace:*",
+        "@capstan/venue-client": "workspace:*",
+        "viem": "2.57.14",
+      },
     },
     "packages/adapters/variational": {
       "name": "@capstan/adapter-variational",

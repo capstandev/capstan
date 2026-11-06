@@ -1,0 +1,3965 @@
+{
+ "name": "lighter-304/books25",
+ "capturedAt": "2026-11-06T03:15:05.346Z",
+ "source": "live",
+ "venue": "lighter-304",
+ "request": {
+  "method": "GET",
+  "url": "https://mainnet.zklighter.elliot.ai/api/v1/orderBookOrders?market_id=<each>&limit=20",
+  "body": null
+ },
+ "status": 200,
+ "response": [
+  {
+   "market_id": 13,
+   "symbol": "TAO",
+   "asks": [
+    {
+     "price": "220.361",
+     "remaining_base_amount": "0.564"
+    },
+    {
+     "price": "220.362",
+     "remaining_base_amount": "0.681"
+    },
+    {
+     "price": "220.377",
+     "remaining_base_amount": "8.550"
+    },
+    {
+     "price": "220.406",
+     "remaining_base_amount": "2.269"
+    },
+    {
+     "price": "220.407",
+     "remaining_base_amount": "0.681"
+    },
+    {
+     "price": "220.407",
+     "remaining_base_amount": "5.444"
+    },
+    {
+     "price": "220.425",
+     "remaining_base_amount": "0.181"
+    },
+    {
+     "price": "220.431",
+     "remaining_base_amount": "18.146"
+    },
+    {
+     "price": "220.442",
+     "remaining_base_amount": "17.860"
+    },
+    {
+     "price": "220.443",
+     "remaining_base_amount": "8.550"
+    },
+    {
+     "price": "220.448",
+     "remaining_base_amount": "20.459"
+    },
+    {
+     "price": "220.453",
+     "remaining_base_amount": "0.681"
+    },
+    {
+     "price": "220.480",
+     "remaining_base_amount": "45.514"
+    },
+    {
+     "price": "220.497",
+     "remaining_base_amount": "0.681"
+    },
+    {
+     "price": "220.521",
+     "remaining_base_amount": "45.514"
+    },
+    {
+     "price": "220.541",
+     "remaining_base_amount": "0.681"
+    },
+    {
+     "price": "220.574",
+     "remaining_base_amount": "9.730"
+    },
+    {
+     "price": "220.585",
+     "remaining_base_amount": "0.681"
+    },
+    {
+     "price": "220.589",
+     "remaining_base_amount": "6.282"
+    },
+    {
+     "price": "220.612",
+     "remaining_base_amount": "22.308"
+    }
+   ],
+   "bids": [
+    {
+     "price": "220.242",
+     "remaining_base_amount": "6.539"
+    },
+    {
+     "price": "220.241",
+     "remaining_base_amount": "0.682"
+    },
+    {
+     "price": "220.222",
+     "remaining_base_amount": "17.527"
+    },
+    {
+     "price": "220.216",
+     "remaining_base_amount": "8.550"
+    },
+    {
+     "price": "220.206",
+     "remaining_base_amount": "2.713"
+    },
+    {
+     "price": "220.199",
+     "remaining_base_amount": "20.456"
+    },
+    {
+     "price": "220.197",
+     "remaining_base_amount": "0.682"
+    },
+    {
+     "price": "220.153",
+     "remaining_base_amount": "0.682"
+    },
+    {
+     "price": "220.138",
+     "remaining_base_amount": "0.181"
+    },
+    {
+     "price": "220.130",
+     "remaining_base_amount": "21.918"
+    },
+    {
+     "price": "220.127",
+     "remaining_base_amount": "5.451"
+    },
+    {
+     "price": "220.117",
+     "remaining_base_amount": "45.514"
+    },
+    {
+     "price": "220.109",
+     "remaining_base_amount": "0.682"
+    },
+    {
+     "price": "220.075",
+     "remaining_base_amount": "27.360"
+    },
+    {
+     "price": "220.062",
+     "remaining_base_amount": "0.682"
+    },
+    {
+     "price": "220.026",
+     "remaining_base_amount": "45.514"
+    },
+    {
+     "price": "220.018",
+     "remaining_base_amount": "0.682"
+    },
+    {
+     "price": "220.015",
+     "remaining_base_amount": "36.303"
+    },
+    {
+     "price": "220.014",
+     "remaining_base_amount": "38.151"
+    },
+    {
+     "price": "220.008",
+     "remaining_base_amount": "14.293"
+    }
+   ]
+  },
+  {
+   "market_id": 204,
+   "symbol": "POPMART",
+   "asks": [],
+   "bids": []
+  },
+  {
+   "market_id": 39,
+   "symbol": "ADA",
+   "asks": [
+    {
+     "price": "0.18504",
+     "remaining_base_amount": "19237.9"
+    },
+    {
+     "price": "0.18504",
+     "remaining_base_amount": "432.0"
+    },
+    {
+     "price": "0.18505",
+     "remaining_base_amount": "7531.6"
+    },
+    {
+     "price": "0.18506",
+     "remaining_base_amount": "15600.0"
+    },
+    {
+     "price": "0.18507",
+     "remaining_base_amount": "10200.0"
+    },
+    {
+     "price": "0.18509",
+     "remaining_base_amount": "7529.9"
+    },
+    {
+     "price": "0.18509",
+     "remaining_base_amount": "6483.3"
+    },
+    {
+     "price": "0.18512",
+     "remaining_base_amount": "21607.9"
+    },
+    {
+     "price": "0.18513",
+     "remaining_base_amount": "7528.3"
+    },
+    {
+     "price": "0.18518",
+     "remaining_base_amount": "28856.9"
+    },
+    {
+     "price": "0.18524",
+     "remaining_base_amount": "54045.1"
+    },
+    {
+     "price": "0.18524",
+     "remaining_base_amount": "17028.4"
+    },
+    {
+     "price": "0.18525",
+     "remaining_base_amount": "54045.1"
+    },
+    {
+     "price": "0.18528",
+     "remaining_base_amount": "81037.7"
+    },
+    {
+     "price": "0.18529",
+     "remaining_base_amount": "45445.9"
+    },
+    {
+     "price": "0.18540",
+     "remaining_base_amount": "269687.2"
+    },
+    {
+     "price": "0.18544",
+     "remaining_base_amount": "192379.3"
+    },
+    {
+     "price": "0.18546",
+     "remaining_base_amount": "625221.4"
+    },
+    {
+     "price": "0.18549",
+     "remaining_base_amount": "269556.4"
+    },
+    {
+     "price": "0.18551",
+     "remaining_base_amount": "1367.0"
+    }
+   ],
+   "bids": [
+    {
+     "price": "0.18494",
+     "remaining_base_amount": "10200.0"
+    },
+    {
+     "price": "0.18491",
+     "remaining_base_amount": "15600.0"
+    },
+    {
+     "price": "0.18489",
+     "remaining_base_amount": "21633.9"
+    },
+    {
+     "price": "0.18488",
+     "remaining_base_amount": "6490.6"
+    },
+    {
+     "price": "0.18485",
+     "remaining_base_amount": "54045.1"
+    },
+    {
+     "price": "0.18481",
+     "remaining_base_amount": "81081.6"
+    },
+    {
+     "price": "0.18479",
+     "remaining_base_amount": "54045.1"
+    },
+    {
+     "price": "0.18477",
+     "remaining_base_amount": "19004.0"
+    },
+    {
+     "price": "0.18472",
+     "remaining_base_amount": "28283.6"
+    },
+    {
+     "price": "0.18469",
+     "remaining_base_amount": "17028.4"
+    },
+    {
+     "price": "0.18463",
+     "remaining_base_amount": "45445.9"
+    },
+    {
+     "price": "0.18453",
+     "remaining_base_amount": "3178.2"
+    },
+    {
+     "price": "0.18448",
+     "remaining_base_amount": "188557.0"
+    },
+    {
+     "price": "0.18441",
+     "remaining_base_amount": "271135.0"
+    },
+    {
+     "price": "0.18432",
+     "remaining_base_amount": "271267.4"
+    },
+    {
+     "price": "0.18424",
+     "remaining_base_amount": "103876.3"
+    },
+    {
+     "price": "0.18423",
+     "remaining_base_amount": "271399.9"
+    },
+    {
+     "price": "0.18418",
+     "remaining_base_amount": "5047.6"
+    },
+    {
+     "price": "0.18417",
+     "remaining_base_amount": "625221.4"
+    },
+    {
+     "price": "0.18414",
+     "remaining_base_amount": "271532.6"
+    }
+   ]
+  },
+  {
+   "market_id": 145,
+   "symbol": "WTI",
+   "asks": [
+    {
+     "price": "91.260",
+     "remaining_base_amount": "8.614"
+    },
+    {
+     "price": "91.261",
+     "remaining_base_amount": "110.000"
+    },
+    {
+     "price": "91.261",
+     "remaining_base_amount": "3.288"
+    },
+    {
+     "price": "91.261",
+     "remaining_base_amount": "114.096"
+    },
+    {
+     "price": "91.264",
+     "remaining_base_amount": "7.146"
+    },
+    {
+     "price": "91.266",
+     "remaining_base_amount": "3.288"
+    },
+    {
+     "price": "91.266",
+     "remaining_base_amount": "10.956"
+    },
+    {
+     "price": "91.267",
+     "remaining_base_amount": "21.913"
+    },
+    {
+     "price": "91.269",
+     "remaining_base_amount": "2200.190"
+    },
+    {
+     "price": "91.270",
+     "remaining_base_amount": "54.724"
+    },
+    {
+     "price": "91.270",
+     "remaining_base_amount": "31.159"
+    },
+    {
+     "price": "91.270",
+     "remaining_base_amount": "5.271"
+    },
+    {
+     "price": "91.271",
+     "remaining_base_amount": "3.287"
+    },
+    {
+     "price": "91.276",
+     "remaining_base_amount": "3.287"
+    },
+    {
+     "price": "91.277",
+     "remaining_base_amount": "7.051"
+    },
+    {
+     "price": "91.281",
+     "remaining_base_amount": "3.287"
+    },
+    {
+     "price": "91.286",
+     "remaining_base_amount": "3.287"
+    },
+    {
+     "price": "91.287",
+     "remaining_base_amount": "2.100"
+    },
+    {
+     "price": "91.288",
+     "remaining_base_amount": "43.765"
+    },
+    {
+     "price": "91.289",
+     "remaining_base_amount": "59.038"
+    }
+   ],
+   "bids": [
+    {
+     "price": "91.252",
+     "remaining_base_amount": "8.518"
+    },
+    {
+     "price": "91.252",
+     "remaining_base_amount": "10.958"
+    },
+    {
+     "price": "91.249",
+     "remaining_base_amount": "7.524"
+    },
+    {
+     "price": "91.249",
+     "remaining_base_amount": "21.918"
+    },
+    {
+     "price": "91.248",
+     "remaining_base_amount": "2200.190"
+    },
+    {
+     "price": "91.248",
+     "remaining_base_amount": "2.100"
+    },
+    {
+     "price": "91.247",
+     "remaining_base_amount": "32.877"
+    },
+    {
+     "price": "91.246",
+     "remaining_base_amount": "6.969"
+    },
+    {
+     "price": "91.245",
+     "remaining_base_amount": "54.900"
+    },
+    {
+     "price": "91.245",
+     "remaining_base_amount": "5.122"
+    },
+    {
+     "price": "91.241",
+     "remaining_base_amount": "1.095"
+    },
+    {
+     "price": "91.241",
+     "remaining_base_amount": "662.614"
+    },
+    {
+     "price": "91.240",
+     "remaining_base_amount": "7.385"
+    },
+    {
+     "price": "91.240",
+     "remaining_base_amount": "3.289"
+    },
+    {
+     "price": "91.239",
+     "remaining_base_amount": "43.765"
+    },
+    {
+     "price": "91.238",
+     "remaining_base_amount": "6.750"
+    },
+    {
+     "price": "91.235",
+     "remaining_base_amount": "3.289"
+    },
+    {
+     "price": "91.234",
+     "remaining_base_amount": "6.436"
+    },
+    {
+     "price": "91.233",
+     "remaining_base_amount": "82.186"
+    },
+    {
+     "price": "91.232",
+     "remaining_base_amount": "8.333"
+    }
+   ]
+  },
+  {
+   "market_id": 183,
+   "symbol": "CTR",
+   "asks": [
+    {
+     "price": "0.01438",
+     "remaining_base_amount": "197430.8"
+    },
+    {
+     "price": "0.01438",
+     "remaining_base_amount": "27812.2"
+    },
+    {
+     "price": "0.01440",
+     "remaining_base_amount": "55563.3"
+    },
+    {
+     "price": "0.01441",
+     "remaining_base_amount": "83303.3"
+    },
+    {
+     "price": "0.01442",
+     "remaining_base_amount": "110940.1"
+    },
+    {
+     "price": "0.01446",
+     "remaining_base_amount": "138312.6"
+    },
+    {
+     "price": "0.01448",
+     "remaining_base_amount": "138121.6"
+    },
+    {
+     "price": "0.01450",
+     "remaining_base_amount": "137931.1"
+    },
+    {
+     "price": "0.01452",
+     "remaining_base_amount": "137741.1"
+    },
+    {
+     "price": "0.01454",
+     "remaining_base_amount": "137551.6"
+    },
+    {
+     "price": "0.01456",
+     "remaining_base_amount": "137362.7"
+    },
+    {
+     "price": "0.01458",
+     "remaining_base_amount": "137174.3"
+    },
+    {
+     "price": "0.01460",
+     "remaining_base_amount": "136986.4"
+    },
+    {
+     "price": "0.01462",
+     "remaining_base_amount": "136799.0"
+    },
+    {
+     "price": "0.01464",
+     "remaining_base_amount": "136612.1"
+    },
+    {
+     "price": "0.04260",
+     "remaining_base_amount": "3131.2"
+    }
+   ],
+   "bids": [
+    {
+     "price": "0.01436",
+     "remaining_base_amount": "4017.3"
+    },
+    {
+     "price": "0.01435",
+     "remaining_base_amount": "8031.9"
+    },
+    {
+     "price": "0.01434",
+     "remaining_base_amount": "16003.8"
+    },
+    {
+     "price": "0.01434",
+     "remaining_base_amount": "12053.8"
+    },
+    {
+     "price": "0.01424",
+     "remaining_base_amount": "102088.2"
+    },
+    {
+     "price": "0.01422",
+     "remaining_base_amount": "140647.0"
+    },
+    {
+     "price": "0.01420",
+     "remaining_base_amount": "140845.1"
+    },
+    {
+     "price": "0.01418",
+     "remaining_base_amount": "141043.8"
+    },
+    {
+     "price": "0.01416",
+     "remaining_base_amount": "141243.0"
+    },
+    {
+     "price": "0.01414",
+     "remaining_base_amount": "141442.8"
+    },
+    {
+     "price": "0.01412",
+     "remaining_base_amount": "141643.1"
+    },
+    {
+     "price": "0.01410",
+     "remaining_base_amount": "141844.0"
+    },
+    {
+     "price": "0.01408",
+     "remaining_base_amount": "142045.5"
+    },
+    {
+     "price": "0.00710",
+     "remaining_base_amount": "18787.2"
+    }
+   ]
+  },
+  {
+   "market_id": 233,
+   "symbol": "RAY",
+   "asks": [
+    {
+     "price": "1.7098",
+     "remaining_base_amount": "4182.95"
+    },
+    {
+     "price": "1.7100",
+     "remaining_base_amount": "1104.00"
+    },
+    {
+     "price": "1.7108",
+     "remaining_base_amount": "1420.60"
+    },
+    {
+     "price": "1.7115",
+     "remaining_base_amount": "182.83"
+    },
+    {
+     "price": "1.7130",
+     "remaining_base_amount": "731.33"
+    },
+    {
+     "price": "1.7179",
+     "remaining_base_amount": "1788.34"
+    },
+    {
+     "price": "1.7253",
+     "remaining_base_amount": "5524.49"
+    },
+    {
+     "price": "1.7280",
+     "remaining_base_amount": "5787.04"
+    },
+    {
+     "price": "1.7280",
+     "remaining_base_amount": "2673.78"
+    },
+    {
+     "price": "1.7307",
+     "remaining_base_amount": "5778.01"
+    },
+    {
+     "price": "1.7334",
+     "remaining_base_amount": "5497.40"
+    },
+    {
+     "price": "1.7361",
+     "remaining_base_amount": "5760.04"
+    },
+    {
+     "price": "1.7388",
+     "remaining_base_amount": "5751.10"
+    },
+    {
+     "price": "1.7389",
+     "remaining_base_amount": "3565.04"
+    },
+    {
+     "price": "1.7415",
+     "remaining_base_amount": "5742.18"
+    },
+    {
+     "price": "1.7442",
+     "remaining_base_amount": "5733.29"
+    },
+    {
+     "price": "1.7469",
+     "remaining_base_amount": "5724.43"
+    },
+    {
+     "price": "1.7496",
+     "remaining_base_amount": "5715.60"
+    },
+    {
+     "price": "1.7605",
+     "remaining_base_amount": "2595.66"
+    },
+    {
+     "price": "1.7640",
+     "remaining_base_amount": "2834.47"
+    }
+   ],
+   "bids": [
+    {
+     "price": "1.7078",
+     "remaining_base_amount": "1097.09"
+    },
+    {
+     "price": "1.7072",
+     "remaining_base_amount": "1104.00"
+    },
+    {
+     "price": "1.7067",
+     "remaining_base_amount": "4761.38"
+    },
+    {
+     "price": "1.7028",
+     "remaining_base_amount": "178.99"
+    },
+    {
+     "price": "1.7003",
+     "remaining_base_amount": "714.02"
+    },
+    {
+     "price": "1.6957",
+     "remaining_base_amount": "1789.95"
+    },
+    {
+     "price": "1.6929",
+     "remaining_base_amount": "5907.03"
+    },
+    {
+     "price": "1.6902",
+     "remaining_base_amount": "5916.46"
+    },
+    {
+     "price": "1.6875",
+     "remaining_base_amount": "5925.93"
+    },
+    {
+     "price": "1.6865",
+     "remaining_base_amount": "2684.92"
+    },
+    {
+     "price": "1.6848",
+     "remaining_base_amount": "5935.43"
+    },
+    {
+     "price": "1.6821",
+     "remaining_base_amount": "5944.95"
+    },
+    {
+     "price": "1.6794",
+     "remaining_base_amount": "5954.51"
+    },
+    {
+     "price": "1.6779",
+     "remaining_base_amount": "3639.66"
+    },
+    {
+     "price": "1.6767",
+     "remaining_base_amount": "5964.10"
+    },
+    {
+     "price": "1.6740",
+     "remaining_base_amount": "5973.72"
+    },
+    {
+     "price": "1.6713",
+     "remaining_base_amount": "5983.37"
+    },
+    {
+     "price": "1.6686",
+     "remaining_base_amount": "5993.05"
+    },
+    {
+     "price": "1.6555",
+     "remaining_base_amount": "3020.24"
+    },
+    {
+     "price": "1.6520",
+     "remaining_base_amount": "3026.64"
+    }
+   ]
+  },
+  {
+   "market_id": 129,
+   "symbol": "QQQ",
+   "asks": [
+    {
+     "price": "656.89",
+     "remaining_base_amount": "1.9603"
+    },
+    {
+     "price": "656.90",
+     "remaining_base_amount": "3.0525"
+    },
+    {
+     "price": "656.92",
+     "remaining_base_amount": "1.8213"
+    },
+    {
+     "price": "656.92",
+     "remaining_base_amount": "1.4067"
+    },
+    {
+     "price": "656.94",
+     "remaining_base_amount": "1.8074"
+    },
+    {
+     "price": "656.94",
+     "remaining_base_amount": "109.1259"
+    },
+    {
+     "price": "656.95",
+     "remaining_base_amount": "2.0322"
+    },
+    {
+     "price": "656.97",
+     "remaining_base_amount": "1.7723"
+    },
+    {
+     "price": "656.97",
+     "remaining_base_amount": "1.5221"
+    },
+    {
+     "price": "656.99",
+     "remaining_base_amount": "1.9148"
+    },
+    {
+     "price": "657.01",
+     "remaining_base_amount": "3.1523"
+    },
+    {
+     "price": "657.01",
+     "remaining_base_amount": "2.1216"
+    },
+    {
+     "price": "657.03",
+     "remaining_base_amount": "27.4026"
+    },
+    {
+     "price": "657.04",
+     "remaining_base_amount": "3.0440"
+    },
+    {
+     "price": "657.07",
+     "remaining_base_amount": "225.3933"
+    },
+    {
+     "price": "657.10",
+     "remaining_base_amount": "4.5655"
+    },
+    {
+     "price": "657.11",
+     "remaining_base_amount": "27.4014"
+    },
+    {
+     "price": "657.14",
+     "remaining_base_amount": "4.0998"
+    },
+    {
+     "price": "657.16",
+     "remaining_base_amount": "2.7970"
+    },
+    {
+     "price": "657.17",
+     "remaining_base_amount": "108.0333"
+    }
+   ],
+   "bids": [
+    {
+     "price": "656.82",
+     "remaining_base_amount": "1.2360"
+    },
+    {
+     "price": "656.81",
+     "remaining_base_amount": "0.1522"
+    },
+    {
+     "price": "656.81",
+     "remaining_base_amount": "2.2893"
+    },
+    {
+     "price": "656.78",
+     "remaining_base_amount": "2.1317"
+    },
+    {
+     "price": "656.78",
+     "remaining_base_amount": "1.8124"
+    },
+    {
+     "price": "656.77",
+     "remaining_base_amount": "1.5226"
+    },
+    {
+     "price": "656.76",
+     "remaining_base_amount": "3.1555"
+    },
+    {
+     "price": "656.76",
+     "remaining_base_amount": "2.2893"
+    },
+    {
+     "price": "656.74",
+     "remaining_base_amount": "1.9863"
+    },
+    {
+     "price": "656.72",
+     "remaining_base_amount": "3.0524"
+    },
+    {
+     "price": "656.72",
+     "remaining_base_amount": "38.7299"
+    },
+    {
+     "price": "656.70",
+     "remaining_base_amount": "3.0455"
+    },
+    {
+     "price": "656.69",
+     "remaining_base_amount": "53.2765"
+    },
+    {
+     "price": "656.68",
+     "remaining_base_amount": "13.5300"
+    },
+    {
+     "price": "656.66",
+     "remaining_base_amount": "0.1977"
+    },
+    {
+     "price": "656.65",
+     "remaining_base_amount": "228.4305"
+    },
+    {
+     "price": "656.64",
+     "remaining_base_amount": "4.5687"
+    },
+    {
+     "price": "656.63",
+     "remaining_base_amount": "4.1045"
+    },
+    {
+     "price": "656.59",
+     "remaining_base_amount": "116.1905"
+    },
+    {
+     "price": "656.54",
+     "remaining_base_amount": "27.4106"
+    }
+   ]
+  },
+  {
+   "market_id": 12,
+   "symbol": "GRAM",
+   "asks": [
+    {
+     "price": "1.10650",
+     "remaining_base_amount": "1616.6"
+    },
+    {
+     "price": "1.10651",
+     "remaining_base_amount": "451.9"
+    },
+    {
+     "price": "1.10668",
+     "remaining_base_amount": "768.9"
+    },
+    {
+     "price": "1.10689",
+     "remaining_base_amount": "144.6"
+    },
+    {
+     "price": "1.10694",
+     "remaining_base_amount": "768.8"
+    },
+    {
+     "price": "1.10697",
+     "remaining_base_amount": "768.9"
+    },
+    {
+     "price": "1.10703",
+     "remaining_base_amount": "1704.0"
+    },
+    {
+     "price": "1.10716",
+     "remaining_base_amount": "3392.2"
+    },
+    {
+     "price": "1.10729",
+     "remaining_base_amount": "903.4"
+    },
+    {
+     "price": "1.10730",
+     "remaining_base_amount": "768.9"
+    },
+    {
+     "price": "1.10737",
+     "remaining_base_amount": "768.9"
+    },
+    {
+     "price": "1.10738",
+     "remaining_base_amount": "9160.8"
+    },
+    {
+     "price": "1.10748",
+     "remaining_base_amount": "3555.0"
+    },
+    {
+     "price": "1.10761",
+     "remaining_base_amount": "2604.0"
+    },
+    {
+     "price": "1.10769",
+     "remaining_base_amount": "4442.9"
+    },
+    {
+     "price": "1.10782",
+     "remaining_base_amount": "903.3"
+    },
+    {
+     "price": "1.10784",
+     "remaining_base_amount": "3392.2"
+    },
+    {
+     "price": "1.10797",
+     "remaining_base_amount": "5543.3"
+    },
+    {
+     "price": "1.10822",
+     "remaining_base_amount": "902.3"
+    },
+    {
+     "price": "1.10842",
+     "remaining_base_amount": "3392.2"
+    }
+   ],
+   "bids": [
+    {
+     "price": "1.10610",
+     "remaining_base_amount": "768.9"
+    },
+    {
+     "price": "1.10602",
+     "remaining_base_amount": "768.9"
+    },
+    {
+     "price": "1.10602",
+     "remaining_base_amount": "90.4"
+    },
+    {
+     "price": "1.10593",
+     "remaining_base_amount": "825.2"
+    },
+    {
+     "price": "1.10576",
+     "remaining_base_amount": "768.9"
+    },
+    {
+     "price": "1.10570",
+     "remaining_base_amount": "144.6"
+    },
+    {
+     "price": "1.10564",
+     "remaining_base_amount": "768.9"
+    },
+    {
+     "price": "1.10559",
+     "remaining_base_amount": "3452.8"
+    },
+    {
+     "price": "1.10552",
+     "remaining_base_amount": "904.5"
+    },
+    {
+     "price": "1.10551",
+     "remaining_base_amount": "768.9"
+    },
+    {
+     "price": "1.10543",
+     "remaining_base_amount": "2612.0"
+    },
+    {
+     "price": "1.10540",
+     "remaining_base_amount": "1465.2"
+    },
+    {
+     "price": "1.10536",
+     "remaining_base_amount": "768.9"
+    },
+    {
+     "price": "1.10534",
+     "remaining_base_amount": "1708.0"
+    },
+    {
+     "price": "1.10523",
+     "remaining_base_amount": "768.9"
+    },
+    {
+     "price": "1.10515",
+     "remaining_base_amount": "576.6"
+    },
+    {
+     "price": "1.10504",
+     "remaining_base_amount": "904.1"
+    },
+    {
+     "price": "1.10503",
+     "remaining_base_amount": "768.9"
+    },
+    {
+     "price": "1.10502",
+     "remaining_base_amount": "3335.8"
+    },
+    {
+     "price": "1.10487",
+     "remaining_base_amount": "4318.9"
+    }
+   ]
+  },
+  {
+   "market_id": 94,
+   "symbol": "MEGA",
+   "asks": [
+    {
+     "price": "0.04626",
+     "remaining_base_amount": "8646.5"
+    },
+    {
+     "price": "0.04628",
+     "remaining_base_amount": "17284.9"
+    },
+    {
+     "price": "0.04629",
+     "remaining_base_amount": "3567.1"
+    },
+    {
+     "price": "0.04629",
+     "remaining_base_amount": "17825.0"
+    },
+    {
+     "price": "0.04631",
+     "remaining_base_amount": "34552.2"
+    },
+    {
+     "price": "0.04631",
+     "remaining_base_amount": "25914.4"
+    },
+    {
+     "price": "0.04634",
+     "remaining_base_amount": "9771.6"
+    },
+    {
+     "price": "0.04634",
+     "remaining_base_amount": "172905.9"
+    },
+    {
+     "price": "0.04635",
+     "remaining_base_amount": "35744.1"
+    },
+    {
+     "price": "0.04636",
+     "remaining_base_amount": "6971.5"
+    },
+    {
+     "price": "0.04646",
+     "remaining_base_amount": "8000.4"
+    },
+    {
+     "price": "0.04647",
+     "remaining_base_amount": "7997.8"
+    },
+    {
+     "price": "0.04648",
+     "remaining_base_amount": "25404.8"
+    },
+    {
+     "price": "0.04649",
+     "remaining_base_amount": "9778.1"
+    },
+    {
+     "price": "0.04649",
+     "remaining_base_amount": "8000.4"
+    },
+    {
+     "price": "0.04651",
+     "remaining_base_amount": "7999.6"
+    },
+    {
+     "price": "0.04652",
+     "remaining_base_amount": "7997.8"
+    },
+    {
+     "price": "0.04654",
+     "remaining_base_amount": "8000.4"
+    },
+    {
+     "price": "0.04657",
+     "remaining_base_amount": "12000.6"
+    },
+    {
+     "price": "0.04660",
+     "remaining_base_amount": "8000.4"
+    }
+   ],
+   "bids": [
+    {
+     "price": "0.04617",
+     "remaining_base_amount": "19200.0"
+    },
+    {
+     "price": "0.04616",
+     "remaining_base_amount": "172941.0"
+    },
+    {
+     "price": "0.04615",
+     "remaining_base_amount": "2092.7"
+    },
+    {
+     "price": "0.04611",
+     "remaining_base_amount": "4943.6"
+    },
+    {
+     "price": "0.04609",
+     "remaining_base_amount": "7419.2"
+    },
+    {
+     "price": "0.04608",
+     "remaining_base_amount": "3616.2"
+    },
+    {
+     "price": "0.04607",
+     "remaining_base_amount": "9792.0"
+    },
+    {
+     "price": "0.04606",
+     "remaining_base_amount": "3520.7"
+    },
+    {
+     "price": "0.04606",
+     "remaining_base_amount": "7007.6"
+    },
+    {
+     "price": "0.04602",
+     "remaining_base_amount": "7735.8"
+    },
+    {
+     "price": "0.04601",
+     "remaining_base_amount": "35744.1"
+    },
+    {
+     "price": "0.04599",
+     "remaining_base_amount": "17825.0"
+    },
+    {
+     "price": "0.04596",
+     "remaining_base_amount": "8000.4"
+    },
+    {
+     "price": "0.04595",
+     "remaining_base_amount": "25329.5"
+    },
+    {
+     "price": "0.04593",
+     "remaining_base_amount": "12000.6"
+    },
+    {
+     "price": "0.04591",
+     "remaining_base_amount": "8009.1"
+    },
+    {
+     "price": "0.04589",
+     "remaining_base_amount": "7750.3"
+    },
+    {
+     "price": "0.04588",
+     "remaining_base_amount": "7750.3"
+    },
+    {
+     "price": "0.04587",
+     "remaining_base_amount": "7939.1"
+    },
+    {
+     "price": "0.04585",
+     "remaining_base_amount": "11908.6"
+    }
+   ]
+  },
+  {
+   "market_id": 7,
+   "symbol": "XRP",
+   "asks": [
+    {
+     "price": "1.213957",
+     "remaining_base_amount": "1932"
+    },
+    {
+     "price": "1.213958",
+     "remaining_base_amount": "354"
+    },
+    {
+     "price": "1.213960",
+     "remaining_base_amount": "247"
+    },
+    {
+     "price": "1.213960",
+     "remaining_base_amount": "891"
+    },
+    {
+     "price": "1.214000",
+     "remaining_base_amount": "100"
+    },
+    {
+     "price": "1.214002",
+     "remaining_base_amount": "772"
+    },
+    {
+     "price": "1.214008",
+     "remaining_base_amount": "40480"
+    },
+    {
+     "price": "1.214021",
+     "remaining_base_amount": "494"
+    },
+    {
+     "price": "1.214038",
+     "remaining_base_amount": "8061"
+    },
+    {
+     "price": "1.214042",
+     "remaining_base_amount": "189"
+    },
+    {
+     "price": "1.214056",
+     "remaining_base_amount": "182"
+    },
+    {
+     "price": "1.214112",
+     "remaining_base_amount": "741"
+    },
+    {
+     "price": "1.214156",
+     "remaining_base_amount": "1552"
+    },
+    {
+     "price": "1.214179",
+     "remaining_base_amount": "270"
+    },
+    {
+     "price": "1.214180",
+     "remaining_base_amount": "21426"
+    },
+    {
+     "price": "1.214196",
+     "remaining_base_amount": "2376"
+    },
+    {
+     "price": "1.214234",
+     "remaining_base_amount": "165"
+    },
+    {
+     "price": "1.214241",
+     "remaining_base_amount": "131"
+    },
+    {
+     "price": "1.214264",
+     "remaining_base_amount": "5000"
+    },
+    {
+     "price": "1.214275",
+     "remaining_base_amount": "1144"
+    }
+   ],
+   "bids": [
+    {
+     "price": "1.213795",
+     "remaining_base_amount": "841"
+    },
+    {
+     "price": "1.213786",
+     "remaining_base_amount": "1694"
+    },
+    {
+     "price": "1.213776",
+     "remaining_base_amount": "1450"
+    },
+    {
+     "price": "1.213722",
+     "remaining_base_amount": "247"
+    },
+    {
+     "price": "1.213705",
+     "remaining_base_amount": "2065"
+    },
+    {
+     "price": "1.213680",
+     "remaining_base_amount": "229"
+    },
+    {
+     "price": "1.213669",
+     "remaining_base_amount": "376"
+    },
+    {
+     "price": "1.213669",
+     "remaining_base_amount": "223"
+    },
+    {
+     "price": "1.213668",
+     "remaining_base_amount": "201"
+    },
+    {
+     "price": "1.213662",
+     "remaining_base_amount": "330"
+    },
+    {
+     "price": "1.213662",
+     "remaining_base_amount": "231"
+    },
+    {
+     "price": "1.213662",
+     "remaining_base_amount": "494"
+    },
+    {
+     "price": "1.213656",
+     "remaining_base_amount": "211"
+    },
+    {
+     "price": "1.213632",
+     "remaining_base_amount": "741"
+    },
+    {
+     "price": "1.213593",
+     "remaining_base_amount": "8240"
+    },
+    {
+     "price": "1.213563",
+     "remaining_base_amount": "217"
+    },
+    {
+     "price": "1.213560",
+     "remaining_base_amount": "214"
+    },
+    {
+     "price": "1.213511",
+     "remaining_base_amount": "772"
+    },
+    {
+     "price": "1.213506",
+     "remaining_base_amount": "190"
+    },
+    {
+     "price": "1.213487",
+     "remaining_base_amount": "3296"
+    }
+   ]
+  },
+  {
+   "market_id": 146,
+   "symbol": "XPD",
+   "asks": [
+    {
+     "price": "1029.2",
+     "remaining_base_amount": "3.77600"
+    },
+    {
+     "price": "1029.2",
+     "remaining_base_amount": "0.17334"
+    },
+    {
+     "price": "1029.3",
+     "remaining_base_amount": "0.09715"
+    },
+    {
+     "price": "1029.6",
+     "remaining_base_amount": "1.45682"
+    },
+    {
+     "price": "1029.8",
+     "remaining_base_amount": "0.99026"
+    },
+    {
+     "price": "1030.0",
+     "remaining_base_amount": "27.43729"
+    },
+    {
+     "price": "1030.4",
+     "remaining_base_amount": "27.45029"
+    },
+    {
+     "price": "1030.4",
+     "remaining_base_amount": "1.62768"
+    },
+    {
+     "price": "1030.7",
+     "remaining_base_amount": "3.26701"
+    },
+    {
+     "price": "1031.0",
+     "remaining_base_amount": "18.32000"
+    },
+    {
+     "price": "1031.0",
+     "remaining_base_amount": "0.69337"
+    },
+    {
+     "price": "1032.0",
+     "remaining_base_amount": "7.25504"
+    },
+    {
+     "price": "1032.5",
+     "remaining_base_amount": "82.33681"
+    },
+    {
+     "price": "1032.6",
+     "remaining_base_amount": "9.68430"
+    },
+    {
+     "price": "1033.2",
+     "remaining_base_amount": "9.67867"
+    },
+    {
+     "price": "1033.8",
+     "remaining_base_amount": "9.67306"
+    },
+    {
+     "price": "1033.9",
+     "remaining_base_amount": "3.42446"
+    },
+    {
+     "price": "1034.4",
+     "remaining_base_amount": "9.66745"
+    },
+    {
+     "price": "1035.0",
+     "remaining_base_amount": "9.66184"
+    },
+    {
+     "price": "1035.6",
+     "remaining_base_amount": "9.65624"
+    }
+   ],
+   "bids": [
+    {
+     "price": "1028.5",
+     "remaining_base_amount": "9.72260"
+    },
+    {
+     "price": "1028.5",
+     "remaining_base_amount": "1.58343"
+    },
+    {
+     "price": "1028.2",
+     "remaining_base_amount": "27.44968"
+    },
+    {
+     "price": "1028.2",
+     "remaining_base_amount": "0.63424"
+    },
+    {
+     "price": "1028.0",
+     "remaining_base_amount": "1.14806"
+    },
+    {
+     "price": "1027.9",
+     "remaining_base_amount": "27.45749"
+    },
+    {
+     "price": "1027.6",
+     "remaining_base_amount": "0.09731"
+    },
+    {
+     "price": "1027.4",
+     "remaining_base_amount": "0.17028"
+    },
+    {
+     "price": "1026.9",
+     "remaining_base_amount": "3.78400"
+    },
+    {
+     "price": "1026.7",
+     "remaining_base_amount": "1.63199"
+    },
+    {
+     "price": "1026.5",
+     "remaining_base_amount": "0.68112"
+    },
+    {
+     "price": "1026.2",
+     "remaining_base_amount": "3.26701"
+    },
+    {
+     "price": "1026.1",
+     "remaining_base_amount": "82.35602"
+    },
+    {
+     "price": "1026.0",
+     "remaining_base_amount": "9.74659"
+    },
+    {
+     "price": "1025.4",
+     "remaining_base_amount": "9.75230"
+    },
+    {
+     "price": "1024.9",
+     "remaining_base_amount": "18.42800"
+    },
+    {
+     "price": "1024.8",
+     "remaining_base_amount": "9.75801"
+    },
+    {
+     "price": "1024.2",
+     "remaining_base_amount": "9.76372"
+    },
+    {
+     "price": "1023.6",
+     "remaining_base_amount": "9.76945"
+    },
+    {
+     "price": "1023.0",
+     "remaining_base_amount": "9.77518"
+    }
+   ]
+  },
+  {
+   "market_id": 111,
+   "symbol": "PLTR",
+   "asks": [
+    {
+     "price": "157.536",
+     "remaining_base_amount": "5.164"
+    },
+    {
+     "price": "157.539",
+     "remaining_base_amount": "4.863"
+    },
+    {
+     "price": "157.558",
+     "remaining_base_amount": "4.954"
+    },
+    {
+     "price": "157.559",
+     "remaining_base_amount": "196.959"
+    },
+    {
+     "price": "157.581",
+     "remaining_base_amount": "4.278"
+    },
+    {
+     "price": "157.585",
+     "remaining_base_amount": "331.605"
+    },
+    {
+     "price": "157.629",
+     "remaining_base_amount": "18.598"
+    },
+    {
+     "price": "157.631",
+     "remaining_base_amount": "24.660"
+    },
+    {
+     "price": "157.658",
+     "remaining_base_amount": "0.591"
+    },
+    {
+     "price": "157.675",
+     "remaining_base_amount": "66.171"
+    },
+    {
+     "price": "157.679",
+     "remaining_base_amount": "0.634"
+    },
+    {
+     "price": "157.690",
+     "remaining_base_amount": "1.182"
+    },
+    {
+     "price": "157.708",
+     "remaining_base_amount": "1.027"
+    },
+    {
+     "price": "157.716",
+     "remaining_base_amount": "1.026"
+    },
+    {
+     "price": "157.729",
+     "remaining_base_amount": "1.026"
+    },
+    {
+     "price": "157.736",
+     "remaining_base_amount": "1.773"
+    },
+    {
+     "price": "157.741",
+     "remaining_base_amount": "1.026"
+    },
+    {
+     "price": "157.751",
+     "remaining_base_amount": "1.026"
+    },
+    {
+     "price": "157.768",
+     "remaining_base_amount": "1.026"
+    },
+    {
+     "price": "157.778",
+     "remaining_base_amount": "1.023"
+    }
+   ],
+   "bids": [
+    {
+     "price": "157.505",
+     "remaining_base_amount": "4.533"
+    },
+    {
+     "price": "157.503",
+     "remaining_base_amount": "5.267"
+    },
+    {
+     "price": "157.487",
+     "remaining_base_amount": "5.406"
+    },
+    {
+     "price": "157.486",
+     "remaining_base_amount": "5.217"
+    },
+    {
+     "price": "157.486",
+     "remaining_base_amount": "0.488"
+    },
+    {
+     "price": "157.478",
+     "remaining_base_amount": "4.738"
+    },
+    {
+     "price": "157.478",
+     "remaining_base_amount": "8.943"
+    },
+    {
+     "price": "157.477",
+     "remaining_base_amount": "4.166"
+    },
+    {
+     "price": "157.460",
+     "remaining_base_amount": "2.920"
+    },
+    {
+     "price": "157.460",
+     "remaining_base_amount": "4.580"
+    },
+    {
+     "price": "157.443",
+     "remaining_base_amount": "0.635"
+    },
+    {
+     "price": "157.440",
+     "remaining_base_amount": "24.690"
+    },
+    {
+     "price": "157.440",
+     "remaining_base_amount": "126.963"
+    },
+    {
+     "price": "157.431",
+     "remaining_base_amount": "18.312"
+    },
+    {
+     "price": "157.425",
+     "remaining_base_amount": "199.902"
+    },
+    {
+     "price": "157.404",
+     "remaining_base_amount": "293.946"
+    },
+    {
+     "price": "157.401",
+     "remaining_base_amount": "0.582"
+    },
+    {
+     "price": "157.392",
+     "remaining_base_amount": "17.289"
+    },
+    {
+     "price": "157.366",
+     "remaining_base_amount": "1.027"
+    },
+    {
+     "price": "157.328",
+     "remaining_base_amount": "1.027"
+    }
+   ]
+  },
+  {
+   "market_id": 113,
+   "symbol": "AAPL",
+   "asks": [
+    {
+     "price": "343.794",
+     "remaining_base_amount": "1.947"
+    },
+    {
+     "price": "343.795",
+     "remaining_base_amount": "2.691"
+    },
+    {
+     "price": "343.796",
+     "remaining_base_amount": "2.279"
+    },
+    {
+     "price": "343.798",
+     "remaining_base_amount": "3.098"
+    },
+    {
+     "price": "343.799",
+     "remaining_base_amount": "1.030"
+    },
+    {
+     "price": "343.800",
+     "remaining_base_amount": "2.758"
+    },
+    {
+     "price": "343.801",
+     "remaining_base_amount": "3.115"
+    },
+    {
+     "price": "343.809",
+     "remaining_base_amount": "2.997"
+    },
+    {
+     "price": "343.813",
+     "remaining_base_amount": "218.326"
+    },
+    {
+     "price": "343.819",
+     "remaining_base_amount": "2.733"
+    },
+    {
+     "price": "343.820",
+     "remaining_base_amount": "3.020"
+    },
+    {
+     "price": "343.821",
+     "remaining_base_amount": "2.893"
+    },
+    {
+     "price": "343.821",
+     "remaining_base_amount": "3.021"
+    },
+    {
+     "price": "343.828",
+     "remaining_base_amount": "2.816"
+    },
+    {
+     "price": "343.828",
+     "remaining_base_amount": "2.780"
+    },
+    {
+     "price": "343.845",
+     "remaining_base_amount": "2.693"
+    },
+    {
+     "price": "343.845",
+     "remaining_base_amount": "1.607"
+    },
+    {
+     "price": "343.846",
+     "remaining_base_amount": "2.654"
+    },
+    {
+     "price": "343.851",
+     "remaining_base_amount": "30.025"
+    },
+    {
+     "price": "343.890",
+     "remaining_base_amount": "2.070"
+    }
+   ],
+   "bids": [
+    {
+     "price": "343.767",
+     "remaining_base_amount": "2.721"
+    },
+    {
+     "price": "343.762",
+     "remaining_base_amount": "2.972"
+    },
+    {
+     "price": "343.761",
+     "remaining_base_amount": "2.869"
+    },
+    {
+     "price": "343.752",
+     "remaining_base_amount": "2.963"
+    },
+    {
+     "price": "343.750",
+     "remaining_base_amount": "2.988"
+    },
+    {
+     "price": "343.748",
+     "remaining_base_amount": "3.176"
+    },
+    {
+     "price": "343.746",
+     "remaining_base_amount": "2.853"
+    },
+    {
+     "price": "343.744",
+     "remaining_base_amount": "2.717"
+    },
+    {
+     "price": "343.730",
+     "remaining_base_amount": "2.970"
+    },
+    {
+     "price": "343.729",
+     "remaining_base_amount": "1.875"
+    },
+    {
+     "price": "343.723",
+     "remaining_base_amount": "106.606"
+    },
+    {
+     "price": "343.717",
+     "remaining_base_amount": "57.096"
+    },
+    {
+     "price": "343.710",
+     "remaining_base_amount": "2.349"
+    },
+    {
+     "price": "343.705",
+     "remaining_base_amount": "218.326"
+    },
+    {
+     "price": "343.699",
+     "remaining_base_amount": "35.618"
+    },
+    {
+     "price": "343.693",
+     "remaining_base_amount": "32.982"
+    },
+    {
+     "price": "343.691",
+     "remaining_base_amount": "2.918"
+    },
+    {
+     "price": "343.661",
+     "remaining_base_amount": "182.982"
+    },
+    {
+     "price": "343.650",
+     "remaining_base_amount": "57.096"
+    },
+    {
+     "price": "343.596",
+     "remaining_base_amount": "57.096"
+    }
+   ]
+  },
+  {
+   "market_id": 29,
+   "symbol": "ENA",
+   "asks": [
+    {
+     "price": "0.16416",
+     "remaining_base_amount": "1059.5"
+    },
+    {
+     "price": "0.16418",
+     "remaining_base_amount": "2133.9"
+    },
+    {
+     "price": "0.16419",
+     "remaining_base_amount": "1068.0"
+    },
+    {
+     "price": "0.16419",
+     "remaining_base_amount": "98601.8"
+    },
+    {
+     "price": "0.16421",
+     "remaining_base_amount": "1209.4"
+    },
+    {
+     "price": "0.16421",
+     "remaining_base_amount": "1068.0"
+    },
+    {
+     "price": "0.16422",
+     "remaining_base_amount": "2647.3"
+    },
+    {
+     "price": "0.16422",
+     "remaining_base_amount": "1068.0"
+    },
+    {
+     "price": "0.16422",
+     "remaining_base_amount": "11480.0"
+    },
+    {
+     "price": "0.16422",
+     "remaining_base_amount": "60893.9"
+    },
+    {
+     "price": "0.16422",
+     "remaining_base_amount": "109334.7"
+    },
+    {
+     "price": "0.16423",
+     "remaining_base_amount": "85320.3"
+    },
+    {
+     "price": "0.16427",
+     "remaining_base_amount": "24350.9"
+    },
+    {
+     "price": "0.16429",
+     "remaining_base_amount": "2647.3"
+    },
+    {
+     "price": "0.16429",
+     "remaining_base_amount": "6086.7"
+    },
+    {
+     "price": "0.16430",
+     "remaining_base_amount": "11732.4"
+    },
+    {
+     "price": "0.16432",
+     "remaining_base_amount": "62231.8"
+    },
+    {
+     "price": "0.16436",
+     "remaining_base_amount": "36598.2"
+    },
+    {
+     "price": "0.16436",
+     "remaining_base_amount": "2647.3"
+    },
+    {
+     "price": "0.16437",
+     "remaining_base_amount": "62231.8"
+    }
+   ],
+   "bids": [
+    {
+     "price": "0.16413",
+     "remaining_base_amount": "11480.0"
+    },
+    {
+     "price": "0.16412",
+     "remaining_base_amount": "6093.1"
+    },
+    {
+     "price": "0.16412",
+     "remaining_base_amount": "488.0"
+    },
+    {
+     "price": "0.16411",
+     "remaining_base_amount": "103850.6"
+    },
+    {
+     "price": "0.16411",
+     "remaining_base_amount": "6814.5"
+    },
+    {
+     "price": "0.16411",
+     "remaining_base_amount": "17570.0"
+    },
+    {
+     "price": "0.16410",
+     "remaining_base_amount": "1133.5"
+    },
+    {
+     "price": "0.16409",
+     "remaining_base_amount": "2657.1"
+    },
+    {
+     "price": "0.16408",
+     "remaining_base_amount": "10165.2"
+    },
+    {
+     "price": "0.16408",
+     "remaining_base_amount": "37411.1"
+    },
+    {
+     "price": "0.16408",
+     "remaining_base_amount": "60945.9"
+    },
+    {
+     "price": "0.16407",
+     "remaining_base_amount": "1133.5"
+    },
+    {
+     "price": "0.16406",
+     "remaining_base_amount": "1133.5"
+    },
+    {
+     "price": "0.16404",
+     "remaining_base_amount": "914.4"
+    },
+    {
+     "price": "0.16403",
+     "remaining_base_amount": "62231.8"
+    },
+    {
+     "price": "0.16403",
+     "remaining_base_amount": "62231.8"
+    },
+    {
+     "price": "0.16402",
+     "remaining_base_amount": "2657.1"
+    },
+    {
+     "price": "0.16397",
+     "remaining_base_amount": "41062.3"
+    },
+    {
+     "price": "0.16397",
+     "remaining_base_amount": "85259.8"
+    },
+    {
+     "price": "0.16395",
+     "remaining_base_amount": "91366.7"
+    }
+   ]
+  },
+  {
+   "market_id": 100,
+   "symbol": "USDCAD",
+   "asks": [
+    {
+     "price": "1.40343",
+     "remaining_base_amount": "5702.9"
+    },
+    {
+     "price": "1.40447",
+     "remaining_base_amount": "6838.3"
+    },
+    {
+     "price": "1.40461",
+     "remaining_base_amount": "8547.1"
+    },
+    {
+     "price": "1.40462",
+     "remaining_base_amount": "14984.3"
+    },
+    {
+     "price": "1.40476",
+     "remaining_base_amount": "16017.0"
+    },
+    {
+     "price": "1.40490",
+     "remaining_base_amount": "16015.4"
+    },
+    {
+     "price": "1.40504",
+     "remaining_base_amount": "16013.8"
+    },
+    {
+     "price": "1.40518",
+     "remaining_base_amount": "16012.2"
+    },
+    {
+     "price": "1.40532",
+     "remaining_base_amount": "16010.6"
+    },
+    {
+     "price": "1.40546",
+     "remaining_base_amount": "16009.0"
+    },
+    {
+     "price": "1.40560",
+     "remaining_base_amount": "16007.4"
+    },
+    {
+     "price": "1.40574",
+     "remaining_base_amount": "16005.9"
+    },
+    {
+     "price": "1.40588",
+     "remaining_base_amount": "16004.3"
+    },
+    {
+     "price": "1.40602",
+     "remaining_base_amount": "16002.7"
+    },
+    {
+     "price": "1.40616",
+     "remaining_base_amount": "16001.1"
+    },
+    {
+     "price": "1.40630",
+     "remaining_base_amount": "15999.5"
+    },
+    {
+     "price": "1.40644",
+     "remaining_base_amount": "15997.9"
+    },
+    {
+     "price": "1.40658",
+     "remaining_base_amount": "15996.3"
+    },
+    {
+     "price": "1.40672",
+     "remaining_base_amount": "15994.7"
+    },
+    {
+     "price": "1.40686",
+     "remaining_base_amount": "15993.1"
+    }
+   ],
+   "bids": [
+    {
+     "price": "1.40292",
+     "remaining_base_amount": "5779.5"
+    },
+    {
+     "price": "1.40216",
+     "remaining_base_amount": "6939.2"
+    },
+    {
+     "price": "1.40202",
+     "remaining_base_amount": "8674.8"
+    },
+    {
+     "price": "1.40168",
+     "remaining_base_amount": "16052.2"
+    },
+    {
+     "price": "1.40154",
+     "remaining_base_amount": "16053.8"
+    },
+    {
+     "price": "1.40140",
+     "remaining_base_amount": "16055.4"
+    },
+    {
+     "price": "1.40126",
+     "remaining_base_amount": "16057.0"
+    },
+    {
+     "price": "1.40112",
+     "remaining_base_amount": "16058.6"
+    },
+    {
+     "price": "1.40098",
+     "remaining_base_amount": "16060.2"
+    },
+    {
+     "price": "1.40084",
+     "remaining_base_amount": "16061.8"
+    },
+    {
+     "price": "1.40070",
+     "remaining_base_amount": "16063.4"
+    },
+    {
+     "price": "1.40056",
+     "remaining_base_amount": "16065.1"
+    },
+    {
+     "price": "1.40042",
+     "remaining_base_amount": "16066.7"
+    },
+    {
+     "price": "1.40028",
+     "remaining_base_amount": "16068.3"
+    },
+    {
+     "price": "1.40014",
+     "remaining_base_amount": "16069.9"
+    },
+    {
+     "price": "1.40000",
+     "remaining_base_amount": "16071.5"
+    },
+    {
+     "price": "1.39986",
+     "remaining_base_amount": "16073.1"
+    },
+    {
+     "price": "1.39972",
+     "remaining_base_amount": "16074.7"
+    },
+    {
+     "price": "1.39958",
+     "remaining_base_amount": "16076.3"
+    },
+    {
+     "price": "1.39944",
+     "remaining_base_amount": "16077.9"
+    }
+   ]
+  },
+  {
+   "market_id": 232,
+   "symbol": "AI",
+   "asks": [
+    {
+     "price": "0.04266",
+     "remaining_base_amount": "7226.7"
+    },
+    {
+     "price": "0.04313",
+     "remaining_base_amount": "660.0"
+    },
+    {
+     "price": "0.04327",
+     "remaining_base_amount": "14396.6"
+    },
+    {
+     "price": "0.04330",
+     "remaining_base_amount": "41958.2"
+    },
+    {
+     "price": "0.04340",
+     "remaining_base_amount": "46083.0"
+    },
+    {
+     "price": "0.04350",
+     "remaining_base_amount": "45977.1"
+    },
+    {
+     "price": "0.04360",
+     "remaining_base_amount": "45871.6"
+    },
+    {
+     "price": "0.04370",
+     "remaining_base_amount": "45766.6"
+    },
+    {
+     "price": "0.04380",
+     "remaining_base_amount": "45662.2"
+    },
+    {
+     "price": "0.04390",
+     "remaining_base_amount": "45558.1"
+    },
+    {
+     "price": "0.04400",
+     "remaining_base_amount": "45454.6"
+    },
+    {
+     "price": "0.04410",
+     "remaining_base_amount": "45351.5"
+    },
+    {
+     "price": "0.04508",
+     "remaining_base_amount": "589692.7"
+    },
+    {
+     "price": "0.05108",
+     "remaining_base_amount": "279.7"
+    },
+    {
+     "price": "0.05149",
+     "remaining_base_amount": "277.4"
+    },
+    {
+     "price": "0.05190",
+     "remaining_base_amount": "275.3"
+    },
+    {
+     "price": "0.05232",
+     "remaining_base_amount": "273.0"
+    },
+    {
+     "price": "0.05274",
+     "remaining_base_amount": "270.9"
+    },
+    {
+     "price": "0.05316",
+     "remaining_base_amount": "268.7"
+    },
+    {
+     "price": "0.05359",
+     "remaining_base_amount": "266.6"
+    }
+   ],
+   "bids": [
+    {
+     "price": "0.04246",
+     "remaining_base_amount": "11776.5"
+    },
+    {
+     "price": "0.04245",
+     "remaining_base_amount": "15706.2"
+    },
+    {
+     "price": "0.04200",
+     "remaining_base_amount": "47619.1"
+    },
+    {
+     "price": "0.04195",
+     "remaining_base_amount": "31786.2"
+    },
+    {
+     "price": "0.04190",
+     "remaining_base_amount": "47732.7"
+    },
+    {
+     "price": "0.04180",
+     "remaining_base_amount": "47846.9"
+    },
+    {
+     "price": "0.04170",
+     "remaining_base_amount": "47961.7"
+    },
+    {
+     "price": "0.04160",
+     "remaining_base_amount": "48077.0"
+    },
+    {
+     "price": "0.04150",
+     "remaining_base_amount": "48192.8"
+    },
+    {
+     "price": "0.04140",
+     "remaining_base_amount": "48309.2"
+    },
+    {
+     "price": "0.04130",
+     "remaining_base_amount": "48426.2"
+    },
+    {
+     "price": "0.04120",
+     "remaining_base_amount": "48543.7"
+    },
+    {
+     "price": "0.04110",
+     "remaining_base_amount": "48661.9"
+    },
+    {
+     "price": "0.03956",
+     "remaining_base_amount": "758341.8"
+    },
+    {
+     "price": "0.03500",
+     "remaining_base_amount": "15000.0"
+    },
+    {
+     "price": "0.03170",
+     "remaining_base_amount": "31545.8"
+    },
+    {
+     "price": "0.03000",
+     "remaining_base_amount": "20000.0"
+    },
+    {
+     "price": "0.02219",
+     "remaining_base_amount": "6784.9"
+    },
+    {
+     "price": "0.02000",
+     "remaining_base_amount": "30000.0"
+    }
+   ]
+  },
+  {
+   "market_id": 11,
+   "symbol": "DOT",
+   "asks": [
+    {
+     "price": "0.92461",
+     "remaining_base_amount": "2012.5"
+    },
+    {
+     "price": "0.92464",
+     "remaining_base_amount": "3997.8"
+    },
+    {
+     "price": "0.92465",
+     "remaining_base_amount": "540.6"
+    },
+    {
+     "price": "0.92471",
+     "remaining_base_amount": "10718.6"
+    },
+    {
+     "price": "0.92475",
+     "remaining_base_amount": "540.5"
+    },
+    {
+     "price": "0.92483",
+     "remaining_base_amount": "80.6"
+    },
+    {
+     "price": "0.92485",
+     "remaining_base_amount": "540.6"
+    },
+    {
+     "price": "0.92495",
+     "remaining_base_amount": "974.8"
+    },
+    {
+     "price": "0.92498",
+     "remaining_base_amount": "86.6"
+    },
+    {
+     "price": "0.92509",
+     "remaining_base_amount": "2903.2"
+    },
+    {
+     "price": "0.92511",
+     "remaining_base_amount": "4994.7"
+    },
+    {
+     "price": "0.92517",
+     "remaining_base_amount": "10718.6"
+    },
+    {
+     "price": "0.92527",
+     "remaining_base_amount": "8658.2"
+    },
+    {
+     "price": "0.92534",
+     "remaining_base_amount": "6231.8"
+    },
+    {
+     "price": "0.92559",
+     "remaining_base_amount": "2600.6"
+    },
+    {
+     "price": "0.92620",
+     "remaining_base_amount": "392.8"
+    },
+    {
+     "price": "0.92625",
+     "remaining_base_amount": "52741.5"
+    },
+    {
+     "price": "0.92629",
+     "remaining_base_amount": "181.0"
+    },
+    {
+     "price": "0.92649",
+     "remaining_base_amount": "19895.7"
+    },
+    {
+     "price": "0.92650",
+     "remaining_base_amount": "390.2"
+    }
+   ],
+   "bids": [
+    {
+     "price": "0.92386",
+     "remaining_base_amount": "1950.5"
+    },
+    {
+     "price": "0.92385",
+     "remaining_base_amount": "3965.3"
+    },
+    {
+     "price": "0.92378",
+     "remaining_base_amount": "884.0"
+    },
+    {
+     "price": "0.92372",
+     "remaining_base_amount": "4262.2"
+    },
+    {
+     "price": "0.92368",
+     "remaining_base_amount": "884.1"
+    },
+    {
+     "price": "0.92358",
+     "remaining_base_amount": "884.1"
+    },
+    {
+     "price": "0.92353",
+     "remaining_base_amount": "5328.8"
+    },
+    {
+     "price": "0.92330",
+     "remaining_base_amount": "6652.0"
+    },
+    {
+     "price": "0.92328",
+     "remaining_base_amount": "2937.3"
+    },
+    {
+     "price": "0.92290",
+     "remaining_base_amount": "10718.6"
+    },
+    {
+     "price": "0.92271",
+     "remaining_base_amount": "10718.6"
+    },
+    {
+     "price": "0.92219",
+     "remaining_base_amount": "20049.2"
+    },
+    {
+     "price": "0.92219",
+     "remaining_base_amount": "8658.1"
+    },
+    {
+     "price": "0.92196",
+     "remaining_base_amount": "54232.3"
+    },
+    {
+     "price": "0.92162",
+     "remaining_base_amount": "117.9"
+    },
+    {
+     "price": "0.92159",
+     "remaining_base_amount": "203.3"
+    },
+    {
+     "price": "0.92159",
+     "remaining_base_amount": "394.1"
+    },
+    {
+     "price": "0.92157",
+     "remaining_base_amount": "54255.3"
+    },
+    {
+     "price": "0.92120",
+     "remaining_base_amount": "974.8"
+    },
+    {
+     "price": "0.92118",
+     "remaining_base_amount": "54278.3"
+    }
+   ]
+  },
+  {
+   "market_id": 189,
+   "symbol": "NBIS",
+   "asks": [
+    {
+     "price": "126.03",
+     "remaining_base_amount": "25.7133"
+    },
+    {
+     "price": "126.03",
+     "remaining_base_amount": "2.0200"
+    },
+    {
+     "price": "126.05",
+     "remaining_base_amount": "2.0070"
+    },
+    {
+     "price": "126.06",
+     "remaining_base_amount": "7.9328"
+    },
+    {
+     "price": "126.06",
+     "remaining_base_amount": "7.9328"
+    },
+    {
+     "price": "126.07",
+     "remaining_base_amount": "2.0419"
+    },
+    {
+     "price": "126.08",
+     "remaining_base_amount": "7.9315"
+    },
+    {
+     "price": "126.09",
+     "remaining_base_amount": "30.4412"
+    },
+    {
+     "price": "126.10",
+     "remaining_base_amount": "7.9303"
+    },
+    {
+     "price": "126.11",
+     "remaining_base_amount": "23.9673"
+    },
+    {
+     "price": "126.12",
+     "remaining_base_amount": "7.9290"
+    },
+    {
+     "price": "126.14",
+     "remaining_base_amount": "7.9277"
+    },
+    {
+     "price": "126.14",
+     "remaining_base_amount": "30.8000"
+    },
+    {
+     "price": "126.16",
+     "remaining_base_amount": "7.9265"
+    },
+    {
+     "price": "126.17",
+     "remaining_base_amount": "8.4192"
+    },
+    {
+     "price": "126.18",
+     "remaining_base_amount": "7.9252"
+    },
+    {
+     "price": "126.18",
+     "remaining_base_amount": "11.2256"
+    },
+    {
+     "price": "126.18",
+     "remaining_base_amount": "277.6390"
+    },
+    {
+     "price": "126.19",
+     "remaining_base_amount": "8.4192"
+    },
+    {
+     "price": "126.20",
+     "remaining_base_amount": "7.9240"
+    }
+   ],
+   "bids": [
+    {
+     "price": "126.00",
+     "remaining_base_amount": "4.2839"
+    },
+    {
+     "price": "126.00",
+     "remaining_base_amount": "7.9366"
+    },
+    {
+     "price": "125.98",
+     "remaining_base_amount": "7.9378"
+    },
+    {
+     "price": "125.98",
+     "remaining_base_amount": "30.8500"
+    },
+    {
+     "price": "125.96",
+     "remaining_base_amount": "7.9391"
+    },
+    {
+     "price": "125.96",
+     "remaining_base_amount": "277.5514"
+    },
+    {
+     "price": "125.94",
+     "remaining_base_amount": "7.9403"
+    },
+    {
+     "price": "125.92",
+     "remaining_base_amount": "7.9416"
+    },
+    {
+     "price": "125.92",
+     "remaining_base_amount": "158.8270"
+    },
+    {
+     "price": "125.92",
+     "remaining_base_amount": "7.9415"
+    },
+    {
+     "price": "125.91",
+     "remaining_base_amount": "0.7942"
+    },
+    {
+     "price": "125.90",
+     "remaining_base_amount": "7.9429"
+    },
+    {
+     "price": "125.90",
+     "remaining_base_amount": "277.6830"
+    },
+    {
+     "price": "125.90",
+     "remaining_base_amount": "48.0423"
+    },
+    {
+     "price": "125.89",
+     "remaining_base_amount": "70.6612"
+    },
+    {
+     "price": "125.88",
+     "remaining_base_amount": "7.9441"
+    },
+    {
+     "price": "125.86",
+     "remaining_base_amount": "7.9454"
+    },
+    {
+     "price": "125.86",
+     "remaining_base_amount": "277.6096"
+    },
+    {
+     "price": "125.84",
+     "remaining_base_amount": "7.9466"
+    },
+    {
+     "price": "125.76",
+     "remaining_base_amount": "636.1324"
+    }
+   ]
+  },
+  {
+   "market_id": 171,
+   "symbol": "BIO",
+   "asks": [
+    {
+     "price": "0.020158",
+     "remaining_base_amount": "14249"
+    },
+    {
+     "price": "0.020160",
+     "remaining_base_amount": "1861"
+    },
+    {
+     "price": "0.020173",
+     "remaining_base_amount": "1860"
+    },
+    {
+     "price": "0.020187",
+     "remaining_base_amount": "1862"
+    },
+    {
+     "price": "0.020197",
+     "remaining_base_amount": "28440"
+    },
+    {
+     "price": "0.020207",
+     "remaining_base_amount": "42639"
+    },
+    {
+     "price": "0.020212",
+     "remaining_base_amount": "1862"
+    },
+    {
+     "price": "0.020217",
+     "remaining_base_amount": "56823"
+    },
+    {
+     "price": "0.020230",
+     "remaining_base_amount": "12920"
+    },
+    {
+     "price": "0.020237",
+     "remaining_base_amount": "1862"
+    },
+    {
+     "price": "0.020250",
+     "remaining_base_amount": "122204"
+    },
+    {
+     "price": "0.020262",
+     "remaining_base_amount": "1866"
+    },
+    {
+     "price": "0.020262",
+     "remaining_base_amount": "51681"
+    },
+    {
+     "price": "0.020265",
+     "remaining_base_amount": "185049"
+    },
+    {
+     "price": "0.020279",
+     "remaining_base_amount": "1865"
+    },
+    {
+     "price": "0.020280",
+     "remaining_base_amount": "184912"
+    },
+    {
+     "price": "0.020294",
+     "remaining_base_amount": "1862"
+    },
+    {
+     "price": "0.020295",
+     "remaining_base_amount": "184775"
+    },
+    {
+     "price": "0.020309",
+     "remaining_base_amount": "1862"
+    },
+    {
+     "price": "0.020310",
+     "remaining_base_amount": "184639"
+    }
+   ],
+   "bids": [
+    {
+     "price": "0.020128",
+     "remaining_base_amount": "19873"
+    },
+    {
+     "price": "0.020113",
+     "remaining_base_amount": "39776"
+    },
+    {
+     "price": "0.020109",
+     "remaining_base_amount": "1861"
+    },
+    {
+     "price": "0.020103",
+     "remaining_base_amount": "59694"
+    },
+    {
+     "price": "0.020093",
+     "remaining_base_amount": "79631"
+    },
+    {
+     "price": "0.020092",
+     "remaining_base_amount": "1865"
+    },
+    {
+     "price": "0.020075",
+     "remaining_base_amount": "1866"
+    },
+    {
+     "price": "0.020068",
+     "remaining_base_amount": "12872"
+    },
+    {
+     "price": "0.020058",
+     "remaining_base_amount": "1867"
+    },
+    {
+     "price": "0.020055",
+     "remaining_base_amount": "186986"
+    },
+    {
+     "price": "0.020042",
+     "remaining_base_amount": "51486"
+    },
+    {
+     "price": "0.020041",
+     "remaining_base_amount": "1860"
+    },
+    {
+     "price": "0.020040",
+     "remaining_base_amount": "187126"
+    },
+    {
+     "price": "0.020025",
+     "remaining_base_amount": "187266"
+    },
+    {
+     "price": "0.020012",
+     "remaining_base_amount": "1861"
+    },
+    {
+     "price": "0.020010",
+     "remaining_base_amount": "187407"
+    },
+    {
+     "price": "0.019995",
+     "remaining_base_amount": "187547"
+    },
+    {
+     "price": "0.019980",
+     "remaining_base_amount": "187688"
+    },
+    {
+     "price": "0.019965",
+     "remaining_base_amount": "187829"
+    },
+    {
+     "price": "0.019950",
+     "remaining_base_amount": "187970"
+    }
+   ]
+  },
+  {
+   "market_id": 151,
+   "symbol": "ASML",
+   "asks": [
+    {
+     "price": "1413.8",
+     "remaining_base_amount": "0.07000"
+    },
+    {
+     "price": "1414.8",
+     "remaining_base_amount": "0.92478"
+    },
+    {
+     "price": "1415.7",
+     "remaining_base_amount": "7.06365"
+    },
+    {
+     "price": "1416.6",
+     "remaining_base_amount": "7.05916"
+    },
+    {
+     "price": "1417.4",
+     "remaining_base_amount": "0.12842"
+    },
+    {
+     "price": "1417.5",
+     "remaining_base_amount": "7.05468"
+    },
+    {
+     "price": "1418.4",
+     "remaining_base_amount": "7.05020"
+    },
+    {
+     "price": "1419.3",
+     "remaining_base_amount": "7.04573"
+    },
+    {
+     "price": "1420.2",
+     "remaining_base_amount": "7.04127"
+    },
+    {
+     "price": "1437.8",
+     "remaining_base_amount": "1.49830"
+    },
+    {
+     "price": "1490.4",
+     "remaining_base_amount": "24.20419"
+    },
+    {
+     "price": "1730.6",
+     "remaining_base_amount": "0.50000"
+    },
+    {
+     "price": "4087.5",
+     "remaining_base_amount": "0.10876"
+    }
+   ],
+   "bids": [
+    {
+     "price": "1402.5",
+     "remaining_base_amount": "7.13021"
+    },
+    {
+     "price": "1402.1",
+     "remaining_base_amount": "1.34401"
+    },
+    {
+     "price": "1401.6",
+     "remaining_base_amount": "0.49389"
+    },
+    {
+     "price": "1401.0",
+     "remaining_base_amount": "1.01598"
+    },
+    {
+     "price": "1396.8",
+     "remaining_base_amount": "7.15923"
+    },
+    {
+     "price": "1396.2",
+     "remaining_base_amount": "0.12842"
+    },
+    {
+     "price": "1395.9",
+     "remaining_base_amount": "7.16384"
+    },
+    {
+     "price": "1395.0",
+     "remaining_base_amount": "7.16846"
+    },
+    {
+     "price": "1394.1",
+     "remaining_base_amount": "7.17309"
+    },
+    {
+     "price": "1393.2",
+     "remaining_base_amount": "7.17773"
+    },
+    {
+     "price": "1392.3",
+     "remaining_base_amount": "7.18237"
+    },
+    {
+     "price": "1391.4",
+     "remaining_base_amount": "7.18701"
+    },
+    {
+     "price": "1390.5",
+     "remaining_base_amount": "7.19166"
+    },
+    {
+     "price": "1389.6",
+     "remaining_base_amount": "7.19632"
+    },
+    {
+     "price": "1388.7",
+     "remaining_base_amount": "7.20098"
+    },
+    {
+     "price": "1374.3",
+     "remaining_base_amount": "1.49830"
+    },
+    {
+     "price": "1324.8",
+     "remaining_base_amount": "43.17181"
+    },
+    {
+     "price": "1323.6",
+     "remaining_base_amount": "1.00000"
+    },
+    {
+     "price": "1171.3",
+     "remaining_base_amount": "1.00000"
+    },
+    {
+     "price": "965.8",
+     "remaining_base_amount": "1.00000"
+    }
+   ]
+  },
+  {
+   "market_id": 4097,
+   "symbol": "PRL",
+   "asks": [
+    {
+     "price": "1.6334",
+     "remaining_base_amount": "65.45"
+    },
+    {
+     "price": "1.6376",
+     "remaining_base_amount": "48.85"
+    },
+    {
+     "price": "1.6376",
+     "remaining_base_amount": "67.66"
+    },
+    {
+     "price": "1.6379",
+     "remaining_base_amount": "77.68"
+    },
+    {
+     "price": "1.6381",
+     "remaining_base_amount": "87.90"
+    },
+    {
+     "price": "1.6384",
+     "remaining_base_amount": "87.90"
+    },
+    {
+     "price": "1.6386",
+     "remaining_base_amount": "87.90"
+    },
+    {
+     "price": "1.6389",
+     "remaining_base_amount": "88.10"
+    },
+    {
+     "price": "1.6395",
+     "remaining_base_amount": "87.40"
+    },
+    {
+     "price": "1.6397",
+     "remaining_base_amount": "305.93"
+    },
+    {
+     "price": "1.6432",
+     "remaining_base_amount": "88.00"
+    },
+    {
+     "price": "1.6452",
+     "remaining_base_amount": "1519.57"
+    },
+    {
+     "price": "1.6453",
+     "remaining_base_amount": "2406.81"
+    },
+    {
+     "price": "1.6458",
+     "remaining_base_amount": "486.09"
+    },
+    {
+     "price": "1.6489",
+     "remaining_base_amount": "970.33"
+    },
+    {
+     "price": "1.6507",
+     "remaining_base_amount": "20.68"
+    },
+    {
+     "price": "1.6544",
+     "remaining_base_amount": "3022.25"
+    },
+    {
+     "price": "1.6560",
+     "remaining_base_amount": "3019.33"
+    },
+    {
+     "price": "1.6576",
+     "remaining_base_amount": "3016.41"
+    },
+    {
+     "price": "1.6592",
+     "remaining_base_amount": "3013.51"
+    }
+   ],
+   "bids": [
+    {
+     "price": "1.6328",
+     "remaining_base_amount": "68.11"
+    },
+    {
+     "price": "1.6326",
+     "remaining_base_amount": "61.23"
+    },
+    {
+     "price": "1.6322",
+     "remaining_base_amount": "61.04"
+    },
+    {
+     "price": "1.6278",
+     "remaining_base_amount": "12.05"
+    },
+    {
+     "price": "1.6277",
+     "remaining_base_amount": "49.14"
+    },
+    {
+     "price": "1.6241",
+     "remaining_base_amount": "37.35"
+    },
+    {
+     "price": "1.6192",
+     "remaining_base_amount": "2828.60"
+    },
+    {
+     "price": "1.6176",
+     "remaining_base_amount": "3091.00"
+    },
+    {
+     "price": "1.6161",
+     "remaining_base_amount": "1546.93"
+    },
+    {
+     "price": "1.6160",
+     "remaining_base_amount": "3094.06"
+    },
+    {
+     "price": "1.6144",
+     "remaining_base_amount": "3097.13"
+    },
+    {
+     "price": "1.6128",
+     "remaining_base_amount": "3100.20"
+    },
+    {
+     "price": "1.6112",
+     "remaining_base_amount": "3103.28"
+    },
+    {
+     "price": "1.6096",
+     "remaining_base_amount": "3106.37"
+    },
+    {
+     "price": "1.6080",
+     "remaining_base_amount": "3109.46"
+    },
+    {
+     "price": "1.6074",
+     "remaining_base_amount": "20.00"
+    },
+    {
+     "price": "1.6069",
+     "remaining_base_amount": "305.93"
+    },
+    {
+     "price": "1.6064",
+     "remaining_base_amount": "3112.55"
+    },
+    {
+     "price": "1.6048",
+     "remaining_base_amount": "3115.66"
+    },
+    {
+     "price": "1.6032",
+     "remaining_base_amount": "3118.77"
+    }
+   ]
+  },
+  {
+   "market_id": 66,
+   "symbol": "USELESS",
+   "asks": [
+    {
+     "price": "0.12960",
+     "remaining_base_amount": "6840.0"
+    },
+    {
+     "price": "0.12964",
+     "remaining_base_amount": "3856.9"
+    },
+    {
+     "price": "0.12966",
+     "remaining_base_amount": "1590.0"
+    },
+    {
+     "price": "0.12968",
+     "remaining_base_amount": "1590.0"
+    },
+    {
+     "price": "0.12969",
+     "remaining_base_amount": "1590.0"
+    },
+    {
+     "price": "0.12970",
+     "remaining_base_amount": "6840.0"
+    },
+    {
+     "price": "0.12972",
+     "remaining_base_amount": "1590.0"
+    },
+    {
+     "price": "0.12974",
+     "remaining_base_amount": "12138.0"
+    },
+    {
+     "price": "0.12977",
+     "remaining_base_amount": "5336.7"
+    },
+    {
+     "price": "0.12981",
+     "remaining_base_amount": "12699.7"
+    },
+    {
+     "price": "0.12989",
+     "remaining_base_amount": "1568.9"
+    },
+    {
+     "price": "0.12990",
+     "remaining_base_amount": "15154.6"
+    },
+    {
+     "price": "0.12995",
+     "remaining_base_amount": "2167.4"
+    },
+    {
+     "price": "0.12996",
+     "remaining_base_amount": "23177.8"
+    },
+    {
+     "price": "0.12997",
+     "remaining_base_amount": "18901.6"
+    },
+    {
+     "price": "0.13006",
+     "remaining_base_amount": "4889.5"
+    },
+    {
+     "price": "0.13018",
+     "remaining_base_amount": "13066.8"
+    },
+    {
+     "price": "0.13033",
+     "remaining_base_amount": "71751.3"
+    },
+    {
+     "price": "0.13039",
+     "remaining_base_amount": "30677.2"
+    },
+    {
+     "price": "0.13052",
+     "remaining_base_amount": "30646.7"
+    }
+   ],
+   "bids": [
+    {
+     "price": "0.12943",
+     "remaining_base_amount": "5575.0"
+    },
+    {
+     "price": "0.12941",
+     "remaining_base_amount": "1592.6"
+    },
+    {
+     "price": "0.12941",
+     "remaining_base_amount": "6860.0"
+    },
+    {
+     "price": "0.12939",
+     "remaining_base_amount": "1589.9"
+    },
+    {
+     "price": "0.12938",
+     "remaining_base_amount": "1589.9"
+    },
+    {
+     "price": "0.12937",
+     "remaining_base_amount": "1569.3"
+    },
+    {
+     "price": "0.12936",
+     "remaining_base_amount": "1575.6"
+    },
+    {
+     "price": "0.12934",
+     "remaining_base_amount": "1585.0"
+    },
+    {
+     "price": "0.12934",
+     "remaining_base_amount": "6860.0"
+    },
+    {
+     "price": "0.12933",
+     "remaining_base_amount": "12699.8"
+    },
+    {
+     "price": "0.12927",
+     "remaining_base_amount": "1589.9"
+    },
+    {
+     "price": "0.12926",
+     "remaining_base_amount": "11816.5"
+    },
+    {
+     "price": "0.12924",
+     "remaining_base_amount": "14773.0"
+    },
+    {
+     "price": "0.12916",
+     "remaining_base_amount": "18447.8"
+    },
+    {
+     "price": "0.12909",
+     "remaining_base_amount": "72570.0"
+    },
+    {
+     "price": "0.12898",
+     "remaining_base_amount": "2183.7"
+    },
+    {
+     "price": "0.12896",
+     "remaining_base_amount": "4889.5"
+    },
+    {
+     "price": "0.12887",
+     "remaining_base_amount": "23184.7"
+    },
+    {
+     "price": "0.12886",
+     "remaining_base_amount": "13066.8"
+    },
+    {
+     "price": "0.12883",
+     "remaining_base_amount": "29306.3"
+    }
+   ]
+  },
+  {
+   "market_id": 195,
+   "symbol": "DRAM",
+   "asks": [
+    {
+     "price": "39.721",
+     "remaining_base_amount": "82.915"
+    },
+    {
+     "price": "39.722",
+     "remaining_base_amount": "230.007"
+    },
+    {
+     "price": "39.723",
+     "remaining_base_amount": "9.395"
+    },
+    {
+     "price": "39.726",
+     "remaining_base_amount": "19.632"
+    },
+    {
+     "price": "39.726",
+     "remaining_base_amount": "130.230"
+    },
+    {
+     "price": "39.729",
+     "remaining_base_amount": "135.120"
+    },
+    {
+     "price": "39.731",
+     "remaining_base_amount": "11.626"
+    },
+    {
+     "price": "39.733",
+     "remaining_base_amount": "16.910"
+    },
+    {
+     "price": "39.735",
+     "remaining_base_amount": "230.007"
+    },
+    {
+     "price": "39.740",
+     "remaining_base_amount": "94.365"
+    },
+    {
+     "price": "39.743",
+     "remaining_base_amount": "229.956"
+    },
+    {
+     "price": "39.746",
+     "remaining_base_amount": "14.059"
+    },
+    {
+     "price": "39.752",
+     "remaining_base_amount": "1021.552"
+    },
+    {
+     "price": "39.765",
+     "remaining_base_amount": "2.514"
+    },
+    {
+     "price": "39.803",
+     "remaining_base_amount": "246.942"
+    },
+    {
+     "price": "39.803",
+     "remaining_base_amount": "246.942"
+    },
+    {
+     "price": "39.840",
+     "remaining_base_amount": "1159.597"
+    },
+    {
+     "price": "39.843",
+     "remaining_base_amount": "291.307"
+    },
+    {
+     "price": "39.856",
+     "remaining_base_amount": "2509.033"
+    },
+    {
+     "price": "39.863",
+     "remaining_base_amount": "246.942"
+    }
+   ],
+   "bids": [
+    {
+     "price": "39.702",
+     "remaining_base_amount": "94.455"
+    },
+    {
+     "price": "39.700",
+     "remaining_base_amount": "17.794"
+    },
+    {
+     "price": "39.697",
+     "remaining_base_amount": "649.598"
+    },
+    {
+     "price": "39.696",
+     "remaining_base_amount": "944.683"
+    },
+    {
+     "price": "39.694",
+     "remaining_base_amount": "5.016"
+    },
+    {
+     "price": "39.689",
+     "remaining_base_amount": "944.357"
+    },
+    {
+     "price": "39.686",
+     "remaining_base_amount": "6.867"
+    },
+    {
+     "price": "39.685",
+     "remaining_base_amount": "8.206"
+    },
+    {
+     "price": "39.684",
+     "remaining_base_amount": "229.935"
+    },
+    {
+     "price": "39.683",
+     "remaining_base_amount": "2.519"
+    },
+    {
+     "price": "39.676",
+     "remaining_base_amount": "851.118"
+    },
+    {
+     "price": "39.670",
+     "remaining_base_amount": "230.014"
+    },
+    {
+     "price": "39.660",
+     "remaining_base_amount": "230.065"
+    },
+    {
+     "price": "39.648",
+     "remaining_base_amount": "292.360"
+    },
+    {
+     "price": "39.626",
+     "remaining_base_amount": "246.942"
+    },
+    {
+     "price": "39.616",
+     "remaining_base_amount": "2524.233"
+    },
+    {
+     "price": "39.600",
+     "remaining_base_amount": "2525.253"
+    },
+    {
+     "price": "39.584",
+     "remaining_base_amount": "2526.274"
+    },
+    {
+     "price": "39.568",
+     "remaining_base_amount": "2527.295"
+    },
+    {
+     "price": "39.567",
+     "remaining_base_amount": "246.942"
+    }
+   ]
+  },
+  {
+   "market_id": 88,
+   "symbol": "2Z",
+   "asks": [
+    {
+     "price": "0.02147",
+     "remaining_base_amount": "163764.6"
+    },
+    {
+     "price": "0.02148",
+     "remaining_base_amount": "108166.5"
+    },
+    {
+     "price": "0.02153",
+     "remaining_base_amount": "373222.0"
+    },
+    {
+     "price": "0.02154",
+     "remaining_base_amount": "259964.9"
+    },
+    {
+     "price": "0.02157",
+     "remaining_base_amount": "278164.2"
+    },
+    {
+     "price": "0.02158",
+     "remaining_base_amount": "8877.0"
+    },
+    {
+     "price": "0.02160",
+     "remaining_base_amount": "277777.8"
+    },
+    {
+     "price": "0.02163",
+     "remaining_base_amount": "277392.6"
+    },
+    {
+     "price": "0.02166",
+     "remaining_base_amount": "277008.4"
+    },
+    {
+     "price": "0.02169",
+     "remaining_base_amount": "276625.2"
+    },
+    {
+     "price": "0.02172",
+     "remaining_base_amount": "276243.1"
+    },
+    {
+     "price": "0.02175",
+     "remaining_base_amount": "275862.1"
+    },
+    {
+     "price": "0.02178",
+     "remaining_base_amount": "275482.1"
+    },
+    {
+     "price": "0.02181",
+     "remaining_base_amount": "275103.2"
+    },
+    {
+     "price": "0.02226",
+     "remaining_base_amount": "8529913.7"
+    },
+    {
+     "price": "0.03400",
+     "remaining_base_amount": "450.0"
+    },
+    {
+     "price": "0.04400",
+     "remaining_base_amount": "450.0"
+    },
+    {
+     "price": "0.05100",
+     "remaining_base_amount": "550.0"
+    },
+    {
+     "price": "0.06000",
+     "remaining_base_amount": "500.0"
+    },
+    {
+     "price": "0.06282",
+     "remaining_base_amount": "2396.6"
+    }
+   ],
+   "bids": [
+    {
+     "price": "0.02143",
+     "remaining_base_amount": "137207.6"
+    },
+    {
+     "price": "0.02142",
+     "remaining_base_amount": "142855.6"
+    },
+    {
+     "price": "0.02134",
+     "remaining_base_amount": "373644.6"
+    },
+    {
+     "price": "0.02133",
+     "remaining_base_amount": "281294.0"
+    },
+    {
+     "price": "0.02130",
+     "remaining_base_amount": "281690.2"
+    },
+    {
+     "price": "0.02127",
+     "remaining_base_amount": "282087.5"
+    },
+    {
+     "price": "0.02124",
+     "remaining_base_amount": "282485.9"
+    },
+    {
+     "price": "0.02121",
+     "remaining_base_amount": "282885.5"
+    },
+    {
+     "price": "0.02118",
+     "remaining_base_amount": "283286.2"
+    },
+    {
+     "price": "0.02115",
+     "remaining_base_amount": "283688.0"
+    },
+    {
+     "price": "0.02112",
+     "remaining_base_amount": "284091.0"
+    },
+    {
+     "price": "0.02109",
+     "remaining_base_amount": "284495.1"
+    },
+    {
+     "price": "0.02106",
+     "remaining_base_amount": "284900.3"
+    },
+    {
+     "price": "0.02058",
+     "remaining_base_amount": "9232264.4"
+    },
+    {
+     "price": "0.01893",
+     "remaining_base_amount": "550.0"
+    },
+    {
+     "price": "0.01047",
+     "remaining_base_amount": "14379.9"
+    }
+   ]
+  },
+  {
+   "market_id": 117,
+   "symbol": "META",
+   "asks": [
+    {
+     "price": "603.50",
+     "remaining_base_amount": "1.0976"
+    },
+    {
+     "price": "603.50",
+     "remaining_base_amount": "5.3284"
+    },
+    {
+     "price": "603.52",
+     "remaining_base_amount": "7.1773"
+    },
+    {
+     "price": "603.53",
+     "remaining_base_amount": "1.1788"
+    },
+    {
+     "price": "603.53",
+     "remaining_base_amount": "1.7836"
+    },
+    {
+     "price": "603.54",
+     "remaining_base_amount": "3.2274"
+    },
+    {
+     "price": "603.56",
+     "remaining_base_amount": "2.7724"
+    },
+    {
+     "price": "603.57",
+     "remaining_base_amount": "82.5525"
+    },
+    {
+     "price": "603.58",
+     "remaining_base_amount": "0.4237"
+    },
+    {
+     "price": "603.59",
+     "remaining_base_amount": "6.3384"
+    },
+    {
+     "price": "603.59",
+     "remaining_base_amount": "1.8088"
+    },
+    {
+     "price": "603.61",
+     "remaining_base_amount": "3.0303"
+    },
+    {
+     "price": "603.64",
+     "remaining_base_amount": "33.1554"
+    },
+    {
+     "price": "603.64",
+     "remaining_base_amount": "0.5298"
+    },
+    {
+     "price": "603.75",
+     "remaining_base_amount": "12.2216"
+    },
+    {
+     "price": "603.76",
+     "remaining_base_amount": "0.6645"
+    },
+    {
+     "price": "603.77",
+     "remaining_base_amount": "14.7200"
+    },
+    {
+     "price": "603.79",
+     "remaining_base_amount": "33.1554"
+    },
+    {
+     "price": "603.87",
+     "remaining_base_amount": "56.5490"
+    },
+    {
+     "price": "603.89",
+     "remaining_base_amount": "33.1554"
+    }
+   ],
+   "bids": [
+    {
+     "price": "603.41",
+     "remaining_base_amount": "1.2232"
+    },
+    {
+     "price": "603.41",
+     "remaining_base_amount": "9.7555"
+    },
+    {
+     "price": "603.38",
+     "remaining_base_amount": "1.1476"
+    },
+    {
+     "price": "603.37",
+     "remaining_base_amount": "0.4535"
+    },
+    {
+     "price": "603.36",
+     "remaining_base_amount": "8.7043"
+    },
+    {
+     "price": "603.33",
+     "remaining_base_amount": "52.8946"
+    },
+    {
+     "price": "603.28",
+     "remaining_base_amount": "0.6606"
+    },
+    {
+     "price": "603.24",
+     "remaining_base_amount": "0.7349"
+    },
+    {
+     "price": "603.20",
+     "remaining_base_amount": "33.1554"
+    },
+    {
+     "price": "603.20",
+     "remaining_base_amount": "3.7969"
+    },
+    {
+     "price": "603.19",
+     "remaining_base_amount": "0.1657"
+    },
+    {
+     "price": "603.18",
+     "remaining_base_amount": "82.5525"
+    },
+    {
+     "price": "603.13",
+     "remaining_base_amount": "1.4148"
+    },
+    {
+     "price": "603.11",
+     "remaining_base_amount": "1.5963"
+    },
+    {
+     "price": "603.08",
+     "remaining_base_amount": "1.4148"
+    },
+    {
+     "price": "603.07",
+     "remaining_base_amount": "14.7360"
+    },
+    {
+     "price": "603.05",
+     "remaining_base_amount": "1.4148"
+    },
+    {
+     "price": "603.04",
+     "remaining_base_amount": "33.1554"
+    },
+    {
+     "price": "603.03",
+     "remaining_base_amount": "143.4244"
+    },
+    {
+     "price": "602.99",
+     "remaining_base_amount": "1.4149"
+    }
+   ]
+  }
+ ],
+ "note": "25 active perps, owner account indexes dropped"
+}

@@ -16,11 +16,14 @@ describe("catalog-sync job", () => {
   test("definition", async () => {
     expect(job).toMatchObject({ name: "catalog-sync", queue: "catalogSync", schedule: { pattern: "15 0 * * *" }, concurrency: 1 });
     expect(SOURCES_DIR.endsWith(join("jobs", "catalog-sources"))).toBe(true);
-    // adapters drop their sources in; each one must load with a venue and a listMarkets function
-    for (const s of await loadSources()) {
+    // adapters drop their sources in; each one loads with a venue and a listMarkets function, never calls the venue,
+    // and no two sources claim the same venue
+    const sources = await loadSources();
+    for (const s of sources) {
       expect(typeof s.venue).toBe("string");
       expect(typeof s.listMarkets).toBe("function");
     }
+    expect(new Set(sources.map((s) => s.venue)).size).toBe(sources.length);
   });
 
   (REDIS ? test : test.skip)("schedule", async () => {

@@ -1,0 +1,13 @@
+{
+ "name": "lighter-466324/feeTiers",
+ "capturedAt": "2026-11-06T02:55:49.474Z",
+ "source": "live",
+ "venue": "lighter-466324",
+ "request": {
+  "method": "GET",
+  "url": "https://api.rh.lighter.xyz/api/v1/feeTiers",
+  "body": null
+ },
+ "status": 403,
+ "response": ""
+}

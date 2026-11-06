@@ -5,5 +5,12 @@
   "type": "module",
   "description": "Lighter adapter, configs 304 and 466324",
   "main": "src/index.ts",
-  "types": "src/index.ts"
+  "types": "src/index.ts",
+  "dependencies": {
+    "@capstan/core": "workspace:*",
+    "@capstan/schema": "workspace:*",
+    "@capstan/signer-lighter-wasm": "workspace:*",
+    "@capstan/venue-client": "workspace:*",
+    "viem": "2.57.14"
+  }
 }
