@@ -1,0 +1,34 @@
+{
+  "name": "capstan-web",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Capstan site and dashboard (Vite, React, TypeScript)",
+  "license": "MIT",
+  "scripts": {
+    "sync": "bun scripts/sync-openapi.ts",
+    "dev": "bun scripts/sync-openapi.ts && vite --host 127.0.0.1 --port 22273 --strictPort",
+    "build": "bun scripts/sync-openapi.ts && tsc --noEmit -p . && vite build && bun scripts/check-dist.ts",
+    "preview": "vite preview --host 127.0.0.1 --port 22273 --strictPort",
+    "test": "bun test --timeout 30000 test",
+    "test:e2e": "CAPSTAN_WEB_E2E=1 bun test --timeout 300000 test/e2e",
+    "check:copy": "bun scripts/check-copy.ts"
+  },
+  "dependencies": {
+    "buffer": "6.0.3",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "react-router": "8.5.1"
+  },
+  "devDependencies": {
+    "@happy-dom/global-registrator": "21.0.4",
+    "@types/bun": "1.4.4",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "6.2.1",
+    "axe-core": "4.14.0",
+    "playwright-core": "1.64.1",
+    "typescript": "5.9.3",
+    "vite": "8.3.5"
+  }
+}

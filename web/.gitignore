@@ -1,0 +1,4 @@
+# Copied from apps/api/openapi.json and apps/mcp/README.md by scripts/sync-openapi.ts before every build and test run.
+src/generated/
+# Browser pass output (the screenshots go to the private docs repo, never here).
+test-results/

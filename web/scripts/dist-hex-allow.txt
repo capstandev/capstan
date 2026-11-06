@@ -1,0 +1,7 @@
+# 64-hex constants that ship in the browser bundle on purpose (public curve parameters, never keys). One per line,
+# value first. scripts/check-dist.ts refuses any other 64-hex value in dist/.
+0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffefffffc2f secp256k1 field prime p // not-a-key
+0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141 secp256k1 group order n // not-a-key
+0x79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798 secp256k1 generator x // not-a-key
+0x483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8 secp256k1 generator y // not-a-key
+0x7ae96a2b657c07106e64479eac3434e99cf0497512f58995c1396c28719501ee secp256k1 endomorphism beta // not-a-key
