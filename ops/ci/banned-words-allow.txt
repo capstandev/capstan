@@ -1,0 +1,5 @@
+# Exact sentences allowed verbatim even though they match a banned pattern. One per line, matched exactly (case
+# sensitive). The checker removes an exact allowed sentence from a line before matching, so any other use of the
+# words still fails. Keep this list as short as possible.
+# Spec risk banner (RiskView.banner), required on every risk view:
+Each venue liquidates independently. Nothing here is shared margin.

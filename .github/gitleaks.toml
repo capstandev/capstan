@@ -1,5 +1,7 @@
-# Default gitleaks rules plus one narrow allowlist: vendored upstream libraries under contracts/lib/ (forge-std's
-# curve constants and fixtures read as generic keys). Every other path gets the full default rule set.
+# Default gitleaks rules plus two narrow path allowlists: vendored upstream libraries under contracts/lib/ (forge-std's
+# curve constants read as generic keys) and recorded public venue data under packages/venue-client/fixtures/ (tx and
+# order hashes). Every other path gets the full default rule set; ops/ci/check-vector-files.ts refuses key-like names
+# in the fixtures.
 title = "capstan gitleaks"
 
 [extend]
@@ -9,4 +11,10 @@ useDefault = true
 description = "vendored upstream Solidity libraries"
 paths = [
   '''^contracts/lib/''',
+]
+
+[[allowlists]]
+description = "recorded public venue responses (tx and order hashes, no keys)"
+paths = [
+  '''^packages/venue-client/fixtures/''',
 ]

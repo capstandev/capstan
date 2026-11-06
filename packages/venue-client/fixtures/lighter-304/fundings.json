@@ -1,0 +1,162 @@
+{
+ "name": "lighter-304/fundings",
+ "capturedAt": "2026-11-06T01:37:19.146Z",
+ "source": "live",
+ "venue": "lighter-304",
+ "request": {
+  "method": "GET",
+  "url": "https://mainnet.zklighter.elliot.ai/api/v1/fundings?market_id=1&resolution=1h&start_timestamp=1793842633&end_timestamp=1793929033&count_back=24",
+  "body": null
+ },
+ "status": 200,
+ "response": {
+  "code": 200,
+  "resolution": "1h",
+  "fundings": [
+   {
+    "timestamp": 1793844000,
+    "value": "0.96823440",
+    "rate": "0.0012",
+    "direction": "long"
+   },
+   {
+    "timestamp": 1793847600,
+    "value": "0.96683400",
+    "rate": "0.0012",
+    "direction": "long"
+   },
+   {
+    "timestamp": 1793851200,
+    "value": "0.96652560",
+    "rate": "0.0012",
+    "direction": "long"
+   },
+   {
+    "timestamp": 1793854800,
+    "value": "0.96625200",
+    "rate": "0.0012",
+    "direction": "long"
+   },
+   {
+    "timestamp": 1793858400,
+    "value": "0.96481440",
+    "rate": "0.0012",
+    "direction": "long"
+   },
+   {
+    "timestamp": 1793862000,
+    "value": "0.96782640",
+    "rate": "0.0012",
+    "direction": "long"
+   },
+   {
+    "timestamp": 1793865600,
+    "value": "0.96436560",
+    "rate": "0.0012",
+    "direction": "long"
+   },
+   {
+    "timestamp": 1793869200,
+    "value": "0.96598440",
+    "rate": "0.0012",
+    "direction": "long"
+   },
+   {
+    "timestamp": 1793872800,
+    "value": "0.96533160",
+    "rate": "0.0012",
+    "direction": "long"
+   },
+   {
+    "timestamp": 1793876400,
+    "value": "0.96339840",
+    "rate": "0.0012",
+    "direction": "long"
+   },
+   {
+    "timestamp": 1793880000,
+    "value": "0.96477120",
+    "rate": "0.0012",
+    "direction": "long"
+   },
+   {
+    "timestamp": 1793883600,
+    "value": "0.95595480",
+    "rate": "0.0012",
+    "direction": "long"
+   },
+   {
+    "timestamp": 1793887200,
+    "value": "0.95592480",
+    "rate": "0.0012",
+    "direction": "long"
+   },
+   {
+    "timestamp": 1793890800,
+    "value": "0.93944880",
+    "rate": "0.0012",
+    "direction": "long"
+   },
+   {
+    "timestamp": 1793894400,
+    "value": "0.91226640",
+    "rate": "0.0012",
+    "direction": "long"
+   },
+   {
+    "timestamp": 1793898000,
+    "value": "0.91665360",
+    "rate": "0.0012",
+    "direction": "long"
+   },
+   {
+    "timestamp": 1793901600,
+    "value": "0.91134600",
+    "rate": "0.0012",
+    "direction": "long"
+   },
+   {
+    "timestamp": 1793905200,
+    "value": "0.91303680",
+    "rate": "0.0012",
+    "direction": "long"
+   },
+   {
+    "timestamp": 1793908800,
+    "value": "0.91645320",
+    "rate": "0.0012",
+    "direction": "long"
+   },
+   {
+    "timestamp": 1793912400,
+    "value": "0.91463160",
+    "rate": "0.0012",
+    "direction": "long"
+   },
+   {
+    "timestamp": 1793916000,
+    "value": "0.91029960",
+    "rate": "0.0012",
+    "direction": "long"
+   },
+   {
+    "timestamp": 1793919600,
+    "value": "0.90855000",
+    "rate": "0.0012",
+    "direction": "long"
+   },
+   {
+    "timestamp": 1793923200,
+    "value": "0.91302960",
+    "rate": "0.0012",
+    "direction": "long"
+   },
+   {
+    "timestamp": 1793926800,
+    "value": "0.91597560",
+    "rate": "0.0012",
+    "direction": "long"
+   }
+  ]
+ }
+}

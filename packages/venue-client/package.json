@@ -1,0 +1,14 @@
+{
+  "name": "@capstan/venue-client",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Shared venue HTTP and WebSocket client, per-egress budget governor, read-only fixture recorder",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "dependencies": {
+    "@capstan/core": "workspace:*",
+    "@capstan/schema": "workspace:*",
+    "ioredis": "5.11.1"
+  }
+}

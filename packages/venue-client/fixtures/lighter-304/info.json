@@ -1,0 +1,15 @@
+{
+ "name": "lighter-304/info",
+ "capturedAt": "2026-11-06T01:37:20.134Z",
+ "source": "live",
+ "venue": "lighter-304",
+ "request": {
+  "method": "GET",
+  "url": "https://mainnet.zklighter.elliot.ai/info",
+  "body": null
+ },
+ "status": 200,
+ "response": {
+  "contract_address": "0x3B4D794a66304F130a4Db8F2551B0070dfCf5ca7"
+ }
+}

@@ -1,0 +1,57 @@
+# Local semgrep ruleset (no rule download in CI). Run: semgrep scan --config ops/ci/semgrep --error --metrics=off
+rules:
+  - id: no-eval
+    languages: [typescript, javascript]
+    severity: ERROR
+    message: eval and new Function run arbitrary strings as code
+    pattern-either:
+      - pattern: eval(...)
+      - pattern: new Function(...)
+  - id: no-math-random-for-ids
+    languages: [typescript, javascript]
+    severity: ERROR
+    message: Math.random is not a secure random source; use crypto.getRandomValues
+    paths:
+      exclude: ["*.test.ts", "**/test/**"]
+    pattern: Math.random()
+  - id: no-raw-key-from-env
+    languages: [typescript, javascript]
+    severity: ERROR
+    message: service keys load only through keystoreSigner from a file path, never from an env value
+    patterns:
+      - pattern: process.env.$NAME
+      - metavariable-regex:
+          metavariable: $NAME
+          regex: (?i).*(private_?key|mnemonic|seed_phrase).*
+  - id: no-shell-with-template
+    languages: [typescript, javascript]
+    severity: ERROR
+    message: build argv arrays for child processes; never a shell string with interpolation
+    pattern-either:
+      - pattern: require("child_process").exec(`...${$X}...`, ...)
+      - pattern: exec(`...${$X}...`, ...)
+      - pattern: execSync(`...${$X}...`, ...)
+  - id: no-parsefloat-amounts
+    languages: [typescript, javascript]
+    severity: WARNING
+    message: amounts are decimal strings or bigint (Dec); parseFloat loses precision
+    paths:
+      include: ["packages/**", "apps/**"]
+      exclude: ["*.test.ts", "**/test/**"]
+    patterns:
+      - pattern: parseFloat($X)
+      - metavariable-regex:
+          metavariable: $X
+          regex: (?i).*(amount|size|px|price|notional|fee|qty).*
+  - id: no-tx-origin
+    languages: [solidity]
+    severity: ERROR
+    message: tx.origin must not be used for authorization
+    pattern: tx.origin
+  - id: no-selfdestruct-or-delegatecall
+    languages: [solidity]
+    severity: ERROR
+    message: the contracts are non-upgradeable and hold no foreign code paths
+    pattern-either:
+      - pattern: selfdestruct(...)
+      - pattern: $X.delegatecall(...)

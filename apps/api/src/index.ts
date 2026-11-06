@@ -1,10 +1,18 @@
-// @capstan/api entry. `bun run apps/api/src/index.ts` serves on API_PORT (default 8710).
-import { app } from "./app";
+// @capstan/api entry. `bun apps/api/src/index.ts` validates config for the api role and serves on API_PORT.
+import { loadConfig, logger } from "@capstan/core";
+import { createApp } from "./app";
 
-export { app };
+export { createApp };
 
 if (import.meta.main) {
-  const port = Number(process.env.API_PORT ?? 8710);
-  Bun.serve({ port, fetch: app.fetch });
-  console.log(`api listening on :${port}`);
+  const log = logger("api");
+  try {
+    const cfg = loadConfig("api");
+    const { app, routes } = await createApp();
+    Bun.serve({ port: cfg.API_PORT, hostname: "127.0.0.1", fetch: app.fetch });
+    log.info("listening", { port: cfg.API_PORT, routes: routes.length });
+  } catch (e) {
+    log.error("boot failed", { error: (e as Error).message });
+    process.exit(1);
+  }
 }

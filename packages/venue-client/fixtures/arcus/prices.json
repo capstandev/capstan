@@ -1,0 +1,140 @@
+{
+ "name": "arcus/prices",
+ "capturedAt": "2026-11-06T01:37:55.759Z",
+ "source": "live",
+ "venue": "arcus",
+ "request": {
+  "method": "GET",
+  "url": "https://api.arcus.xyz/v1/prices",
+  "body": null
+ },
+ "status": 200,
+ "response": {
+  "1": {
+   "marketDisplayName": "BTC-USD",
+   "oraclePrice": "76061.3",
+   "markPrice": "76081.1",
+   "sequencer": 9315890014
+  },
+  "2": {
+   "marketDisplayName": "ETH-USD",
+   "oraclePrice": "2238.13",
+   "markPrice": "2238.01",
+   "sequencer": 9315890014
+  },
+  "3": {
+   "marketDisplayName": "SOL-USD",
+   "oraclePrice": "89.965",
+   "markPrice": "89.927",
+   "sequencer": 9315890014
+  },
+  "4": {
+   "marketDisplayName": "DOGE-USD",
+   "oraclePrice": "0.07199",
+   "markPrice": "0.07199",
+   "sequencer": 9315890014
+  },
+  "6": {
+   "marketDisplayName": "HYPE-USD",
+   "oraclePrice": "77.655",
+   "markPrice": "77.714",
+   "sequencer": 9315890014
+  },
+  "7": {
+   "marketDisplayName": "DYDX-USD",
+   "oraclePrice": "0.096",
+   "markPrice": "0.0959",
+   "sequencer": 9315890014
+  },
+  "8": {
+   "marketDisplayName": "ZEC-USD",
+   "oraclePrice": "1315.147",
+   "markPrice": "1316.075",
+   "sequencer": 9315890014
+  },
+  "9": {
+   "marketDisplayName": "AMD-USD",
+   "oraclePrice": "420.54",
+   "markPrice": "420.88",
+   "sequencer": 9315890014
+  },
+  "10": {
+   "marketDisplayName": "INTC-USD",
+   "oraclePrice": "53.24",
+   "markPrice": "53.28",
+   "sequencer": 9315890014
+  },
+  "14": {
+   "marketDisplayName": "GOOGL-USD",
+   "oraclePrice": "282.64",
+   "markPrice": "282.71",
+   "sequencer": 9315890014
+  },
+  "15": {
+   "marketDisplayName": "META-USD",
+   "oraclePrice": "604.25",
+   "markPrice": "604.32",
+   "sequencer": 9315890014
+  },
+  "16": {
+   "marketDisplayName": "MU-USD",
+   "oraclePrice": "682.51",
+   "markPrice": "682.74",
+   "sequencer": 9315890014
+  },
+  "17": {
+   "marketDisplayName": "BABA-USD",
+   "oraclePrice": "107.6",
+   "markPrice": "107.6",
+   "sequencer": 9315890014
+  },
+  "18": {
+   "marketDisplayName": "HOOD-USD",
+   "oraclePrice": "79.16",
+   "markPrice": "79.19",
+   "sequencer": 9315890014
+  },
+  "19": {
+   "marketDisplayName": "CRCL-USD",
+   "oraclePrice": "68.83",
+   "markPrice": "68.88",
+   "sequencer": 9315890014
+  },
+  "20": {
+   "marketDisplayName": "GLD-USD",
+   "oraclePrice": "372.79",
+   "markPrice": "372.89",
+   "sequencer": 9315890014
+  },
+  "21": {
+   "marketDisplayName": "SLV-USD",
+   "oraclePrice": "46.74",
+   "markPrice": "46.79",
+   "sequencer": 9315890014
+  },
+  "22": {
+   "marketDisplayName": "USO-USD",
+   "oraclePrice": "149.26",
+   "markPrice": "149.25",
+   "sequencer": 9315890014
+  },
+  "23": {
+   "marketDisplayName": "SPY-USD",
+   "oraclePrice": "734.31",
+   "markPrice": "734.44",
+   "sequencer": 9315890014
+  },
+  "24": {
+   "marketDisplayName": "QQQ-USD",
+   "oraclePrice": "652.58",
+   "markPrice": "652.76",
+   "sequencer": 9315890014
+  }
+ },
+ "trimmed": {
+  "path": "{}",
+  "kept": 20,
+  "total": 74,
+  "rule": "first 20 markets"
+ }
+}

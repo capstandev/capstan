@@ -1,0 +1,16 @@
+{
+ "name": "hyperliquid/error_unknownType",
+ "capturedAt": "2026-11-06T01:37:16.941Z",
+ "source": "live",
+ "venue": "hyperliquid",
+ "request": {
+  "method": "POST",
+  "url": "https://api.hyperliquid.xyz/info",
+  "body": {
+   "type": "capstanUnknownInfoType"
+  }
+ },
+ "status": 422,
+ "response": "Failed to deserialize the JSON body into the target type",
+ "note": "unknown info type: plain-text deserialize error"
+}

@@ -1,0 +1,13 @@
+# Bun settings for every workspace.
+[install]
+# Exact versions only: `bun add` writes "1.2.3", never "^1.2.3" (ops/ci/check-pins.ts enforces it for hand edits).
+exact = true
+# Supply-chain delay: refuse any package version published less than 3 days ago (value in seconds; Bun 1.4.4
+# `bun install --help`: "--minimum-release-age=<val> Only install packages published at least N seconds ago").
+minimumReleaseAge = 259200
+# The lockfile is frozen in CI only (`bun install --frozen-lockfile` in .github/workflows/ci.yml), so lanes can add
+# their own dependencies locally.
+
+[test]
+# Integration tests that need Postgres or Redis read DATABASE_URL / REDIS_URL and skip when they are unset.
+timeout = 30000

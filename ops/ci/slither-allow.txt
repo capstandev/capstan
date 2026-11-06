@@ -1,0 +1,3 @@
+# Slither findings accepted on purpose, one per line, matched exactly:
+#   <detector> | <contract> | <function> | <reason>
+# Never an inline disable comment in deployed source: it changes the Sourcify match. Empty for now.

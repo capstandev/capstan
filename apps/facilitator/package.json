@@ -5,5 +5,8 @@
   "type": "module",
   "description": "Self-hosted x402 facilitator (Base, Solana, RHC)",
   "main": "src/index.ts",
-  "types": "src/index.ts"
+  "types": "src/index.ts",
+  "dependencies": {
+    "@capstan/core": "workspace:*"
+  }
 }

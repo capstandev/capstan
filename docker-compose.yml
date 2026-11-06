@@ -1,4 +1,5 @@
 # Local dev dependencies only (never production). Ports avoid the common defaults so other local stacks keep theirs.
+# Parallel stacks: CAPSTAN_PG_PORT=21132 CAPSTAN_REDIS_PORT=21179 docker compose -p capstan-<name> up -d --wait
 # Images pinned by tag and index digest (checked 2026-11-05).
 name: capstan-dev
 services:
@@ -9,7 +10,7 @@ services:
       POSTGRES_USER: capstan
       POSTGRES_PASSWORD: capstan
       POSTGRES_DB: capstan
-    ports: ["127.0.0.1:55432:5432"]
+    ports: ["127.0.0.1:${CAPSTAN_PG_PORT:-55432}:5432"]
     volumes: ["capstan-pg:/var/lib/postgresql/data"]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U capstan -d capstan"]
@@ -20,7 +21,7 @@ services:
     # Redis 7: BullMQ jobs, caches, rate-limit buckets, pub/sub fan-out
     image: redis:7.4.12-alpine@sha256:4783bb5c3ecd5a93ce0a779ed2c44d5472043bb2cb7251f5390700748c62e62b
     command: ["redis-server", "--appendonly", "yes"]
-    ports: ["127.0.0.1:56379:6379"]
+    ports: ["127.0.0.1:${CAPSTAN_REDIS_PORT:-56379}:6379"]
     volumes: ["capstan-redis:/data"]
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]

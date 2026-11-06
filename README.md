@@ -21,7 +21,8 @@ apps/
   workers/        BullMQ processors (ingest, funding, risk, reconcile, anchor)
   facilitator/    self-hosted x402 facilitator
 packages/
-  schema/         canonical types + zod validators
+  schema/         canonical types, zod validators, constants, database schema
+  core/           config, database and migrations, queues, cache, service signer, signed messages, logger
   adapters/       hyperliquid, lighter, aster, variational (read-only), arcus (read-only)
   signers/        hl, lighter-wasm, aster
   sdk/            client-side key generation, payload checks, signing, plan executor
@@ -45,6 +46,14 @@ ops/              CI checks, dashboards, alerts
 Interfaces only so far (`src/interfaces`). Non-upgradeable, no pause, no admin beyond what each contract states.
 Vendored: forge-std v1.17.0.
 
+### Deployments
+
+Generated from `contracts/deployments/<chainId>.json` by `bun ops/ci/gen-deployments.ts`; CI fails if it differs.
+
+<!-- deployments:start -->
+No contracts are deployed yet.
+<!-- deployments:end -->
+
 ### Services
 
 | Service | Entry | What it does |
@@ -60,18 +69,23 @@ Vendored: forge-std v1.17.0.
 
 - [Bun](https://bun.sh) 1.4.4+
 - [Foundry](https://getfoundry.sh) 1.8.4 (solc 0.8.28 is set in `contracts/foundry.toml`)
-- Docker (local Postgres 16 + TimescaleDB on port 55432, Redis 7 on port 56379)
+- Docker (local Postgres 16 + TimescaleDB on port 55432, Redis 7 on port 56379; both ports configurable)
 
 ## Commands
 
 ```sh
 bun install
 bunx tsc --noEmit          # typecheck every workspace
-bun test                   # unit tests + CI invariant checks
-bun run check              # typecheck, tests, key-identifier rule, banned words, public guard
+docker compose up -d --wait  # local Postgres + Redis (CAPSTAN_PG_PORT / CAPSTAN_REDIS_PORT move the ports)
+bun run db:migrate         # apply migrations (DATABASE_URL); `bun run db:migrate:down` reverts them
+bun test                   # unit tests + CI invariant checks (database tests skip without DATABASE_URL / REDIS_URL)
+bun run check              # typecheck, tests, key identifiers, banned words, pins, deployments, vectors, public guard
 cd contracts && forge build && forge test
-docker compose up -d       # local Postgres + Redis
 ```
+
+New API routes, worker jobs and catalog sources are drop-in files, found by a glob scan at boot:
+`apps/api/src/routes/<area>.routes.ts` (exports `routes`, each with its auth declared), `apps/workers/src/jobs/<name>.job.ts`
+(exports `job`) and `apps/workers/src/jobs/catalog-sources/<venue>.source.ts` (exports `source`).
 
 ### Configuration
 
@@ -79,18 +93,26 @@ All config comes from environment variables. `.env.example` lists every variable
 
 | Variable | Default | Notes |
 | --- | --- | --- |
-| `API_PORT` | `8710` | API listen port |
+| `CAPSTAN_NETWORK` | `local` | `local`, `testnet` or `mainnet` |
+| `API_PORT` / `WS_PORT` / `RELAY_PORT` / `MCP_PORT` / `FACILITATOR_PORT` | `8710` to `8714` | Listen ports |
 | `DATABASE_URL` | `postgres://capstan:capstan@127.0.0.1:55432/capstan` | Local compose database |
 | `REDIS_URL` | `redis://127.0.0.1:56379` | Local compose Redis |
+| `WORKER_JOBS` | empty (all) | Comma list; an unknown name stops the worker at boot |
+| `<ROLE>_SIGNER` | `keystore` | `keystore` (needs `<ROLE>_KEYSTORE_PATH` and `<ROLE>_KEYSTORE_PASSWORD_FILE`) or `dev` (chain 31337 only) |
+| `ANCHOR_ARMED` / `FACILITATOR_ARMED` / `RELAY_SUBMIT_ARMED` | `0` | Broadcasting stays off until set |
 | `RHC_RPC_URL` | `https://rpc.mainnet.chain.robinhood.com` | Public RPC |
 
-Never commit `.env` files or keys; `.gitignore` refuses them.
+Each service validates only its own variables at boot and names any missing one (never a value). Variables named
+like a raw key are refused. Never commit `.env` files or keys; `.gitignore` refuses them.
 
 ## Checks
 
-CI (`.github/workflows/ci.yml`) runs the typecheck, `bun test`, `forge fmt --check`, `forge build`, `forge test`,
-gitleaks, the key-identifier rule (`ops/ci/check-key-identifiers.ts`), the banned-word list
-(`ops/ci/check-banned-words.ts`) and an action pin check. The same checks run in the pre-commit hook
+CI (`.github/workflows/ci.yml`) runs the typecheck, the pin check (exact dependencies, actions by sha, images by
+digest), the migrations against Postgres + TimescaleDB, `bun test`, a coverage gate (70% of lines in `packages/`),
+`forge fmt --check`, `forge build --sizes`, `forge test` (4,096 fuzz runs), a NatSpec check, slither, semgrep with a
+local ruleset, and gitleaks. `.github/workflows/invariants.yml` runs the key-identifier rule
+(`ops/ci/check-key-identifiers.ts`), the banned-word list (`ops/ci/check-banned-words.ts`), the deployment-file and
+vector-file checks and the public guard. The fast checks also run in the pre-commit hook
 (`git config core.hooksPath .githooks`).
 
 ## License

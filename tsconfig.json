@@ -1,4 +1,16 @@
 {
   "extends": "./tsconfig.base.json",
-  "include": ["apps/*/src", "packages/*/src", "packages/adapters/*/src", "packages/signers/*/src", "ops/**/*.ts"]
+  "include": [
+    "apps/*/src",
+    "apps/*/test",
+    "packages/*/src",
+    "packages/*/test",
+    "packages/*/scripts",
+    "packages/adapters/*/src",
+    "packages/adapters/*/test",
+    "packages/signers/*/src",
+    "packages/signers/*/test",
+    "ops/**/*.ts",
+    "drizzle.config.ts"
+  ]
 }

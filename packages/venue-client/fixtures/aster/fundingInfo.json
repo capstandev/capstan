@@ -1,0 +1,500 @@
+{
+ "name": "aster/fundingInfo",
+ "capturedAt": "2026-11-06T01:37:27.003Z",
+ "source": "live",
+ "venue": "aster",
+ "request": {
+  "method": "GET",
+  "url": "https://fapi.asterdex.com/fapi/v3/fundingInfo",
+  "body": null
+ },
+ "status": 200,
+ "response": [
+  {
+   "symbol": "SUSHIUSDT",
+   "interestRate": "0.00010000",
+   "time": 1793928959000,
+   "fundingIntervalHours": 8,
+   "fundingFeeCap": 0.02,
+   "fundingFeeFloor": -0.02
+  },
+  {
+   "symbol": "ASTERU",
+   "interestRate": "0.00010000",
+   "time": 1793928959000,
+   "fundingIntervalHours": 8,
+   "fundingFeeCap": 0.02,
+   "fundingFeeFloor": -0.02
+  },
+  {
+   "symbol": "KORUUSDT",
+   "interestRate": "0",
+   "time": 1793928959000,
+   "fundingIntervalHours": 8,
+   "fundingFeeCap": 0.02,
+   "fundingFeeFloor": -0.02
+  },
+  {
+   "symbol": "TSLAUSDT",
+   "interestRate": "0",
+   "time": 1793928959000,
+   "fundingIntervalHours": 8,
+   "fundingFeeCap": 0.02,
+   "fundingFeeFloor": -0.02
+  },
+  {
+   "symbol": "SLXUSDT",
+   "interestRate": "0.00010000",
+   "time": 1793928959000,
+   "fundingIntervalHours": 4,
+   "fundingFeeCap": 0.02,
+   "fundingFeeFloor": -0.02
+  },
+  {
+   "symbol": "SQQQUSDT",
+   "interestRate": "0",
+   "time": 1793928959000,
+   "fundingIntervalHours": 8,
+   "fundingFeeCap": 0.02,
+   "fundingFeeFloor": -0.02
+  },
+  {
+   "symbol": "PNUTUSDT",
+   "interestRate": "0.00010000",
+   "time": 1793928959000,
+   "fundingIntervalHours": 4,
+   "fundingFeeCap": 0.02,
+   "fundingFeeFloor": -0.02
+  },
+  {
+   "symbol": "PENDLEUSDT",
+   "interestRate": "0.00010000",
+   "time": 1793928959000,
+   "fundingIntervalHours": 8,
+   "fundingFeeCap": 0.02,
+   "fundingFeeFloor": -0.02
+  },
+  {
+   "symbol": "DEXEUSDT",
+   "interestRate": "0.00010000",
+   "time": 1793928959000,
+   "fundingIntervalHours": 4,
+   "fundingFeeCap": 0.02,
+   "fundingFeeFloor": -0.02
+  },
+  {
+   "symbol": "AAPLUSD",
+   "interestRate": "0",
+   "time": 1793928959000,
+   "fundingIntervalHours": 8,
+   "fundingFeeCap": 0.02,
+   "fundingFeeFloor": -0.02
+  },
+  {
+   "symbol": "ARGUSUSDT",
+   "interestRate": "0.00010000",
+   "time": 1793928959000,
+   "fundingIntervalHours": 1,
+   "fundingFeeCap": 0.02,
+   "fundingFeeFloor": -0.02
+  },
+  {
+   "symbol": "RVVUSDT",
+   "interestRate": "0.00010000",
+   "time": 1793928959000,
+   "fundingIntervalHours": 1,
+   "fundingFeeCap": 0.02,
+   "fundingFeeFloor": -0.02
+  },
+  {
+   "symbol": "GLMRUSDT",
+   "interestRate": "0.00010000",
+   "time": 1793928959000,
+   "fundingIntervalHours": 1,
+   "fundingFeeCap": 0.02,
+   "fundingFeeFloor": -0.02
+  },
+  {
+   "symbol": "SHELLUSDT",
+   "interestRate": "0.00010000",
+   "time": 1793928959000,
+   "fundingIntervalHours": 4,
+   "fundingFeeCap": 0.02,
+   "fundingFeeFloor": -0.02
+  },
+  {
+   "symbol": "WHITEWHALEUSDT",
+   "interestRate": "0.00010000",
+   "time": 1793928959000,
+   "fundingIntervalHours": 1,
+   "fundingFeeCap": 0.02,
+   "fundingFeeFloor": -0.02
+  },
+  {
+   "symbol": "CHIPUSDT",
+   "interestRate": "0.00010000",
+   "time": 1793928959000,
+   "fundingIntervalHours": 4,
+   "fundingFeeCap": 0.02,
+   "fundingFeeFloor": -0.02
+  },
+  {
+   "symbol": "REZUSDT",
+   "interestRate": "0.00010000",
+   "time": 1793928959000,
+   "fundingIntervalHours": 4,
+   "fundingFeeCap": 0.02,
+   "fundingFeeFloor": -0.02
+  },
+  {
+   "symbol": "GRIFFAINUSDT",
+   "interestRate": "0.00010000",
+   "time": 1793928959000,
+   "fundingIntervalHours": 4,
+   "fundingFeeCap": 0.02,
+   "fundingFeeFloor": -0.02
+  },
+  {
+   "symbol": "1000BONKUSDT",
+   "interestRate": "0.00010000",
+   "time": 1793928959000,
+   "fundingIntervalHours": 4,
+   "fundingFeeCap": 0.02,
+   "fundingFeeFloor": -0.02
+  },
+  {
+   "symbol": "TRXUSDT",
+   "interestRate": "0.00010000",
+   "time": 1793928959000,
+   "fundingIntervalHours": 8,
+   "fundingFeeCap": 0.004875,
+   "fundingFeeFloor": -0.004875
+  },
+  {
+   "symbol": "CHILLGUYUSDT",
+   "interestRate": "0.00010000",
+   "time": 1793928959000,
+   "fundingIntervalHours": 4,
+   "fundingFeeCap": 0.02,
+   "fundingFeeFloor": -0.02
+  },
+  {
+   "symbol": "SAPIENUSDT",
+   "interestRate": "0.00010000",
+   "time": 1793928959000,
+   "fundingIntervalHours": 4,
+   "fundingFeeCap": 0.02,
+   "fundingFeeFloor": -0.02
+  },
+  {
+   "symbol": "SQQQUSD1",
+   "interestRate": "0",
+   "time": 1793928959000,
+   "fundingIntervalHours": 8,
+   "fundingFeeCap": 0.02,
+   "fundingFeeFloor": -0.02
+  },
+  {
+   "symbol": "HMSTRUSDT",
+   "interestRate": "0.00010000",
+   "time": 1793928959000,
+   "fundingIntervalHours": 4,
+   "fundingFeeCap": 0.02,
+   "fundingFeeFloor": -0.02
+  },
+  {
+   "symbol": "STONKBROKERUSDT",
+   "interestRate": "0.00010000",
+   "time": 1793928959000,
+   "fundingIntervalHours": 1,
+   "fundingFeeCap": 0.02,
+   "fundingFeeFloor": -0.02
+  },
+  {
+   "symbol": "POLUSDT",
+   "interestRate": "0.00010000",
+   "time": 1793928959000,
+   "fundingIntervalHours": 4,
+   "fundingFeeCap": 0.02,
+   "fundingFeeFloor": -0.02
+  },
+  {
+   "symbol": "DKNGUSDT",
+   "interestRate": "0",
+   "time": 1793928959000,
+   "fundingIntervalHours": 8,
+   "fundingFeeCap": 0.02,
+   "fundingFeeFloor": -0.02
+  },
+  {
+   "symbol": "BRKBUSDT",
+   "interestRate": "0",
+   "time": 1793928959000,
+   "fundingIntervalHours": 8,
+   "fundingFeeCap": 0.02,
+   "fundingFeeFloor": -0.02
+  },
+  {
+   "symbol": "UMAUSDT",
+   "interestRate": "0.00010000",
+   "time": 1793928959000,
+   "fundingIntervalHours": 4,
+   "fundingFeeCap": 0.02,
+   "fundingFeeFloor": -0.02
+  },
+  {
+   "symbol": "SKHXUSDT",
+   "interestRate": "0.00010000",
+   "time": 1793928959000,
+   "fundingIntervalHours": 1,
+   "fundingFeeCap": 0.02,
+   "fundingFeeFloor": -0.02
+  },
+  {
+   "symbol": "HPEUSDT",
+   "interestRate": "0",
+   "time": 1793928959000,
+   "fundingIntervalHours": 8,
+   "fundingFeeCap": 0.02,
+   "fundingFeeFloor": -0.02
+  },
+  {
+   "symbol": "B2USDT",
+   "interestRate": "0.00010000",
+   "time": 1793928959000,
+   "fundingIntervalHours": 4,
+   "fundingFeeCap": 0.02,
+   "fundingFeeFloor": -0.02
+  },
+  {
+   "symbol": "ZEREBROUSDT",
+   "interestRate": "0.00010000",
+   "time": 1793928959000,
+   "fundingIntervalHours": 4,
+   "fundingFeeCap": 0.02,
+   "fundingFeeFloor": -0.02
+  },
+  {
+   "symbol": "BUILDUSDT",
+   "interestRate": "0.00010000",
+   "time": 1793928959000,
+   "fundingIntervalHours": 1,
+   "fundingFeeCap": 0.02,
+   "fundingFeeFloor": -0.02
+  },
+  {
+   "symbol": "MTLUSDT",
+   "interestRate": "0.00010000",
+   "time": 1793928959000,
+   "fundingIntervalHours": 4,
+   "fundingFeeCap": 0.02,
+   "fundingFeeFloor": -0.02
+  },
+  {
+   "symbol": "ORDIUSD",
+   "interestRate": "0",
+   "time": 1793928959000,
+   "fundingIntervalHours": 8,
+   "fundingFeeCap": 0.02,
+   "fundingFeeFloor": -0.02
+  },
+  {
+   "symbol": "IDOLUSDT",
+   "interestRate": "0.00010000",
+   "time": 1793928959000,
+   "fundingIntervalHours": 4,
+   "fundingFeeCap": 0.02,
+   "fundingFeeFloor": -0.02
+  },
+  {
+   "symbol": "DOSUSDT",
+   "interestRate": "0.00010000",
+   "time": 1793928959000,
+   "fundingIntervalHours": 4,
+   "fundingFeeCap": 0.02,
+   "fundingFeeFloor": -0.02
+  },
+  {
+   "symbol": "MATICUSD",
+   "interestRate": "0",
+   "time": 1793928959000,
+   "fundingIntervalHours": 8,
+   "fundingFeeCap": 0.02,
+   "fundingFeeFloor": -0.02
+  },
+  {
+   "symbol": "HUMAUSDT",
+   "interestRate": "0.00010000",
+   "time": 1793928959000,
+   "fundingIntervalHours": 4,
+   "fundingFeeCap": 0.02,
+   "fundingFeeFloor": -0.02
+  },
+  {
+   "symbol": "HDUSDT",
+   "interestRate": "0",
+   "time": 1793928959000,
+   "fundingIntervalHours": 8,
+   "fundingFeeCap": 0.02,
+   "fundingFeeFloor": -0.02
+  },
+  {
+   "symbol": "SHIELDADAUSDT",
+   "interestRate": "0.00010000",
+   "time": 1793928959000,
+   "fundingIntervalHours": 8,
+   "fundingFeeCap": 0.02,
+   "fundingFeeFloor": -0.02
+  },
+  {
+   "symbol": "MANTRAUSDT",
+   "interestRate": "0.00010000",
+   "time": 1793928959000,
+   "fundingIntervalHours": 4,
+   "fundingFeeCap": 0.02,
+   "fundingFeeFloor": -0.02
+  },
+  {
+   "symbol": "MANAUSDT",
+   "interestRate": "0.00010000",
+   "time": 1793928959000,
+   "fundingIntervalHours": 8,
+   "fundingFeeCap": 0.02,
+   "fundingFeeFloor": -0.02
+  },
+  {
+   "symbol": "IPUSDT",
+   "interestRate": "0.00010000",
+   "time": 1793928959000,
+   "fundingIntervalHours": 1,
+   "fundingFeeCap": 0.02,
+   "fundingFeeFloor": -0.02
+  },
+  {
+   "symbol": "KORUUSD1",
+   "interestRate": "0",
+   "time": 1793928959000,
+   "fundingIntervalHours": 8,
+   "fundingFeeCap": 0.02,
+   "fundingFeeFloor": -0.02
+  },
+  {
+   "symbol": "ONDOUSDT",
+   "interestRate": "0.00010000",
+   "time": 1793928959000,
+   "fundingIntervalHours": 4,
+   "fundingFeeCap": 0.02,
+   "fundingFeeFloor": -0.02
+  },
+  {
+   "symbol": "AMCUSDT",
+   "interestRate": "0",
+   "time": 1793928959000,
+   "fundingIntervalHours": 8,
+   "fundingFeeCap": 0.02,
+   "fundingFeeFloor": -0.02
+  },
+  {
+   "symbol": "PTBUSDT",
+   "interestRate": "0.00010000",
+   "time": 1793928959000,
+   "fundingIntervalHours": 4,
+   "fundingFeeCap": 0.02,
+   "fundingFeeFloor": -0.02
+  },
+  {
+   "symbol": "PIPPINUSDT",
+   "interestRate": "0.00010000",
+   "time": 1793928959000,
+   "fundingIntervalHours": 4,
+   "fundingFeeCap": 0.02,
+   "fundingFeeFloor": -0.02
+  },
+  {
+   "symbol": "JPMUSDT",
+   "interestRate": "0",
+   "time": 1793928959000,
+   "fundingIntervalHours": 8,
+   "fundingFeeCap": 0.02,
+   "fundingFeeFloor": -0.02
+  },
+  {
+   "symbol": "USARUSDT",
+   "interestRate": "0",
+   "time": 1793928959000,
+   "fundingIntervalHours": 8,
+   "fundingFeeCap": 0.02,
+   "fundingFeeFloor": -0.02
+  },
+  {
+   "symbol": "KOMAUSDT",
+   "interestRate": "0.00010000",
+   "time": 1793928959000,
+   "fundingIntervalHours": 4,
+   "fundingFeeCap": 0.02,
+   "fundingFeeFloor": -0.02
+  },
+  {
+   "symbol": "HANAUSDT",
+   "interestRate": "0.00010000",
+   "time": 1793928959000,
+   "fundingIntervalHours": 4,
+   "fundingFeeCap": 0.02,
+   "fundingFeeFloor": -0.02
+  },
+  {
+   "symbol": "AMDUSDT",
+   "interestRate": "0",
+   "time": 1793928959000,
+   "fundingIntervalHours": 8,
+   "fundingFeeCap": 0.02,
+   "fundingFeeFloor": -0.02
+  },
+  {
+   "symbol": "SDEVUSD1",
+   "interestRate": "0",
+   "time": 1793928959000,
+   "fundingIntervalHours": 8,
+   "fundingFeeCap": 0.02,
+   "fundingFeeFloor": -0.02
+  },
+  {
+   "symbol": "42USDT",
+   "interestRate": "0.00010000",
+   "time": 1793928959000,
+   "fundingIntervalHours": 1,
+   "fundingFeeCap": 0.02,
+   "fundingFeeFloor": -0.02
+  },
+  {
+   "symbol": "INTCUSDT",
+   "interestRate": "0",
+   "time": 1793928959000,
+   "fundingIntervalHours": 8,
+   "fundingFeeCap": 0.02,
+   "fundingFeeFloor": -0.02
+  },
+  {
+   "symbol": "ZMUSDT",
+   "interestRate": "0",
+   "time": 1793928959000,
+   "fundingIntervalHours": 8,
+   "fundingFeeCap": 0.02,
+   "fundingFeeFloor": -0.02
+  },
+  {
+   "symbol": "ENSUSDT",
+   "interestRate": "0.00010000",
+   "time": 1793928959000,
+   "fundingIntervalHours": 8,
+   "fundingFeeCap": 0.02,
+   "fundingFeeFloor": -0.02
+  }
+ ],
+ "trimmed": {
+  "path": "[]",
+  "kept": 60,
+  "total": 799,
+  "rule": "first 60 plus PTBUSDT and TSLAUSDT"
+ }
+}

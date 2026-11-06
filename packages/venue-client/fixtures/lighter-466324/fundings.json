@@ -1,0 +1,162 @@
+{
+ "name": "lighter-466324/fundings",
+ "capturedAt": "2026-11-06T01:37:24.340Z",
+ "source": "live",
+ "venue": "lighter-466324",
+ "request": {
+  "method": "GET",
+  "url": "https://api.rh.lighter.xyz/api/v1/fundings?market_id=11&resolution=1h&start_timestamp=1793842633&end_timestamp=1793929033&count_back=24",
+  "body": null
+ },
+ "status": 200,
+ "response": {
+  "code": 200,
+  "resolution": "1h",
+  "fundings": [
+   {
+    "timestamp": 1793844000,
+    "value": "0.00105564",
+    "rate": "0.0004",
+    "direction": "long"
+   },
+   {
+    "timestamp": 1793847600,
+    "value": "0.00106028",
+    "rate": "0.0004",
+    "direction": "long"
+   },
+   {
+    "timestamp": 1793851200,
+    "value": "0.00105908",
+    "rate": "0.0004",
+    "direction": "long"
+   },
+   {
+    "timestamp": 1793854800,
+    "value": "0.00105948",
+    "rate": "0.0004",
+    "direction": "long"
+   },
+   {
+    "timestamp": 1793858400,
+    "value": "0.00105924",
+    "rate": "0.0004",
+    "direction": "long"
+   },
+   {
+    "timestamp": 1793862000,
+    "value": "0.00106600",
+    "rate": "0.0004",
+    "direction": "long"
+   },
+   {
+    "timestamp": 1793865600,
+    "value": "0.00106788",
+    "rate": "0.0004",
+    "direction": "long"
+   },
+   {
+    "timestamp": 1793869200,
+    "value": "0.00107008",
+    "rate": "0.0004",
+    "direction": "long"
+   },
+   {
+    "timestamp": 1793872800,
+    "value": "0.00107140",
+    "rate": "0.0004",
+    "direction": "long"
+   },
+   {
+    "timestamp": 1793876400,
+    "value": "0.00107588",
+    "rate": "0.0004",
+    "direction": "long"
+   },
+   {
+    "timestamp": 1793880000,
+    "value": "0.00108040",
+    "rate": "0.0004",
+    "direction": "long"
+   },
+   {
+    "timestamp": 1793883600,
+    "value": "0.00108636",
+    "rate": "0.0004",
+    "direction": "long"
+   },
+   {
+    "timestamp": 1793887200,
+    "value": "0.00108320",
+    "rate": "0.0004",
+    "direction": "long"
+   },
+   {
+    "timestamp": 1793890800,
+    "value": "0.00105188",
+    "rate": "0.0004",
+    "direction": "long"
+   },
+   {
+    "timestamp": 1793894400,
+    "value": "0.00101892",
+    "rate": "0.0004",
+    "direction": "long"
+   },
+   {
+    "timestamp": 1793898000,
+    "value": "0.00104860",
+    "rate": "0.0004",
+    "direction": "long"
+   },
+   {
+    "timestamp": 1793901600,
+    "value": "0.00104404",
+    "rate": "0.0004",
+    "direction": "long"
+   },
+   {
+    "timestamp": 1793905200,
+    "value": "0.00103872",
+    "rate": "0.0004",
+    "direction": "long"
+   },
+   {
+    "timestamp": 1793908800,
+    "value": "0.00104400",
+    "rate": "0.0004",
+    "direction": "long"
+   },
+   {
+    "timestamp": 1793912400,
+    "value": "0.00104220",
+    "rate": "0.0004",
+    "direction": "long"
+   },
+   {
+    "timestamp": 1793916000,
+    "value": "0.00102732",
+    "rate": "0.0004",
+    "direction": "long"
+   },
+   {
+    "timestamp": 1793919600,
+    "value": "0.00102752",
+    "rate": "0.0004",
+    "direction": "long"
+   },
+   {
+    "timestamp": 1793923200,
+    "value": "0.00102032",
+    "rate": "0.0004",
+    "direction": "long"
+   },
+   {
+    "timestamp": 1793926800,
+    "value": "0.00103048",
+    "rate": "0.0004",
+    "direction": "long"
+   }
+  ]
+ }
+}

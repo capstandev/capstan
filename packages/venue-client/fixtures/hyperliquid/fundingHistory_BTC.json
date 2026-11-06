@@ -1,0 +1,162 @@
+{
+ "name": "hyperliquid/fundingHistory_BTC",
+ "capturedAt": "2026-11-06T01:37:15.971Z",
+ "source": "live",
+ "venue": "hyperliquid",
+ "request": {
+  "method": "POST",
+  "url": "https://api.hyperliquid.xyz/info",
+  "body": {
+   "type": "fundingHistory",
+   "coin": "BTC",
+   "startTime": 1793842633767
+  }
+ },
+ "status": 200,
+ "response": [
+  {
+   "coin": "BTC",
+   "fundingRate": "0.0000125",
+   "premium": "-0.0003667537",
+   "time": 1793844000053
+  },
+  {
+   "coin": "BTC",
+   "fundingRate": "0.0000125",
+   "premium": "-0.0003950907",
+   "time": 1793847600052
+  },
+  {
+   "coin": "BTC",
+   "fundingRate": "0.0000125",
+   "premium": "-0.0003683043",
+   "time": 1793851200027
+  },
+  {
+   "coin": "BTC",
+   "fundingRate": "0.0000125",
+   "premium": "-0.000355174",
+   "time": 1793854800041
+  },
+  {
+   "coin": "BTC",
+   "fundingRate": "0.0000125",
+   "premium": "-0.000347578",
+   "time": 1793858400055
+  },
+  {
+   "coin": "BTC",
+   "fundingRate": "0.0000125",
+   "premium": "-0.0003618934",
+   "time": 1793862000005
+  },
+  {
+   "coin": "BTC",
+   "fundingRate": "0.0000125",
+   "premium": "-0.0002561757",
+   "time": 1793865600038
+  },
+  {
+   "coin": "BTC",
+   "fundingRate": "0.0000125",
+   "premium": "-0.0001303217",
+   "time": 1793869200042
+  },
+  {
+   "coin": "BTC",
+   "fundingRate": "0.0000125",
+   "premium": "-0.000039304",
+   "time": 1793872800034
+  },
+  {
+   "coin": "BTC",
+   "fundingRate": "0.0000125",
+   "premium": "-0.0000026957",
+   "time": 1793876400010
+  },
+  {
+   "coin": "BTC",
+   "fundingRate": "0.0000125",
+   "premium": "0.0000245364",
+   "time": 1793880000083
+  },
+  {
+   "coin": "BTC",
+   "fundingRate": "0.0000125",
+   "premium": "0.0000359503",
+   "time": 1793883600039
+  },
+  {
+   "coin": "BTC",
+   "fundingRate": "0.0000125",
+   "premium": "-0.0000140207",
+   "time": 1793887200011
+  },
+  {
+   "coin": "BTC",
+   "fundingRate": "0.0000125",
+   "premium": "-0.0001088695",
+   "time": 1793890800072
+  },
+  {
+   "coin": "BTC",
+   "fundingRate": "0.0000125",
+   "premium": "-0.0000926369",
+   "time": 1793894400027
+  },
+  {
+   "coin": "BTC",
+   "fundingRate": "0.0000125",
+   "premium": "0.0001964949",
+   "time": 1793898000007
+  },
+  {
+   "coin": "BTC",
+   "fundingRate": "0.0000125",
+   "premium": "0.000047341",
+   "time": 1793901600056
+  },
+  {
+   "coin": "BTC",
+   "fundingRate": "0.0000125",
+   "premium": "0.0000765443",
+   "time": 1793905200044
+  },
+  {
+   "coin": "BTC",
+   "fundingRate": "0.0000125",
+   "premium": "0.0000969844",
+   "time": 1793908800049
+  },
+  {
+   "coin": "BTC",
+   "fundingRate": "0.0000125",
+   "premium": "0.0000839702",
+   "time": 1793912400049
+  },
+  {
+   "coin": "BTC",
+   "fundingRate": "0.0000125",
+   "premium": "0.000072351",
+   "time": 1793916000024
+  },
+  {
+   "coin": "BTC",
+   "fundingRate": "0.0000125",
+   "premium": "-0.0000634773",
+   "time": 1793919600114
+  },
+  {
+   "coin": "BTC",
+   "fundingRate": "0.0000125",
+   "premium": "-0.0002009337",
+   "time": 1793923200025
+  },
+  {
+   "coin": "BTC",
+   "fundingRate": "0.0000125",
+   "premium": "-0.0001806394",
+   "time": 1793926800095
+  }
+ ]
+}

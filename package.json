@@ -10,26 +10,10 @@
     "bun": ">=1.4.4"
   },
   "workspaces": [
-    "apps/api",
-    "apps/ws",
-    "apps/relay",
-    "apps/mcp",
-    "apps/workers",
-    "apps/facilitator",
-    "packages/schema",
-    "packages/adapters/hyperliquid",
-    "packages/adapters/lighter",
-    "packages/adapters/aster",
-    "packages/adapters/variational",
-    "packages/adapters/arcus",
-    "packages/signers/hl",
-    "packages/signers/lighter-wasm",
-    "packages/signers/aster",
-    "packages/sdk",
-    "packages/eligibility",
-    "packages/receipts",
-    "packages/catalog",
-    "packages/x402"
+    "apps/*",
+    "packages/*",
+    "packages/adapters/*",
+    "packages/signers/*"
   ],
   "scripts": {
     "typecheck": "tsc --noEmit",
@@ -37,14 +21,22 @@
     "check:keys": "bun ops/ci/check-key-identifiers.ts",
     "check:banned": "bun ops/ci/check-banned-words.ts",
     "check:guard": "bash .githooks/public-guard.sh",
-    "check": "bun run typecheck && bun test && bun run check:keys && bun run check:banned && bun run check:guard",
+    "check:pins": "bun ops/ci/check-pins.ts",
+    "check:deployments": "bun ops/ci/check-deployments.ts",
+    "check:vectors": "bun ops/ci/check-vector-files.ts",
+    "check": "bun run typecheck && bun test && bun run check:keys && bun run check:banned && bun run check:pins && bun run check:deployments && bun run check:vectors && bun run check:guard",
+    "db:migrate": "bun packages/core/src/migrate.ts",
+    "db:migrate:down": "bun packages/core/src/migrate.ts down",
+    "db:generate": "drizzle-kit generate",
+    "gen:deployments": "bun ops/ci/gen-deployments.ts",
     "contracts:build": "cd contracts && forge build",
     "contracts:test": "cd contracts && forge test",
-    "db:up": "docker compose up -d",
+    "db:up": "docker compose up -d --wait",
     "db:down": "docker compose down"
   },
   "devDependencies": {
     "@types/bun": "1.4.4",
+    "drizzle-kit": "0.31.11",
     "typescript": "5.9.3"
   }
 }

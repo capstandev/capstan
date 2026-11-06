@@ -1,0 +1,17 @@
+{
+ "name": "aster/error_invalidSymbol",
+ "capturedAt": "2026-11-06T01:37:27.265Z",
+ "source": "live",
+ "venue": "aster",
+ "request": {
+  "method": "GET",
+  "url": "https://fapi.asterdex.com/fapi/v3/depth?symbol=CAPSTANNOPEUSDT&limit=5",
+  "body": null
+ },
+ "status": 400,
+ "response": {
+  "code": -1121,
+  "msg": "Invalid symbol."
+ },
+ "note": "unknown symbol"
+}

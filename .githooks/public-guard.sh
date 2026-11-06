@@ -50,9 +50,11 @@ text_files=$(echo "$files" | grep -vE '\.(png|jpg|jpeg|webp|gif|ico|lock|lockb)$
 if [ -n "$text_files" ]; then
   tmp=$(mktemp "${TMPDIR:-/tmp}/public-guard.XXXXXX")
   # 32-byte hex = possible private key. Allowed only with a marker on the same line.
-  # Vendored libraries (contracts/lib/, unmodified upstream code such as forge-std's secp256k1 curve constants) are
-  # skipped for this check only; the denylist word check below still scans them.
-  echo "$text_files" | grep -v '^contracts/lib/' | tr '\n' '\0' | xargs -0 grep -nIE '0x[0-9a-fA-F]{64}' 2>/dev/null \
+  # Vendored libraries (contracts/lib/, unmodified upstream code such as forge-std's secp256k1 curve constants) and
+  # recorded public venue data (packages/venue-client/fixtures/, which holds tx and order hashes) are skipped for this
+  # check only; the denylist word check below still scans them, and ops/ci/check-vector-files.ts refuses any key-like
+  # name in those fixtures.
+  echo "$text_files" | grep -v -e '^contracts/lib/' -e '^packages/venue-client/fixtures/' | tr '\n' '\0' | xargs -0 grep -nIE '0x[0-9a-fA-F]{64}' 2>/dev/null \
     | grep -vE '// (test-key|not-a-key)|# (test-key|not-a-key)' | while IFS= read -r l; do echo "public-guard: possible private key: $l"; done > "$tmp"
   if [ -s "$tmp" ]; then cat "$tmp"; hits=$((hits+$(wc -l < "$tmp"))); fi; rm -f "$tmp"
   while IFS= read -r pat; do

@@ -31,6 +31,12 @@ jobs:
             echo "::error::an adapter declares canWithdraw: true"; exit 1
           fi
           echo "no canWithdraw: true"
+      - name: no key-like names in recorded fixtures or signing vectors
+        run: bun ops/ci/check-vector-files.ts
+      - name: deployment file copies equal contracts/deployments
+        run: bun ops/ci/check-deployments.ts
+      - name: exact dependency pins
+        run: bun ops/ci/check-pins.ts
       - name: public guard (private words, private paths, env files, 64-hex keys)
         run: bash .githooks/public-guard.sh
       - name: every workflow action is pinned by full sha

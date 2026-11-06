@@ -5,5 +5,8 @@
   "type": "module",
   "description": "Signed-payload verifier and venue submitter",
   "main": "src/index.ts",
-  "types": "src/index.ts"
+  "types": "src/index.ts",
+  "dependencies": {
+    "@capstan/core": "workspace:*"
+  }
 }

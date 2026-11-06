@@ -14,6 +14,9 @@ if ! command -v bun >/dev/null 2>&1; then
 fi
 bun ops/ci/check-key-identifiers.ts
 bun ops/ci/check-banned-words.ts
+bun ops/ci/check-vector-files.ts
+bun ops/ci/check-pins.ts
+bun ops/ci/check-deployments.ts
 # invariant 2: no adapter declares canWithdraw: true (tests plant it on purpose)
 if grep -rnE --exclude='*.test.ts' --exclude-dir=node_modules 'canWithdraw[[:space:]]*:[[:space:]]*true' apps packages; then
   echo "pre-commit: an adapter declares canWithdraw: true" >&2

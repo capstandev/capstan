@@ -1,0 +1,17 @@
+{
+ "name": "lighter-304/error_unknownMarket",
+ "capturedAt": "2026-11-06T01:37:22.147Z",
+ "source": "live",
+ "venue": "lighter-304",
+ "request": {
+  "method": "GET",
+  "url": "https://mainnet.zklighter.elliot.ai/api/v1/accountsByL1Address?l1_address=0x0000000000000000000000000000000000000001",
+  "body": null
+ },
+ "status": 400,
+ "response": {
+  "code": 21100,
+  "message": "account not found"
+ },
+ "note": "unknown L1 address: code 21100"
+}

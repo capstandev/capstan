@@ -24,18 +24,34 @@ export function loadBanned(path = join(import.meta.dir, "banned-words.txt")): Re
     .map((l) => new RegExp(l, "i"));
 }
 
-const TEST_FILE = /\.(test|spec)\.[cm]?[jt]sx?$/;
-const SELF = "ops/ci/banned-words.txt";
+/** Exact sentences allowed verbatim (ops/ci/banned-words-allow.txt), e.g. the spec's fixed risk banner. */
+export function loadAllowed(path = join(import.meta.dir, "banned-words-allow.txt")): string[] {
+  return readFileSync(path, "utf8")
+    .split("\n")
+    .map((l) => l.trim())
+    .filter((l) => l && !l.startsWith("#"));
+}
 
-export function findBannedWords(root: string, banned: RegExp[] = loadBanned()): Hit[] {
+/** Remove every exact allowed sentence from a line; anything else on the line is still checked. */
+export function stripAllowed(text: string, allowed: string[]): string {
+  let out = text;
+  for (const a of allowed) out = out.split(a).join(" ");
+  return out;
+}
+
+const TEST_FILE = /\.(test|spec)\.[cm]?[jt]sx?$/;
+const SELF = new Set(["ops/ci/banned-words.txt", "ops/ci/banned-words-allow.txt"]);
+
+export function findBannedWords(root: string, banned: RegExp[] = loadBanned(), allowed: string[] = loadAllowed()): Hit[] {
   const hits: Hit[] = [];
-  const check = (file: string, line: number, text: string) => {
-    for (const re of banned) if (re.test(text)) hits.push({ file, line, pattern: re.source, text: text.trim().slice(0, 160) });
+  const check = (file: string, line: number, raw: string) => {
+    const text = stripAllowed(raw, allowed);
+    for (const re of banned) if (re.test(text)) hits.push({ file, line, pattern: re.source, text: raw.trim().slice(0, 160) });
   };
   const docs = walk(root, ".", (rel) => /\.md$/i.test(rel) && !rel.startsWith("contracts/lib/"));
   const web = walk(root, "web", (rel) => !/\.(png|jpe?g|webp|gif|ico|woff2?|lockb?)$/i.test(rel));
   for (const file of new Set([...docs, ...web])) {
-    if (file === SELF) continue;
+    if (SELF.has(file)) continue;
     readFileSync(join(root, file), "utf8")
       .split("\n")
       .forEach((l, i) => check(file, i + 1, l));

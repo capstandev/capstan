@@ -12,12 +12,31 @@ concurrency:
   group: ci-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'push' || github.event_name == 'pull_request' }}
 
-# Exact pins: every action by full commit sha (tag in the comment, checked by .github/scripts/pins-check.sh),
-# Bun 1.4.4, Foundry v1.8.4, gitleaks 8.30.1 by sha256.
+# Exact pins: every action by full commit sha (tag in the comment, checked by .github/scripts/pins-check.sh and
+# ops/ci/check-pins.ts), service images by digest, Bun 1.4.4, Foundry v1.8.4, gitleaks 8.30.1 by sha256, slither from
+# a hash-locked requirements file, semgrep by image digest with a committed local ruleset.
 jobs:
   ts:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: timescale/timescaledb:2.31.0-pg16@sha256:322ae364eca3321cf2a48f1ef31213b87843413b3cf8feeebf54e999a26bb731
+        env:
+          POSTGRES_USER: capstan
+          POSTGRES_PASSWORD: capstan
+          POSTGRES_DB: capstan
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U capstan -d capstan" --health-interval 5s --health-timeout 3s --health-retries 20
+      redis:
+        image: redis:7.4.12-alpine@sha256:4783bb5c3ecd5a93ce0a779ed2c44d5472043bb2cb7251f5390700748c62e62b
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 3s --health-retries 20
+    env:
+      DATABASE_URL: postgres://capstan:capstan@127.0.0.1:5432/capstan
+      REDIS_URL: redis://127.0.0.1:6379
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with: { persist-credentials: false }
@@ -32,24 +51,121 @@ jobs:
       - run: bun install --frozen-lockfile
       - name: typecheck
         run: bunx tsc --noEmit
-      - name: tests (includes the invariant check tests)
+      - name: pins (exact dependencies, actions by sha, images by digest)
+        run: bun run check:pins
+      - name: deployment file copies and vector files
+        run: bun run check:deployments && bun run check:vectors
+      - name: migrations (up from empty)
+        run: bun run db:migrate
+      - name: tests (includes the invariant check tests and the database tests)
         run: bun test
+
+  coverage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: timescale/timescaledb:2.31.0-pg16@sha256:322ae364eca3321cf2a48f1ef31213b87843413b3cf8feeebf54e999a26bb731
+        env:
+          POSTGRES_USER: capstan
+          POSTGRES_PASSWORD: capstan
+          POSTGRES_DB: capstan
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U capstan -d capstan" --health-interval 5s --health-timeout 3s --health-retries 20
+      redis:
+        image: redis:7.4.12-alpine@sha256:4783bb5c3ecd5a93ce0a779ed2c44d5472043bb2cb7251f5390700748c62e62b
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 3s --health-retries 20
+    env:
+      DATABASE_URL: postgres://capstan:capstan@127.0.0.1:5432/capstan
+      REDIS_URL: redis://127.0.0.1:6379
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with: { persist-credentials: false }
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with: { bun-version: 1.4.4 }
+      - run: bun install --frozen-lockfile
+      - name: tests with coverage
+        run: bun test --coverage --coverage-reporter=lcov
+      - name: at least 70% of lines in packages/ (raise later)
+        run: bun ops/ci/check-coverage.ts coverage/lcov.info 70
+      - name: keep the report as a run artifact (nothing is uploaded anywhere else)
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: lcov
+          path: coverage/lcov.info
+          retention-days: 7
 
   contracts:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     defaults: { run: { working-directory: contracts } }
+    env:
+      FOUNDRY_PROFILE: ci
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with: { persist-credentials: false }
       - uses: foundry-rs/foundry-toolchain@908c540300062bd5a7e473851cdb4282204cee09 # v1.9.1
         with: { version: v1.8.4 }
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with: { bun-version: 1.4.4 }
       - name: format
         run: forge fmt --check
       - name: build
         run: forge build --sizes
-      - name: tests
-        run: forge test -vv
+      - name: tests (4,096 fuzz runs, fork tests excluded)
+        run: forge test -vv --fuzz-runs 4096 --no-match-path 'test/fork/*'
+      - name: natspec (every public and external function has a @notice)
+        run: bun ../ops/ci/check-natspec.ts ..
+
+  contracts-fork:
+    # Fork tests read live chain state through a public RPC. They stay off in public CI unless the repository variable
+    # RHC_RPC_URL is set, so a public-RPC hiccup never turns a commit red.
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults: { run: { working-directory: contracts } }
+    env:
+      RHC_RPC_URL: ${{ vars.RHC_RPC_URL }}
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with: { persist-credentials: false }
+      - uses: foundry-rs/foundry-toolchain@908c540300062bd5a7e473851cdb4282204cee09 # v1.9.1
+        with: { version: v1.8.4 }
+      - name: fork tests (skipped when RHC_RPC_URL is unset)
+        run: |
+          if [ -z "${RHC_RPC_URL}" ]; then echo "RHC_RPC_URL is not set: fork tests skipped"; exit 0; fi
+          if ! ls test/fork/*.t.sol >/dev/null 2>&1; then echo "no fork tests yet"; exit 0; fi
+          forge test -vv --match-path 'test/fork/*'
+
+  slither:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with: { persist-credentials: false }
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with: { python-version: "3.12" }
+      - uses: foundry-rs/foundry-toolchain@908c540300062bd5a7e473851cdb4282204cee09 # v1.9.1
+        with: { version: v1.8.4 }
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with: { bun-version: 1.4.4 }
+      - name: install slither (hash-locked)
+        run: python -m pip install --require-hashes --no-deps -r ops/ci/slither-requirements.txt
+      - name: slither (exceptions only in ops/ci/slither-allow.txt, never inline)
+        run: bun ops/ci/run-slither.ts
+
+  semgrep:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    container:
+      image: semgrep/semgrep:1.183.0@sha256:2e45517a85e13a9cca14a2a00df6bb48affd66b8ebfae1b0991cd57578362fb0
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with: { persist-credentials: false }
+      - name: semgrep with the committed local ruleset (no rule download, no metrics)
+        run: semgrep scan --config ops/ci/semgrep --error --metrics=off --disable-version-check --exclude contracts/lib --exclude node_modules
 
   gitleaks:
     runs-on: ubuntu-latest
@@ -66,7 +182,7 @@ jobs:
 
   ci-summary:
     # the single required check: green only when every job passed
-    needs: [ts, contracts, gitleaks]
+    needs: [ts, coverage, contracts, contracts-fork, slither, semgrep, gitleaks]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 5
