@@ -105,6 +105,8 @@ export type VenueFlag = (typeof VENUE_FLAGS)[number];
 export interface RelayFlags {
   relayEnabled(): boolean;
   venueEnabled(f: VenueFlag): boolean;
+  /** RELAY_SUBMIT_ARMED: the relay sends to a venue only when this host was armed (off unless set). */
+  submitArmed(): boolean;
 }
 
 export interface Dispatcher {

@@ -108,6 +108,20 @@ d("order routes", () => {
     expect(s.receipts.byId(c1.receiptId)!.action).toBe("order.claim");
   });
 
+  test("funnel-emitted: an order build, its signed submit and the relay submit move the order funnel (todo 37)", async () => {
+    const { metricsHandler, metricValue } = await import("@capstan/telemetry");
+    const scrape = async () => (await metricsHandler()(new Request("http://127.0.0.1/metrics")).text());
+    const stage = (v: string) => ({ key: "stage", value: v });
+    const t0 = await scrape();
+    const before = { build: metricValue(t0, "capstan_order_funnel_total", stage("build")) ?? 0, sign: metricValue(t0, "capstan_order_funnel_total", stage("sign")) ?? 0, submit: metricValue(t0, "capstan_order_funnel_total", stage("submit")) ?? 0 };
+    const b = (await (await post("/orders/build", { owner: USER_A, agentRef: HL_REF, intent: intent({ size: "0.003" }), mode: "relay" })).json()) as HlUnsignedPayload;
+    expect((await post("/orders/submit", { buildId: b.buildId, signedEnvelope: hlSign(b) })).status).toBe(200);
+    const t1 = await scrape();
+    expect(metricValue(t1, "capstan_order_funnel_total", stage("build"))).toBe(before.build + 1);
+    expect(metricValue(t1, "capstan_order_funnel_total", stage("sign"))).toBe(before.sign + 1);
+    expect(metricValue(t1, "capstan_order_funnel_total", stage("submit"))).toBe(before.submit + 1);
+  });
+
   test("build refusals carry a refusal receipt", async () => {
     const check = async (res: Response, code: string) => {
       expect(res.status).toBe(403);

@@ -5,6 +5,7 @@
 import { createDb, createMarketDataCache, createRedis, memoryMarketDataCache, type RouteSpec } from "@capstan/core";
 import { cachedDepegReader, dbCatalogReader, routeQuote, type CatalogReader, type DepegReader, type EngineRouteQuote, type QuoteAdapter, type QuoteDeps } from "@capstan/quote";
 import { CapstanError, db as schema, errorBody, QuoteRequestZ, type QuoteRequest, type VenueId } from "@capstan/schema";
+import { recordQuoteStaleness } from "@capstan/telemetry";
 import type { Context } from "hono";
 
 export interface QuoteStore {
@@ -59,6 +60,8 @@ async function handle(c: Context, raw: unknown, getDeps: () => Promise<QuoteRout
   if (problem) return invalid(c, problem);
   try {
     const q = await routeQuote(req, { ...deps, now: deps.now ?? Date.now });
+    // age of the book behind every priced leg (alert rule: T1 above 3 s for 5 minutes)
+    for (const l of q.legs) if (l.asOf) recordQuoteStaleness(l.venue, l.staleMs);
     if (deps.store) await deps.store.put(q.requestId, q.receiptHint, q);
     return c.json(q);
   } catch (e) {

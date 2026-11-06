@@ -151,14 +151,32 @@ export const METRICS = {
 
 export type MetricName = keyof typeof METRICS;
 
+/** Per-service health metrics every app emits on its own paths (besides the spec 14 set above). */
+export const SERVICE_METRICS = {
+  httpRequests: new Counter<string>("capstan_http_requests_total", "HTTP requests served, per service", "service"),
+  jobRuns: new Counter<string>("capstan_job_runs_total", "Worker job runs finished, per job", "job"),
+  jobFailures: new Counter<string>("capstan_job_failures_total", "Worker job runs that threw, per job", "job"),
+  mcpToolCalls: new Counter<string>("capstan_mcp_tool_calls_total", "MCP tool calls, per tool", "tool"),
+  wsConnections: new Gauge("capstan_ws_connections", "Open WebSocket connections", null),
+  relayRefusals: new Counter<string>("capstan_relay_refusals_total", "Relay submits refused, per error code", "code"),
+  x402Settled: new Counter<string>("capstan_x402_settled_total", "x402 settlements that succeeded, per network", "network"),
+} as const;
+
 export function renderMetrics(extra: readonly Metric[] = []): string {
   const lines: string[] = [];
-  for (const m of [...Object.values(METRICS), ...extra]) lines.push(...m.render());
+  for (const m of [...Object.values(METRICS), ...Object.values(SERVICE_METRICS), ...extra]) lines.push(...m.render());
   return lines.join("\n") + "\n";
 }
 
 export function resetMetrics(): void {
-  for (const m of Object.values(METRICS)) m.reset();
+  for (const m of [...Object.values(METRICS), ...Object.values(SERVICE_METRICS)]) m.reset();
+}
+
+/** Read one sample back from the rendered text (tests and the status script): `name{label="v"}` or `name`. */
+export function metricValue(text: string, name: string, label?: { key: string; value: string }): number | null {
+  const want = label ? `${name}{${label.key}="${escapeLabel(label.value)}"}` : name;
+  for (const line of text.split("\n")) if (line.startsWith(want + " ")) return Number(line.slice(want.length + 1));
+  return null;
 }
 
 export const PROM_CONTENT_TYPE = "text/plain; version=0.0.4; charset=utf-8";

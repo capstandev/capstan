@@ -17,7 +17,7 @@ const cell = (s: string | number) => String(s);
 
 export function renderReport(from: string, to: string, days: UsageDay[], launchDay: string | null): string {
   const by = new Map(days.map((d) => [d.day, d]));
-  const head = ["day", "approvals hl", "aster", "union", "db", "flagged", "notional hl", "aster", "lighter 304", "lighter rh", "fee hl", "fee aster", "x402 n", "x402 usd", "mcp calls", "mcp clients", "visitors", "refusals"];
+  const head = ["day", "approvals hl", "aster", "union", "db", "flagged", "notional hl", "aster", "lighter 304", "lighter rh", "fee hl", "fee aster", "x402 n", "x402 usd", "mcp calls", "mcp clients", "api requests", "api clients", "visitors", "refusals"];
   const lines = [`# Capstan usage ${from} to ${to}`, "", `| ${head.join(" | ")} |`, `|${head.map(() => "---").join("|")}|`];
   for (const day of daysBetween(from, to)) {
     const d = by.get(day);
@@ -27,7 +27,7 @@ export function renderReport(from: string, to: string, days: UsageDay[], launchD
     }
     const refusals = Object.values(d.refusals).reduce((a, b) => a + b, 0);
     lines.push(
-      `| ${[day, d.approvals.hl, d.asterApprovalsRead === false ? "not read (VPS)" : d.approvals.aster, d.approvals.union, d.approvalsDb ?? "n/a", d.approvalsFlagged ?? "n/a", d.routedNotionalUsd.hl, d.routedNotionalUsd.aster, d.routedNotionalUsd.lighter304, d.routedNotionalUsd.lighterRh, d.builderFeeUsd.hl, d.builderFeeUsd.aster, d.x402.payments, d.x402.usd, d.mcp.calls, d.mcp.uniqueClients, d.visitors ?? "n/a", refusals].map(cell).join(" | ")} |`,
+      `| ${[day, d.approvals.hl, d.asterApprovalsRead === false ? "not read (VPS)" : d.approvals.aster, d.approvals.union, d.approvalsDb ?? "n/a", d.approvalsFlagged ?? "n/a", d.routedNotionalUsd.hl, d.routedNotionalUsd.aster, d.routedNotionalUsd.lighter304, d.routedNotionalUsd.lighterRh, d.builderFeeUsd.hl, d.builderFeeUsd.aster, d.x402.payments, d.x402.usd, d.mcp.calls, d.mcp.uniqueClients, d.api.requests, d.api.uniqueClients, d.visitors ?? "n/a", refusals].map(cell).join(" | ")} |`,
     );
   }
   const flagged = days.filter((d) => (d.approvalsFlagged ?? 0) > 0);

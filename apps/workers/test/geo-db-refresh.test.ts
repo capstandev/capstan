@@ -4,7 +4,7 @@ import { afterAll, describe, expect, test } from "bun:test";
 import { logger, type JobDeps } from "@capstan/core";
 import { dbIpUrl, fileGeo, GEO_FILE, readGeoMeta } from "@capstan/eligibility";
 import { createHash } from "node:crypto";
-import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { job, runGeoRefresh } from "../src/jobs/geo-db-refresh.job";
@@ -65,6 +65,17 @@ describe("geo-db-refresh job", () => {
     const r4 = await runGeoRefresh(h.deps("2026-12-07T03:30:00Z"), h2);
     expect(r4).toMatchObject({ status: "updated", month: "2026-12" });
     expect(readdirSync(h.dir).sort()).toEqual(["dbip-country-lite.csv.gz", "dbip-country-lite.meta.json"]);
+  });
+
+  test("shared-readable: the files are 0644 under the workers unit's UMask=0077, so api and relay can read them", async () => {
+    const h = harness({ [dbIpUrl("2026-11")]: gz(SAMPLE) });
+    const old = process.umask(0o077);
+    try {
+      expect((await runGeoRefresh(h.deps("2026-11-09T03:30:00Z"), { fetchImpl: h.fetchImpl, dir: h.dir, minRanges: 100 })).status).toBe("updated");
+    } finally {
+      process.umask(old);
+    }
+    for (const f of readdirSync(h.dir)) expect((statSync(join(h.dir, f)).mode & 0o777).toString(8), f).toBe("644");
   });
 
   test("bad downloads keep the old file and raise an ops event", async () => {

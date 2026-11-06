@@ -1,5 +1,6 @@
 // Worker runner: loads every src/jobs/*.job.ts (sorted glob scan), keeps the ones named in WORKER_JOBS (comma list;
 // empty = all), refuses to start on an unknown name, upserts each job's schedule and starts one BullMQ Worker per job.
+import { SERVICE_METRICS, traceFromJob } from "@capstan/telemetry";
 import { createQueue, QUEUES, upsertSchedule, type JobDef, type JobDeps, type Queue, type Redis } from "@capstan/core";
 import { Worker } from "bullmq";
 import { join } from "node:path";
@@ -53,7 +54,11 @@ export function selectJobs(all: JobDef[], workerJobs: string | undefined): JobDe
 
 export interface Running {
   workers: Worker[];
-  stop(): Promise<void>;
+  /**
+   * Stop taking jobs; wait up to graceMs (default: no cap) for running ones, then force-close the workers (an
+   * unfinished job goes back as stalled and is picked up again). Then close the queues.
+   */
+  stop(o?: { graceMs?: number }): Promise<{ forced: boolean }>;
 }
 
 /**
@@ -65,6 +70,16 @@ export async function startJobs(jobs: JobDef[], deps: JobDeps, connection: Redis
   const workers: Worker[] = [];
   const queues: Queue[] = [];
   const byQueue = new Map<JobDef["queue"], JobDef[]>();
+  // running handler promises, so a bounded stop can wait for them without asking BullMQ
+  const active = new Set<Promise<unknown>>();
+  const waitIdle = async (ms: number): Promise<boolean> => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const cap = new Promise<false>((r) => (timer = setTimeout(() => r(false), ms)));
+    const all = Promise.allSettled([...active]).then(() => true);
+    const r = await Promise.race([all, cap]);
+    clearTimeout(timer);
+    return r && active.size === 0;
+  };
   for (const job of jobs) byQueue.set(job.queue, [...(byQueue.get(job.queue) ?? []), job]);
   for (const [key, group] of byQueue) {
     const q = createQueue(key, connection, prefix);
@@ -76,7 +91,19 @@ export async function startJobs(jobs: JobDef[], deps: JobDeps, connection: Redis
       async (bj) => {
         const job = handlers.get(bj.name);
         if (!job) throw new RunnerError(`no handler for job ${bj.name} on queue ${QUEUES[key]} in this worker`);
-        return job.handler(bj, { ...deps, log: deps.log.child({ job: job.name }) });
+        // one CONSUMER span per run (continuing the producer's trace when the job carries one) and run counters
+        const run = traceFromJob(bj.data as { traceparent?: unknown } | null, `job ${job.name}`, () => job.handler(bj, { ...deps, log: deps.log.child({ job: job.name }) }));
+        active.add(run);
+        try {
+          const r = await run;
+          SERVICE_METRICS.jobRuns.inc(job.name);
+          return r;
+        } catch (e) {
+          SERVICE_METRICS.jobFailures.inc(job.name);
+          throw e;
+        } finally {
+          active.delete(run);
+        }
       },
       { connection, prefix, concurrency: group.reduce((n, j) => n + j.concurrency, 0) },
     );
@@ -85,9 +112,20 @@ export async function startJobs(jobs: JobDef[], deps: JobDeps, connection: Redis
   }
   return {
     workers,
-    async stop() {
-      await Promise.all(workers.map((w) => w.close()));
+    async stop(o = {}) {
+      let forced = false;
+      if (o.graceMs === undefined) await Promise.all(workers.map((w) => w.close()));
+      else {
+        // BullMQ caches the first close() promise, so a graceful close cannot be upgraded to a forced one later:
+        // pause fetching first, wait for the running jobs within the grace period, then close once (forced if any
+        // job is still running; it goes back as stalled and another worker runs it)
+        await Promise.all(workers.map((w) => w.pause(true)));
+        const idle = active.size === 0 || (await waitIdle(o.graceMs));
+        forced = !idle;
+        await Promise.all(workers.map((w) => w.close(forced)));
+      }
       await Promise.all(queues.map((q) => q.close()));
+      return { forced };
     },
   };
 }

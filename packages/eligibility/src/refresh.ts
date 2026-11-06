@@ -4,7 +4,7 @@
 // parses into a sane table, logs its sha256, and swaps it in with an atomic rename. The api's fileGeo reloads on the
 // new mtime. A failed refresh keeps the old file.
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { parseDbIpCsv } from "./geo";
 
@@ -57,6 +57,8 @@ export function readGeoMeta(dir: string): GeoMeta | null {
 function atomicWrite(dir: string, name: string, data: Uint8Array | string): void {
   const tmp = join(dir, `.${name}.${process.pid}.${Date.now()}.tmp`);
   writeFileSync(tmp, data);
+  // public data that other services read: 0644 whatever the writer's umask (the workers unit runs with UMask=0077)
+  chmodSync(tmp, 0o644);
   renameSync(tmp, join(dir, name));
 }
 

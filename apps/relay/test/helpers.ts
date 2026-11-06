@@ -151,7 +151,7 @@ export function relayStack(o: StackOptions = {}) {
   const breaches: { owner: Hex; agentRef: string; field: string; buildId: string }[] = [];
   const lanes = memoryLaneLimiter();
   const laneOf = { value: async (_o: Hex, _k?: string) => ({ lane: "pro" as "pro" | "free", perMin: 20 }) };
-  const flags = relayFlags({});
+  const flags = relayFlags({ RELAY_SUBMIT_ARMED: "1" });
   const logs: { msg: string; fields: Record<string, unknown> }[] = [];
   let n = 0;
   const deps: RelayDeps = {

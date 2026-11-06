@@ -13,10 +13,14 @@ set -eu
 net="${1:-}"
 here="$(cd "$(dirname "$0")" && pwd -P)"
 root="$(cd "$here/../.." && pwd -P)"
-FORGE="$HOME/.foundry/bin/forge"
-CAST="$HOME/.foundry/bin/cast"
-BUN="$HOME/.bun/bin/bun"
+# Tool paths are absolute; DEPLOY_TOOL_DIR (tests only) points every tool at stand-ins.
+FORGE="${DEPLOY_TOOL_DIR:-$HOME/.foundry/bin}/forge"
+CAST="${DEPLOY_TOOL_DIR:-$HOME/.foundry/bin}/cast"
+BUN="${DEPLOY_TOOL_DIR:-$HOME/.bun/bin}/bun"
 [ -x "$BUN" ] || BUN="/opt/homebrew/bin/bun"
+CURL="${DEPLOY_TOOL_DIR:-/usr/bin}/curl"
+# Sourcify's read API: a contract counts as verified only when this answers a match for its address.
+SOURCIFY_API="${SOURCIFY_API:-https://sourcify.dev/server}"
 # Gas of one full deploy (CPST + lock + anchor): the local DeployAll run measured 2,482,333 (forge estimate), x1.5.
 # An Orbit chain also charges an L1 data component, so this is a floor, not a promise.
 DEPLOY_GAS=3700000
@@ -71,7 +75,8 @@ if [ "$(echo "$bal < $need" | bc)" = "1" ]; then echo "stage 2: refuse: deployer
 echo "stage 2: deployer $deployer balance ok ($bal wei, needs $need)"
 
 # stage 3: what is already deployed (address in the file and code on chain)
-addr_of() { [ -f "$file" ] && grep "\"$1\"" "$file" | sed -E 's/.*"address": "(0x[0-9a-fA-F]{40})".*/\1/' | head -1; }
+# read with a JSON parser: the file is one line per contract when forge writes it and indented after stage 5 rewrites it
+addr_of() { [ -f "$file" ] && "$BUN" -e 'const d=JSON.parse(await Bun.file(process.argv[1]).text());const a=d.contracts?.[process.argv[2]]?.address;if(typeof a==="string"&&/^0x[0-9a-fA-F]{40}$/.test(a))console.log(a)' "$file" "$1"; }
 has_code() { [ -n "$1" ] && [ "$("$CAST" codesize "$1" --rpc-url "$rpc" 2>/dev/null || echo 0)" != "0" ]; }
 todo=0
 for c in CPST CPSTLock CapstanReceiptAnchor; do
@@ -90,7 +95,14 @@ else
   echo "skip: stage 4, nothing to deploy"
 fi
 
-# stage 5: Sourcify (lists 4663 and 46630, checked 2026-11-06 at sourcify.dev/server/chains)
+# stage 5: Sourcify (lists 4663 and 46630, checked 2026-11-06 at sourcify.dev/server/chains). A contract counts as
+# verified only when forge exits 0 AND Sourcify's own read API then answers a match for the address. Any failure is
+# recorded as "verified": false with the failed names, the copies are regenerated, and the run exits 1 (a re-run
+# retries stage 5, because only "verified": true skips it).
+sourcify_match() { # address -> 0 when Sourcify answers match or exact_match
+  "$CURL" -fsS --max-time 20 "$SOURCIFY_API/v2/contract/$want/$1" 2>/dev/null | grep -Eq '"match" *: *"(exact_match|match)"'
+}
+stage5_failed=""
 if [ "$net" = "local" ]; then
   echo "skip: stage 5, no Sourcify on the local chain"
 elif grep -q '"verified": true' "$file"; then
@@ -104,16 +116,31 @@ else
       CPSTLock) args="$("$CAST" abi-encode 'f(address)' "$cpst_addr")" ;;
       *) args="$("$CAST" abi-encode 'f(address)' "$POSTER_ADDRESS")" ;;
     esac
-    (cd "$root/contracts" && "$FORGE" verify-contract "$a" "src/$c.sol:$c" --verifier sourcify --chain-id "$want" \
-      --constructor-args "$args" --watch >>"$log" 2>&1) \
-      || { echo "stage 5: Sourcify verify failed for $c (log: $log); recorded as not verified"; }
+    if (cd "$root/contracts" && "$FORGE" verify-contract "$a" "src/$c.sol:$c" --verifier sourcify --chain-id "$want" \
+      --constructor-args "$args" --watch >>"$log" 2>&1); then
+      if sourcify_match "$a"; then
+        echo "stage 5: Sourcify verified $c at $a"
+      else
+        echo "stage 5: Sourcify verify FAILED for $c: forge exited 0 but Sourcify has no match for $a (log: $log)"
+        stage5_failed="$stage5_failed $c"
+      fi
+    else
+      echo "stage 5: Sourcify verify FAILED for $c (log: $log)"
+      stage5_failed="$stage5_failed $c"
+    fi
   done
-  if ! grep -q "Sourcify verify failed" "$log" 2>/dev/null; then
+  if [ -z "$stage5_failed" ]; then
     "$BUN" -e 'const f=process.argv[1];const d=JSON.parse(await Bun.file(f).text());d.sourcify={verified:true,url:"https://repo.sourcify.dev/"+d.chainId+"/"+d.contracts.CapstanReceiptAnchor.address};await Bun.write(f,JSON.stringify(d,null,2)+"\n")' "$file"
+    (cd "$root" && "$BUN" ops/ci/gen-deployments.ts >/dev/null)
+    echo "stage 5: Sourcify recorded as verified, copies regenerated"
+  else
+    "$BUN" -e 'const f=process.argv[1];const d=JSON.parse(await Bun.file(f).text());d.sourcify={verified:false,failed:process.argv[2].trim().split(/\s+/)};await Bun.write(f,JSON.stringify(d,null,2)+"\n")' "$file" "$stage5_failed"
+    (cd "$root" && "$BUN" ops/ci/gen-deployments.ts >/dev/null)
+    echo "stage 5: refuse: Sourcify NOT verified for$stage5_failed; recorded as not verified, copies regenerated"
   fi
-  (cd "$root" && "$BUN" ops/ci/gen-deployments.ts >/dev/null)
-  echo "stage 5: Sourcify recorded, copies regenerated"
 fi
 
 # stage 6: read-only post-deploy check
 /bin/bash "$here/post-deploy-check.sh" "$net"
+# a failed Sourcify verify fails the run (after the read-only check), so the owner re-runs to retry stage 5
+if [ -n "$stage5_failed" ]; then echo "result: deploy ok, Sourcify NOT verified for$stage5_failed (exit 1; re-run to retry)"; exit 1; fi

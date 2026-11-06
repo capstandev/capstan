@@ -13,7 +13,7 @@ import { ExportResultCode, hrTimeToNanoseconds, W3CTraceContextPropagator, type 
 import { InMemorySpanExporter, SimpleSpanProcessor, TracerProvider, type ReadableSpan, type SpanExporter } from "@opentelemetry/sdk-trace";
 import { appendFileSync, mkdirSync } from "node:fs";
 import { dirname } from "node:path";
-import { recordVenueLatency, startMetricsServer } from "./metrics";
+import { recordVenueLatency, SERVICE_METRICS, startMetricsServer } from "./metrics";
 import { redact } from "./redact";
 
 export type Carrier = Record<string, string | undefined>;
@@ -92,7 +92,7 @@ export interface Telemetry {
   /** Wrap a fetch-style handler: one SERVER span per request, continuing the caller's traceparent. */
   serve(handler: (req: Request) => Response | Promise<Response>): (req: Request) => Promise<Response>;
   /** Job data with the current traceparent added (enqueue side). */
-  jobData<D extends Record<string, unknown>>(data: D): D & { traceparent?: string };
+  jobData<D extends object>(data: D): D & { traceparent?: string };
   /** Continue the trace carried in job data (worker side). */
   fromJob<T>(data: { traceparent?: unknown } | null | undefined, name: string, fn: (span: Span) => Promise<T> | T): Promise<T>;
   /** A fetch that sends traceparent to the venue, in a CLIENT span that records the venue latency metric. */
@@ -100,6 +100,31 @@ export interface Telemetry {
   /** trace_id and span_id of the active span, for log lines. */
   logFields(): { trace_id?: string; span_id?: string };
   shutdown(): Promise<void>;
+}
+
+// The process's telemetry (the last initTelemetry call). Library code reaches it through the helpers below, so a
+// package that is used without telemetry (tests, scripts) runs the same code with tracing off.
+let current: Telemetry | null = null;
+
+/** The telemetry initTelemetry made in this process, or null. */
+export function activeTelemetry(): Telemetry | null {
+  return current;
+}
+
+/** Job data with the active traceparent (enqueue side); unchanged when telemetry is off. */
+export function traceJobData<D extends object>(data: D): D & { traceparent?: string } {
+  return current ? current.jobData(data) : data;
+}
+
+/** Continue the trace a job carries (worker side) in a CONSUMER span; runs fn directly when telemetry is off. */
+export async function traceFromJob<T>(data: { traceparent?: unknown } | null | undefined, name: string, fn: () => Promise<T> | T): Promise<T> {
+  return current ? current.fromJob(data, name, () => fn()) : fn();
+}
+
+/** A fetch that, when telemetry is on at call time, sends traceparent and records the venue span and latency. */
+export function tracedFetch(venue: string, base: typeof fetch = fetch): typeof fetch {
+  const f = (input: string | URL | Request, init?: RequestInit) => (current ? current.venueFetch(venue, base)(input, init) : base(input, init));
+  return f as typeof fetch;
 }
 
 export function initTelemetry(service: Role, opts: TelemetryOptions = {}): Telemetry {
@@ -140,7 +165,7 @@ export function initTelemetry(service: Role, opts: TelemetryOptions = {}): Telem
   };
   const extract = (carrier: Carrier): Context => propagator.extract(ROOT_CONTEXT, carrier, getter);
 
-  return {
+  const tel: Telemetry = {
     service,
     tracer,
     finished: () => memory.getFinishedSpans(),
@@ -155,6 +180,7 @@ export function initTelemetry(service: Role, opts: TelemetryOptions = {}): Telem
         return span(
           `${req.method} ${url.pathname}`,
           async (s) => {
+            SERVICE_METRICS.httpRequests.inc(service);
             const res = await handler(req);
             s.setAttribute("http.response.status_code", res.status);
             return res;
@@ -201,8 +227,11 @@ export function initTelemetry(service: Role, opts: TelemetryOptions = {}): Telem
     async shutdown() {
       prom?.stop();
       await provider.shutdown();
+      if (current === tel) current = null;
     },
   };
+  current = tel;
+  return tel;
 }
 
 /** Telemetry options from the environment: OTLP_FILE (span file) and PROM_PORT (metrics listener). */
@@ -211,3 +240,6 @@ export function telemetryEnv(env: Record<string, string | undefined>): Telemetry
   if (port !== undefined && !(Number.isInteger(port) && port > 0 && port < 65536)) throw new Error("telemetry: PROM_PORT must be a port number");
   return { otlpFile: env.OTLP_FILE || undefined, promPort: port };
 }
+
+/** Span kinds, re-exported so services and tests need no direct OpenTelemetry import. */
+export { SpanKind } from "@opentelemetry/api";

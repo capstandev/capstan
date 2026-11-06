@@ -6,7 +6,8 @@
 //   notional, fee  builder_fee_accruals (reconciled from venue fills) for Hyperliquid and Aster; Capstan fills for both
 //                  Lighter configs (routed, 0 fee)
 //   x402           x402_payments with status = settled (amounts are 6-decimal token units: USDC and USDG)
-//   mcp            request_logs rows of the mcp service (hashed client id)
+//   mcp            request_logs rows of the mcp service with route tools/call (hashed client id)
+//   api            request_logs rows of the api service (one per call to a mounted route, hashed client id)
 //   refusals       eligibility_decisions with allowed = false, by code
 // Thresholds (pre-set): day 14 approvals >= 25, day 30 routed run-rate >= $30M a month, day 60 >= $150M a month.
 import type { Db } from "@capstan/core";
@@ -24,6 +25,7 @@ export interface UsageDay {
   builderFeeUsd: { hl: string; aster: string };
   x402: { payments: number; usd: string; byRail: Record<string, string> };
   mcp: { calls: number; uniqueClients: number };
+  api: { requests: number; uniqueClients: number };
   visitors: number | null;
   refusals: Record<string, number>;
   /** Approvals in our database (delegations) and those the venue does not confirm (flagged, not counted). */
@@ -243,7 +245,11 @@ export async function computeDay(day: string, deps: ComputeDeps): Promise<UsageD
   const [mcp] = await db
     .select({ calls: sql<string>`count(*)`, clients: sql<string>`count(distinct ${rl.clientHash})` })
     .from(rl)
-    .where(and(eq(rl.service, "mcp"), gte(rl.ts, start), lt(rl.ts, end)));
+    .where(and(eq(rl.service, "mcp"), eq(rl.route, "tools/call"), gte(rl.ts, start), lt(rl.ts, end)));
+  const [api] = await db
+    .select({ calls: sql<string>`count(*)`, clients: sql<string>`count(distinct ${rl.clientHash})` })
+    .from(rl)
+    .where(and(eq(rl.service, "api"), gte(rl.ts, start), lt(rl.ts, end)));
 
   // refusals by code
   const ed = schema.eligibilityDecisions;
@@ -263,6 +269,7 @@ export async function computeDay(day: string, deps: ComputeDeps): Promise<UsageD
     builderFeeUsd: { hl: usdStr(fees.hl), aster: usdStr(fees.aster) },
     x402: { payments: pay.length, usd: usdStr(x402Usd), byRail: Object.fromEntries([...byRailDec].sort().map(([k, v]) => [k, usdStr(v)])) },
     mcp: { calls: n(mcp?.calls), uniqueClients: n(mcp?.clients) },
+    api: { requests: n(api?.calls), uniqueClients: n(api?.clients) },
     visitors: deps.visitors ? await deps.visitors(day) : null,
     refusals: Object.fromEntries(ref.map((r) => [r.code ?? "unknown", n(r.c)]).sort()),
   };
@@ -286,6 +293,8 @@ export function toRows(u: UsageDay): { day: string; metric: string; value: strin
   for (const [k, v] of Object.entries(u.x402.byRail)) add(`x402.rail.${k}`, v);
   add("mcp.calls", u.mcp.calls);
   add("mcp.unique_clients", u.mcp.uniqueClients);
+  add("api.requests", u.api.requests);
+  add("api.unique_clients", u.api.uniqueClients);
   if (u.visitors !== null) add("visitors", u.visitors);
   for (const [k, v] of Object.entries(u.refusals)) add(`refusals.${k}`, v);
   return r;
@@ -306,6 +315,7 @@ export function fromRows(day: string, rows: { metric: string; value: string }[])
     builderFeeUsd: { hl: str("builder_fee_usd.hl"), aster: str("builder_fee_usd.aster") },
     x402: { payments: num("x402.payments"), usd: str("x402.usd"), byRail: Object.fromEntries(Object.entries(pick("x402.rail.")).map(([k, v]) => [k, usdStr(usd(v))])) },
     mcp: { calls: num("mcp.calls"), uniqueClients: num("mcp.unique_clients") },
+    api: { requests: num("api.requests"), uniqueClients: num("api.unique_clients") },
     visitors: m.has("visitors") ? num("visitors") : null,
     refusals: Object.fromEntries(Object.entries(pick("refusals.")).map(([k, v]) => [k, Number(v)])),
   };

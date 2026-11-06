@@ -4,6 +4,7 @@
 import { QUEUES, type Redis } from "@capstan/core";
 import { CapstanError, errorBody, type ErrorBody, type SignedEnvelope } from "@capstan/schema";
 import type { Priority } from "@capstan/venue-client";
+import { traceFromJob, traceJobData } from "@capstan/telemetry";
 import { Queue, QueueEvents, Worker, type Job } from "bullmq";
 import { handleSubmit } from "./pipeline";
 import type { RelayDeps, SubmitOutcome } from "./types";
@@ -13,6 +14,8 @@ export interface RelayJobData {
   signedEnvelope: SignedEnvelope;
   ip: string;
   apiKey?: string;
+  /** W3C traceparent of the api request that enqueued the job (the relay continues that trace). */
+  traceparent?: string;
 }
 
 export type RelayJobResult = { ok: true; result: SubmitOutcome } | { ok: false; status: number; body: ErrorBody };
@@ -32,7 +35,7 @@ export async function runRelayJob(data: RelayJobData, deps: RelayDeps): Promise<
 }
 
 export function startRelayWorker(connection: Redis, deps: RelayDeps, o: { concurrency?: number; prefix?: string } = {}): Worker<RelayJobData, RelayJobResult> {
-  return new Worker<RelayJobData, RelayJobResult>(QUEUES.relaySubmit, async (job: Job<RelayJobData>) => runRelayJob(job.data, deps), { connection, prefix: o.prefix ?? "capstan", concurrency: o.concurrency ?? 8 });
+  return new Worker<RelayJobData, RelayJobResult>(QUEUES.relaySubmit, async (job: Job<RelayJobData>) => traceFromJob(job.data, "relay submit", () => runRelayJob(job.data, deps)), { connection, prefix: o.prefix ?? "capstan", concurrency: o.concurrency ?? 8 });
 }
 
 export interface RelayClient {
@@ -49,7 +52,7 @@ export function relayQueueClient(connection: Redis, o: { waitMs?: number; prefix
   return {
     async submit(data, priority, jobId) {
       await ready;
-      const job = await q.add("relay-submit", data, { jobId, priority: BULL_PRIORITY[priority], removeOnComplete: { age: 3600 }, removeOnFail: { age: 86_400 }, attempts: 1 });
+      const job = await q.add("relay-submit", traceJobData(data), { jobId, priority: BULL_PRIORITY[priority], removeOnComplete: { age: 3600 }, removeOnFail: { age: 86_400 }, attempts: 1 });
       try {
         return (await job.waitUntilFinished(events, o.waitMs ?? 10_000)) as RelayJobResult;
       } catch {

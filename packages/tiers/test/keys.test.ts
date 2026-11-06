@@ -33,19 +33,20 @@ const HOST = "api.example.test";
     const rows = await db.select().from(schema.apiAccounts);
     expect(rows.length).toBe(1);
     expect(rows[0]!.keyHash.startsWith("$argon2id$")).toBe(true);
-    expect(rows[0]!.keyHash).not.toContain(k.key.split("_")[2]!);
+    // the secret is everything after "cpst_<id>_" (it may itself contain "_")
+    expect(rows[0]!.keyHash).not.toContain(k.key.slice(`cpst_${k.id}_`.length));
     expect(await verifyApiKey(db, k.key)).toMatchObject({ id: k.id, tier: "free", ownerWallet: null });
     // wrong secret, wrong id, malformed
     const wrong = k.key.slice(0, -1) + (k.key.endsWith("A") ? "B" : "A");
     expect(await verifyApiKey(db, wrong)).toBeNull();
-    expect(await verifyApiKey(db, `cpst_01ARZ3NDEKTSV4RRFFQ69G5FAV_${k.key.split("_")[2]}`)).toBeNull();
+    expect(await verifyApiKey(db, `cpst_01ARZ3NDEKTSV4RRFFQ69G5FAV_${k.key.slice(`cpst_${k.id}_`.length)}`)).toBeNull();
     expect(await verifyApiKey(db, "nope")).toBeNull();
     // no column anywhere holds the plain key
     const dump = await db.$client.unsafe(`select string_agg(t::text, ' ') as all from (select * from api_accounts) t`);
     expect(JSON.stringify(dump)).not.toContain(k.key);
     const all = await db.$client.unsafe(`select table_name from information_schema.tables where table_schema = 'public'`);
     for (const { table_name } of all as unknown as { table_name: string }[]) {
-      const r = await db.$client.unsafe(`select count(*)::int as n from "${table_name}" t where t::text like '%' || $1 || '%'`, [k.key.split("_")[2]!]);
+      const r = await db.$client.unsafe(`select count(*)::int as n from "${table_name}" t where t::text like '%' || $1 || '%'`, [k.key.slice(`cpst_${k.id}_`.length)]);
       expect((r[0] as unknown as { n: number }).n, table_name).toBe(0);
     }
   }, 30_000);

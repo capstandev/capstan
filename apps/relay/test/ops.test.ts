@@ -13,7 +13,7 @@ describe("ops relay stop", () => {
     const s = relayStack();
     stacks.push(s);
     const logged: unknown[] = [];
-    const flags = relayFlags({}, { now: () => NOW, log: (c) => logged.push(c) });
+    const flags = relayFlags({ RELAY_SUBMIT_ARMED: "1" }, { now: () => NOW, log: (c) => logged.push(c) });
     s.deps.flags = flags;
     const ip = { ip: "203.0.113.80" };
     const stop = flags.set("RELAY_ENABLED", false, "ops-oncall");

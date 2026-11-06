@@ -3,6 +3,7 @@
 // not executable, the builder approval is missing, or the agent policy would be breached; each 403 carries the id
 // of a signed refusal receipt. Builds live 30 s in order_builds. Submit enqueues relay-submit and waits up to 10 s.
 // No amend route exists: an amendment is a cancel build plus a new order build, signed twice (DECISIONS #54).
+import { recordFunnel } from "@capstan/telemetry";
 import { createDb, createRedis, schema, ulid, type Db, type RouteSpec } from "@capstan/core";
 import { checkPolicy } from "@capstan/policy";
 import { draft, type ReceiptDraft } from "@capstan/receipts";
@@ -188,6 +189,7 @@ export function createOrderRoutes(getDeps: () => Promise<OrdersRouteDeps> | Orde
       const q = quoteCheck(b, intent);
       if (q) return fail(c, q);
       await store(deps, b, a, "order", { mode, requestHash, policyId: policy?.policyId ?? null, leverage: intent.leverage ?? 1, intent });
+      recordFunnel("build");
       return c.json(b);
     },
   };
@@ -301,6 +303,8 @@ export function createOrderRoutes(getDeps: () => Promise<OrdersRouteDeps> | Orde
       const body = await json(c);
       const parsed = OrderSubmitZ.safeParse(body);
       if (!parsed.success) return fail(c, "INVALID_INPUT", issues(parsed.error));
+      // a well-formed signed envelope reached us: the "sign" step of the funnel (the relay counts "submit")
+      recordFunnel("sign");
       const deps = await getDeps();
       const [row] = await deps.db.select({ owner: schema.orderBuilds.owner, intent: schema.orderBuilds.intent }).from(schema.orderBuilds).where(eq(schema.orderBuilds.id, parsed.data.buildId)).limit(1);
       if (row && !ownerMatches(c, row.owner as Hex)) return fail(c, "UNAUTHORIZED", "The signature does not belong to this owner.");

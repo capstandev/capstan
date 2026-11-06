@@ -1,5 +1,7 @@
 // Ops relay stop (DECISIONS #7): RELAY_ENABLED=0 stops every submit; a venue flag off stops that venue. Restart is the
 // flag back on. Every change is logged with the operator and the time. Flags default to on.
+// Arming is separate and defaults to OFF (DEP-6): RELAY_SUBMIT_ARMED=1 is read once at start, like the role config,
+// and the relay never sends to a venue on a host that was not armed. Health reports both, never one for the other.
 import type { VenueId } from "@capstan/schema";
 import { VENUE_FLAGS, type RelayFlags, type VenueFlag } from "./types";
 
@@ -13,6 +15,8 @@ export const FLAG_OF: Record<string, VenueFlag> = {
 export const flagOf = (v: VenueId): VenueFlag | null => FLAG_OF[v] ?? null;
 
 const on = (v: string | undefined) => v === undefined || v === "" || v === "1" || v === "true";
+/** The role config's flag parse (packages/core config `flag(false)`): only "1" or "true" arms. */
+export const armedFrom = (v: string | undefined): boolean => v === "1" || v === "true";
 
 export interface FlagChange {
   flag: "RELAY_ENABLED" | VenueFlag;
@@ -31,8 +35,10 @@ export function relayFlags(env: Record<string, string | undefined>, o: { now?: (
   const now = o.now ?? Date.now;
   const state = new Map<string, boolean>([["RELAY_ENABLED", on(env.RELAY_ENABLED)], ...VENUE_FLAGS.map((f) => [f, on(env[f])] as [string, boolean])]);
   const log: FlagChange[] = [];
+  const armed = armedFrom(env.RELAY_SUBMIT_ARMED);
   return {
     relayEnabled: () => state.get("RELAY_ENABLED") !== false,
+    submitArmed: () => armed,
     venueEnabled: (f) => state.get(f) !== false,
     set(flag, value, operator) {
       if (flag !== "RELAY_ENABLED" && !VENUE_FLAGS.includes(flag)) throw new Error(`unknown relay flag ${String(flag)}`);

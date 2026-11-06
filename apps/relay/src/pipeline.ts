@@ -6,6 +6,7 @@
 //  3 adapter.verifySigned -> PAYLOAD_MISMATCH           8 governor.acquire(venue, cost, priority), adapter.submit once
 //  4 policy re-check -> POLICY_BREACH (alert queued)    9 order.submit / order.cancel receipt; venue errors too
 //  5 eligibility re-check with the submit IP
+import { recordFunnel, recordGovernorUse, SERVICE_METRICS } from "@capstan/telemetry";
 import { defaultIsEquity, type EligibilityDecision } from "@capstan/eligibility";
 import { checkPolicy } from "@capstan/policy";
 import { draft } from "@capstan/receipts";
@@ -17,6 +18,7 @@ import type { RelayDeps, RelayVenue, StoredBuild, SubmitOutcome } from "./types"
 import { sha256Jcs, venueErrorText } from "./venues";
 
 export const RELAY_PAUSED = "relay paused" as const;
+export const RELAY_NOT_ARMED = "relay submitting is not armed on this host; sign and send in direct mode" as const;
 export const BUILDER_HINT = "Approve the Capstan builder fee in onboarding (POST /v1/onboarding/build), then build the order again.";
 const HEX32 = /^0x[0-9a-fA-F]{64}$/;
 
@@ -43,6 +45,7 @@ interface RefuseOpts {
 
 /** Issue the refusal receipt, then throw the refusal. If the receipt cannot be issued the request is still refused. */
 async function refuse(deps: Pick<RelayDeps, "receipts" | "log">, code: ErrorCode, o: RefuseOpts): Promise<never> {
+  SERVICE_METRICS.relayRefusals.inc(code);
   const ph = typeof o.payloadHash === "string" && HEX32.test(o.payloadHash) ? (o.payloadHash.toLowerCase() as Hex) : null;
   let receiptId: string | undefined;
   try {
@@ -98,6 +101,11 @@ async function loadAndVerify(req: SubmitRequest, deps: ClaimDeps, o: { checkAgen
   if (o.checkAgent && (!deps.flags.relayEnabled() || !deps.flags.venueEnabled(venue.flag))) {
     deps.log?.("relay paused refusal", { venue: b.venue, buildId: b.build.buildId });
     return refuse(deps, "VENUE_ERROR", { ...ref, message: RELAY_PAUSED });
+  }
+  // arming is checked before anything is consumed, so the same signed envelope can go through once the host is armed
+  if (o.checkAgent && !deps.flags.submitArmed()) {
+    deps.log?.("relay not armed refusal", { venue: b.venue, buildId: b.build.buildId });
+    return refuse(deps, "VENUE_ERROR", { ...ref, message: RELAY_NOT_ARMED });
   }
   if (o.checkAgent && now > b.expiresAt) return refuse(deps, "BUILD_EXPIRED", ref);
   if (!env || env.buildId !== req.buildId || env.buildId !== b.build.buildId) return refuse(deps, "PAYLOAD_MISMATCH", { ...ref, field: "buildId" });
@@ -190,6 +198,12 @@ export async function handleSubmit(req: SubmitRequest, ctx: SubmitContext, deps:
       const opts = { priority, ...(deadlineMs !== undefined ? { deadlineMs } : {}) };
       if (venue.lighterL1) await acquireLighterSubmit(deps.governor, venue.governorKey as "lighter-304" | "lighter-466324" | "lighter-300", venue.lighterL1(b), opts);
       else await deps.governor.acquire(venue.governorKey, venue.costOf(env), opts);
+      try {
+        recordGovernorUse(deps.governor.egress, venue.governorKey, deps.governor.usage(venue.governorKey).pct);
+      } catch {
+        // a metric never blocks a submit
+      }
+      recordFunnel("submit");
       try {
         return await venue.adapter.submit(env);
       } catch (e) {

@@ -6,6 +6,7 @@
 // - Mainnet guard: no broadcast on Base, RHC or Solana mainnet unless armed (X402_SETTLE_ARMED=1 plus the arming file).
 // - Amount 0 is refused; Solana payments must pass the layout rules first; the float guard alerts above $200.
 import type { Logger } from "@capstan/core";
+import { recordX402SettleFailure, SERVICE_METRICS } from "@capstan/telemetry";
 import { MAINNET_NETWORKS, isSvmNetwork, SOLANA_MAX_CU_PRICE_MICROLAMPORTS, validateSvmLayout, type floatGuard, type FloatHolding } from "@capstan/x402";
 import type { x402Facilitator } from "@x402/core/facilitator";
 import type { PaymentPayload, PaymentRequirements, SettleResponse, VerifyResponse } from "@x402/core/types";
@@ -171,14 +172,17 @@ export function createFacilitatorService(o: ServiceOptions) {
       const rc = await probe.receipt(r.txHash);
       if (rc === "success") {
         await o.store.finish(r.id, "settled", r.txHash);
+        SERVICE_METRICS.x402Settled.inc(r.chain);
         return { ...r, status: "settled" };
       }
       if (rc === "reverted") {
         await o.store.finish(r.id, "failed", r.txHash);
+        recordX402SettleFailure(r.chain);
         return { ...r, status: "failed" };
       }
       if (now() - r.ts.getTime() > dropAfter && !(await probe.known(r.txHash))) {
         await o.store.finish(r.id, "dropped", r.txHash);
+        recordX402SettleFailure(r.chain);
         await o.alert({ kind: "x402.settle_dropped", id: r.id, chain: r.chain });
         return { ...r, status: "dropped" };
       }
@@ -232,6 +236,7 @@ export function createFacilitatorService(o: ServiceOptions) {
     }
     if (!pre.isValid) {
       await o.store.finish(id, "failed", null, pre.payer);
+      recordX402SettleFailure(network);
       const reason = pre.invalidReason ?? ERR.invalidPayload;
       return { status: statusFor(reason, false), body: { success: false, errorReason: reason, transaction: "", network, payer: pre.payer } };
     }
@@ -244,11 +249,13 @@ export function createFacilitatorService(o: ServiceOptions) {
       const row = await o.store.get(id);
       if (row?.status === "settlement_pending") return fromRow(row);
       await o.store.finish(id, "failed", null);
+      recordX402SettleFailure(network);
       return { status: 500, body: { success: false, errorReason: ERR.unexpected, transaction: "", network } };
     }
     const tx = r.transaction || null;
     if (r.success) {
       await o.store.finish(id, "settled", tx, r.payer);
+      SERVICE_METRICS.x402Settled.inc(network);
     } else if (r.errorReason === ERR.pending && tx) {
       await o.store.markPending(id, tx);
       return { status: 202, body: r };
@@ -257,6 +264,7 @@ export function createFacilitatorService(o: ServiceOptions) {
       // a recorded broadcast with a failed result: keep it pending, only the reconciler decides
       if (row?.status === "settlement_pending" && !tx) return fromRow(row);
       await o.store.finish(id, "failed", tx, r.payer);
+      recordX402SettleFailure(network);
     }
     return { status: statusFor(r.errorReason, r.success), body: r };
   }

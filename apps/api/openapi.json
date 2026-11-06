@@ -1523,6 +1523,43 @@
         }
       }
     },
+    "/v1/openapi.json": {
+      "get": {
+        "operationId": "getOpenapiJson",
+        "summary": "The OpenAPI 3.1 document for this API",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/orders/build": {
       "post": {
         "operationId": "postOrdersBuild",

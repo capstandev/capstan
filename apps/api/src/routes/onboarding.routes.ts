@@ -10,6 +10,7 @@ import { capstanAgentName } from "@capstan/adapter-hyperliquid";
 import { drafts, type ReceiptDraft } from "@capstan/receipts";
 import { sha256Jcs } from "@capstan/relay";
 import { CapstanError, errorBody, OnboardingBuildZ, OnboardingPreflightQueryZ, OnboardingSubmitZ, type Hex, type OnboardingBundle, type OnboardingRequest, type VenueId } from "@capstan/schema";
+import { recordOnboardingPrompt } from "@capstan/telemetry";
 import { and, eq, ne } from "drizzle-orm";
 import type { Context } from "hono";
 import { bundleOfRow, type BuildAdapter } from "../adapters";
@@ -124,6 +125,8 @@ export function createOnboardingRoutes(getDeps: () => Promise<OnboardingRouteDep
           .insert(schema.onboardingSessions)
           .values({ id: b.bundleId, venue, owner: req.owner.toLowerCase(), bundle: stored, templateHash: b.templateHash, status: "built", createdAt: new Date(deps.now()) })
           .onConflictDoUpdate({ target: schema.onboardingSessions.id, set: { bundle: stored, status: "built" } });
+        // each step is one wallet prompt the owner will see
+        for (let i = 0; i < b.steps.length; i++) recordOnboardingPrompt("shown");
         return c.json(b);
       },
     },
@@ -199,6 +202,7 @@ export function createOnboardingRoutes(getDeps: () => Promise<OnboardingRouteDep
         }
         const receipt = await deps.issue(drafts.onboardingComplete({ owner: next.owner as Hex, venue, agentRef: next.id, requestHash: sha256Jcs(body), eligibilityDecisionId: String(ctxGet(c, "eligibilityDecisionId") ?? ""), policyId: res.delegation.policyId ?? null }));
         await deps.db.update(s).set({ status: "complete" }).where(eq(s.id, row.id));
+        for (let i = 0; i < p.data.signatures.length; i++) recordOnboardingPrompt("signed");
         return c.json({ agentRef: next.id, delegation: res.delegation, receiptId: receipt.receiptId });
       },
     },

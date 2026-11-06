@@ -3,7 +3,7 @@
 // router mirrors exactly the listed public read routes.
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
-import { discoverRoutes } from "../src/app";
+import { createApp, discoverRoutes } from "../src/app";
 import { OPENAPI_FILE, openApiText } from "../src/openapi/generate";
 import { appRouter, TRPC_MIRRORS } from "../src/trpc";
 
@@ -38,6 +38,17 @@ describe("openapi", () => {
     const paths = doc.paths as Record<string, Record<string, unknown>>;
     for (const { spec } of await discoverRoutes()) expect(paths[`/v1${spec.path.replace(/:([A-Za-z_]+)/g, "{$1}")}`]?.[spec.method.toLowerCase()], `${spec.method} ${spec.path}`).toBeDefined();
     expect(doc.openapi).toBe("3.1.0");
+  });
+
+  test("served: GET /v1/openapi.json answers the generated document (public, JSON)", async () => {
+    const { app } = await createApp();
+    const res = await app.request("/v1/openapi.json");
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toContain("application/json");
+    const text = await res.text();
+    expect(text).toBe(readFileSync(OPENAPI_FILE, "utf8"));
+    expect(JSON.parse(text)).toEqual(JSON.parse(await openApiText()));
+    expect((JSON.parse(text) as { paths: Record<string, unknown> }).paths["/v1/openapi.json"]).toBeDefined();
   });
 
   test("fresh", async () => {

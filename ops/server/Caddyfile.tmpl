@@ -27,11 +27,17 @@
 
 api.@DOMAIN@ {
 	import common
+	# X-Forwarded-For is set to the real peer, never passed through from the client: the api trusts its first entry
+	# (CAPSTAN_TRUST_FORWARDED_FOR=1) and the MCP server forwards it to the api for eligibility
 	handle /mcp* {
-		reverse_proxy 127.0.0.1:8713
+		reverse_proxy 127.0.0.1:8713 {
+			header_up X-Forwarded-For {remote_host}
+		}
 	}
 	handle {
-		reverse_proxy 127.0.0.1:8710
+		reverse_proxy 127.0.0.1:8710 {
+			header_up X-Forwarded-For {remote_host}
+		}
 	}
 }
 

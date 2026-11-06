@@ -10,6 +10,8 @@ import { getConnInfo } from "hono/bun";
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 import { Hono } from "hono";
 import { z } from "zod";
+import { SERVICE_METRICS, type RequestLogSink } from "@capstan/telemetry";
+import { createHash } from "node:crypto";
 import type { CapstanApiClient } from "./client";
 import { allTools, isPaidCall } from "./tools";
 import type { ToolCtx, ToolDef } from "./tools/types";
@@ -34,6 +36,8 @@ export interface McpAppDeps {
   payments?: McpPayments;
   /** The caller's address (default: the first X-Forwarded-For entry, else the socket). */
   clientIpOf?: (c: import("hono").Context) => string | null;
+  /** request_logs rows (service mcp, route = JSON-RPC method) for the usage report; client ids hashed, never stored raw. */
+  requestLog?: { sink: RequestLogSink; hash: (clientId: string) => string };
 }
 
 const unavailable: CallToolResult = { isError: true, content: [{ type: "text", text: JSON.stringify({ error: { code: "X402_PAYMENTS_UNAVAILABLE", message: "payments unavailable" } }) }], structuredContent: { error: { code: "X402_PAYMENTS_UNAVAILABLE", message: "payments unavailable" } } };
@@ -64,7 +68,8 @@ export function buildServer(deps: McpAppDeps, ctx: ToolCtx): McpServer {
         : null;
       base = async (args, extra) => (isPaidCall(t, args) ? (paid ? paid(args, extra) : unavailable) : free(args));
     }
-    const cb = deps.wrap ? deps.wrap(t, base) : base;
+    const counted: typeof base = async (args, extra) => (SERVICE_METRICS.mcpToolCalls.inc(t.name), base(args, extra));
+    const cb = deps.wrap ? deps.wrap(t, counted) : counted;
     server.registerTool(
       t.name,
       { description: t.description, inputSchema: z.object(t.inputSchema).strict(), ...(t.outputSchema ? { outputSchema: z.object(t.outputSchema) } : {}), annotations: t.annotations },
@@ -91,14 +96,43 @@ export function createMcpApp(deps: McpAppDeps): Hono {
     const bearer = c.req.header("authorization");
     const ip = deps.clientIpOf ? deps.clientIpOf(c) : defaultIp(c);
     const ctx: ToolCtx = { api: deps.api, auth: { ...(bearer ? { bearer } : {}), ...(ip ? { clientIp: ip } : {}) } };
+    const t0 = Date.now();
+    const methods = deps.requestLog ? await rpcMethods(c.req.raw) : [];
     const server = buildServer(deps, ctx);
     const transport = new WebStandardStreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true, enableDnsRebindingProtection: true, allowedHosts: deps.allowedHosts, allowedOrigins: deps.allowedOrigins });
     await server.connect(transport);
+    let status = 500;
     try {
-      return await transport.handleRequest(c.req.raw);
+      const res = await transport.handleRequest(c.req.raw);
+      status = res.status;
+      return res;
     } finally {
       void server.close().catch(() => undefined);
+      if (deps.requestLog) logRpc(deps.requestLog, methods, { bearer, ip, status, t0 });
     }
   });
   return app;
+}
+
+/** JSON-RPC method names in a POST body (one message or a batch); [] when it is not JSON-RPC. Reads a clone. */
+export async function rpcMethods(req: Request): Promise<string[]> {
+  if (req.method !== "POST") return [];
+  try {
+    const body = (await req.clone().json()) as unknown;
+    const msgs = Array.isArray(body) ? body : [body];
+    return msgs.map((m) => (m && typeof m === "object" && typeof (m as { method?: unknown }).method === "string" ? (m as { method: string }).method : null)).filter((m): m is string => !!m && m.length <= 64);
+  } catch {
+    return [];
+  }
+}
+
+function logRpc(rl: NonNullable<McpAppDeps["requestLog"]>, methods: string[], o: { bearer?: string; ip: string | null; status: number; t0: number }): void {
+  try {
+    // the bearer (an API key) is hashed twice and never kept: sha256 here, then the daily salted hash
+    const id = o.bearer ? `key:${createHash("sha256").update(o.bearer).digest("hex")}` : o.ip ? `ip:${o.ip}` : null;
+    const clientHash = id ? rl.hash(id) : null;
+    for (const route of methods) rl.sink.write({ service: "mcp", route, clientHash, ip: o.ip, ipCountry: null, status: o.status, durationMs: Date.now() - o.t0, ts: new Date(o.t0) });
+  } catch {
+    // the log never fails a call
+  }
 }

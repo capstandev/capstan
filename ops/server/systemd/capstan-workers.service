@@ -30,6 +30,8 @@ RestrictSUIDSGID=yes
 LockPersonality=yes
 UMask=0077
 ReadWritePaths=/var/log/capstan/workers
+# geo-db-refresh writes the shared DB-IP country file (api and relay read it)
+ReadWritePaths=/var/lib/capstan/geo
 ReadOnlyPaths=/opt/capstan
 # only this service's folder is visible under /etc/capstan
 TemporaryFileSystem=/etc/capstan:ro

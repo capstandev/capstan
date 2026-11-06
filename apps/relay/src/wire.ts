@@ -9,6 +9,7 @@ import { activePolicyFor } from "@capstan/policy";
 import { createReceiptService, pgReceiptStore, type ReceiptDraft } from "@capstan/receipts";
 import { venueNetwork, type Hex, type Receipt, type VenueId } from "@capstan/schema";
 import { dbWalletActivity, limitsFor, tierOf, viemLockReader, type LockReader, type Tier } from "@capstan/plans";
+import { tracedFetch } from "@capstan/telemetry";
 import { createGovernor, venueHttp, type Governor } from "@capstan/venue-client";
 import { Queue, QueueEvents } from "bullmq";
 import { priorityDispatcher } from "./dispatch";
@@ -39,14 +40,14 @@ export async function relayVenues(env: Record<string, string | undefined>, gov: 
   const out = new Map<VenueId, RelayVenue>();
   const hlCfg = { ...(mainnet ? HL_MAINNET : HL_TESTNET), builderAddress: (env.HL_BUILDER_ADDRESS as Hex | undefined) ?? ZERO };
   const hlKey = mainnet ? "hyperliquid" : "hyperliquid-testnet";
-  const hlHttp = venueHttp(hlKey, hlCfg.exchangeUrl.replace(/\/exchange$/, ""), pass, { userAgent: "capstan-relay" });
+  const hlHttp = venueHttp(hlKey, hlCfg.exchangeUrl.replace(/\/exchange$/, ""), pass, { userAgent: "capstan-relay", fetchImpl: tracedFetch("hyperliquid") });
   const cache = memoryMarketDataCache();
   // the pipeline checks delegation state itself; the adapter's own check would also block direct-mode claims
   const hl = createHlAdapter(hlCfg, { http: hlHttp, cache, reader: createHlReader(hlCfg, hlHttp, cache), agentState: () => "active" });
   out.set("hyperliquid", hlRelayVenue(hl, { governorKey: hlKey }));
   for (const cfg of lighterConfigsFor(env)) {
     const venue = cfg.venue;
-    const http = venueHttp(cfg.governorKey, cfg.rest, pass, { userAgent: "capstan-relay" });
+    const http = venueHttp(cfg.governorKey, cfg.rest, pass, { userAgent: "capstan-relay", fetchImpl: tracedFetch(venue) });
     const a = createLighterAdapter(cfg, { http, cache: null, execution: env.LIGHTER_EXECUTION === "1" });
     out.set(venue, lighterRelayVenue(venue, a, { governorKey: cfg.governorKey, l1Of: (b) => b.owner }));
   }
@@ -55,7 +56,7 @@ export async function relayVenues(env: Record<string, string | undefined>, gov: 
     const asterMainnet = venueNetwork("aster", env) === "mainnet";
     const cfg = aster.asterConfig(asterMainnet ? "Mainnet" : "Testnet");
     const key = asterMainnet ? "aster" : "aster-testnet";
-    const http = venueHttp(key, cfg.rest, pass, { userAgent: "capstan-relay" });
+    const http = venueHttp(key, cfg.rest, pass, { userAgent: "capstan-relay", fetchImpl: tracedFetch("aster") });
     const a = aster.createAdapter({ ...cfg, builder: (env.ASTER_BUILDER_ADDRESS as Hex | undefined) ?? ZERO, execution: aster.asterExecutionEnabled(env) }, { http, cache: null, reader: aster.createAsterReader(cfg, http, null) });
     out.set("aster", asterRelayVenue(a, { governorKey: key }));
   }

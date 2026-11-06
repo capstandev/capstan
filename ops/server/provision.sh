@@ -162,6 +162,8 @@ for s in $CAPSTAN_SERVICES; do
   fix_dir "$CAPSTAN_LOG/$s" 750 "capstan-$s:capstan-$s"
 done
 if /usr/bin/getent passwd caddy >/dev/null; then fix_dir "$CAPSTAN_LOG/caddy" 750 caddy:caddy; fi
+# DB-IP country file: written by geo-db-refresh (capstan-workers), read by api and relay (public data, 0755/0644)
+fix_dir /var/lib/capstan/geo 755 capstan-workers:capstan-workers
 if [ "$n" -eq 0 ]; then stage_skip "folders"; else mark "folders ($n fixed)"; fi
 
 # database password: made here, 0600 root, never printed

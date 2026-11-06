@@ -2,6 +2,7 @@
 // The process consumes the relay-submit queue (the api enqueues and waits up to 10 s) and answers GET /health.
 import { createRedis, logger } from "@capstan/core";
 import { initTelemetry, telemetryEnv } from "@capstan/telemetry";
+import { relayHttp } from "./health";
 import { startRelayWorker } from "./queue";
 import { relayConfig, relayRuntime } from "./wire";
 
@@ -16,6 +17,7 @@ export * from "./venues";
 export * from "./stores";
 export * from "./pipeline";
 export * from "./queue";
+export * from "./health";
 export { dbPolicySource, passThroughGovernor, queuedReceipts, relayVenues } from "./wire";
 
 if (import.meta.main) {
@@ -28,11 +30,7 @@ if (import.meta.main) {
     Bun.serve({
       port: cfg.RELAY_PORT,
       hostname: "127.0.0.1",
-      fetch: tel.serve((req) =>
-        new URL(req.url).pathname === "/health"
-          ? Response.json({ ok: true, service: "relay", relayEnabled: rt.flags.relayEnabled() })
-          : Response.json({ error: { code: "NOT_FOUND", message: "Not found." } }, { status: 404 }),
-      ),
+      fetch: tel.serve(relayHttp(rt.flags)),
     });
     const stop = async () => {
       await worker.close();
@@ -41,7 +39,7 @@ if (import.meta.main) {
     };
     process.on("SIGTERM", stop);
     process.on("SIGINT", stop);
-    log.info("listening", { port: cfg.RELAY_PORT, venues: [...rt.deps.venues.keys()] });
+    log.info("listening", { port: cfg.RELAY_PORT, venues: [...rt.deps.venues.keys()], submitArmed: rt.flags.submitArmed() });
   } catch (e) {
     log.error("boot failed", { error: (e as Error).message });
     process.exit(1);

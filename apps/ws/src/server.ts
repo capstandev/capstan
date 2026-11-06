@@ -8,6 +8,7 @@
 //   01 capstanMessage with purpose ws_subscribe, body = channel, nonce `ws-<ts>`, issued at ts, valid 5 minutes, signed
 //   by the owner (plan: the plan's owner or one of its active agents). A wrong signer is refused.
 // The number of subscriptions per connection is capped by the caller's tier (LIMITS.wsSubs, todo 34).
+import { SERVICE_METRICS } from "@capstan/telemetry";
 import { capstanMessage, PUBSUB, verifyCapstanMessage, type NonceStore } from "@capstan/core";
 import type { Hex, OrderBook } from "@capstan/schema";
 import type { Server, ServerWebSocket } from "bun";
@@ -237,6 +238,7 @@ export function createWsGateway(deps: WsDeps) {
     send(ws, { type: "subscribed", channel });
   }
 
+  let open = 0;
   return {
     async start(port: number, hostname = "127.0.0.1"): Promise<Server<ConnState>> {
       const anonCap = await deps.capOf(null);
@@ -245,13 +247,18 @@ export function createWsGateway(deps: WsDeps) {
         hostname,
         fetch(req, server) {
           const u = new URL(req.url);
+          SERVICE_METRICS.httpRequests.inc("ws");
           if (u.pathname === "/health") return Response.json({ ok: true, service: "ws" });
           if (u.pathname === "/v1" && server.upgrade(req, { data: { subs: new Map(), owner: null, cap: anonCap, bookSeq: new Map() } })) return undefined;
           return Response.json({ error: { code: "NOT_FOUND", message: "Not found." } }, { status: 404 });
         },
         websocket: {
+          open() {
+            SERVICE_METRICS.wsConnections.set(++open);
+          },
           message: (ws, raw) => void onMessage(ws, raw as string),
           close(ws) {
+            SERVICE_METRICS.wsConnections.set(Math.max(0, --open));
             for (const off of ws.data.subs.values()) off();
             ws.data.subs.clear();
           },

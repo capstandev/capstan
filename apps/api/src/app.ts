@@ -25,6 +25,8 @@ export interface CreateAppOptions {
   payment?: MiddlewareHandler;
   /** Exact web origins answered with CORS (CAPSTAN_WEB_ORIGINS, parsed by parseWebOrigins). Default none. */
   corsOrigins?: readonly string[];
+  /** Request log per route (request-log.ts), outermost so it sees refusals as well as answers. */
+  requestLog?: (spec: RouteSpec) => MiddlewareHandler;
 }
 
 export interface MountedRoute {
@@ -143,7 +145,9 @@ export async function createApp(opts: CreateAppOptions = {}): Promise<{ app: Hon
     if (seen.has(key)) throw new MountError(`${file}: duplicate route ${key}`);
     seen.add(key);
     if (spec.write && !opts.edge) throw new MountError(`${file}: write route ${key} has no eligibility edge`);
-    const chain: MiddlewareHandler[] = [authGate(spec.auth, spec, verifiers)];
+    const chain: MiddlewareHandler[] = [];
+    if (opts.requestLog) chain.push(opts.requestLog(spec));
+    chain.push(authGate(spec.auth, spec, verifiers));
     if (opts.limiter) chain.push(opts.limiter(spec));
     if (spec.auth === "x402" && opts.payment) {
       const pay = opts.payment;

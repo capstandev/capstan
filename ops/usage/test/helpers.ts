@@ -27,6 +27,7 @@ export function usageDay(day: string, o: Partial<UsageDay> & { notional?: Partia
     builderFeeUsd: o.builderFeeUsd ?? { hl: "0", aster: "0" },
     x402: o.x402 ?? { payments: 0, usd: "0", byRail: {} },
     mcp: o.mcp ?? { calls: 0, uniqueClients: 0 },
+    api: o.api ?? { requests: 0, uniqueClients: 0 },
     visitors: o.visitors ?? null,
     refusals: o.refusals ?? {},
     ...(o.approvalsDb !== undefined ? { approvalsDb: o.approvalsDb } : {}),

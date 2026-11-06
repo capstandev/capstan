@@ -1,5 +1,6 @@
 // Shared parts of the builder-fee reconciler (spec 9, F4): the report shape, decimal sums, receipt and order lookups,
 // fill and accrual writes (idempotent), and the ops alert. Fills and accruals are per venue; nothing is netted.
+import { recordBuilderFee } from "@capstan/telemetry";
 import { schema, type Db } from "@capstan/core";
 import { Dec, type Hex, type VenueId } from "@capstan/schema";
 import { and, eq, inArray, sql } from "drizzle-orm";
@@ -135,10 +136,14 @@ export interface Accrual {
 export async function upsertAccrual(db: Db, a: Accrual): Promise<void> {
   const t = schema.builderFeeAccruals;
   const row = { ...a, builder: a.builder.toLowerCase() };
+  const [prev] = await db.select({ feeUsd: t.feeUsd }).from(t).where(and(eq(t.day, row.day), eq(t.venue, row.venue), eq(t.builder, row.builder))).limit(1);
   await db
     .insert(t)
     .values(row)
     .onConflictDoUpdate({ target: [t.day, t.venue, t.builder], set: { fills: row.fills, notionalUsd: row.notionalUsd, feeUsd: row.feeUsd, unmatchedFills: row.unmatchedFills, source: row.source } });
+  // the fee counter moves by what this run added (a re-run of the same day adds nothing)
+  const delta = Number(row.feeUsd) - Number(prev?.feeUsd ?? 0);
+  if (Number.isFinite(delta) && delta > 0) recordBuilderFee(row.venue, delta);
 }
 
 /**

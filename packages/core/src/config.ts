@@ -73,6 +73,12 @@ const webOrigins = z
     }
   });
 
+// Eligibility inputs (spec 10). The DB-IP country file lives in CAPSTAN_GEO_DIR (the geo-db-refresh job writes it, the
+// api edge and the relay re-check read it). CAPSTAN_TRUST_FORWARDED_FOR=1 makes the api read the caller from the first
+// X-Forwarded-For entry; set it only behind the TLS front end, which overwrites that header. Off, behind a proxy every
+// caller is 127.0.0.1 (a private range, no country) and every write is refused.
+const geoDir = path.default("var/geo");
+
 const ROLE_SCHEMAS = {
   api: z.object({
     ...common,
@@ -89,6 +95,8 @@ const ROLE_SCHEMAS = {
     X402_USDG_EIP3009_MAINNET: flag(false),
     // the dashboard's origins (exact match, apps/api/src/cors.ts); empty = no CORS
     CAPSTAN_WEB_ORIGINS: webOrigins,
+    CAPSTAN_TRUST_FORWARDED_FOR: flag(false),
+    CAPSTAN_GEO_DIR: geoDir,
   }),
   ws: z.object({
     ...common,
@@ -109,6 +117,7 @@ const ROLE_SCHEMAS = {
     RECEIPT_KEYSTORE_PATH: path.optional(),
     RECEIPT_KEYSTORE_PASSWORD_FILE: path.optional(),
     RECEIPT_CHAIN_ID: chainId.default(31337),
+    CAPSTAN_GEO_DIR: geoDir,
   }),
   mcp: z.object({
     ...common,
@@ -119,6 +128,8 @@ const ROLE_SCHEMAS = {
     X402_ENABLED: flag(false),
     FACILITATOR_URL: url.default("http://127.0.0.1:8714"),
     X402_USDG_EIP3009_MAINNET: flag(false),
+    // request_logs for the usage report (MCP tool calls, hashed client ids); unset means no request log
+    DATABASE_URL: pgUrl.optional(),
   }),
   workers: z.object({
     ...common,
@@ -150,6 +161,7 @@ const ROLE_SCHEMAS = {
     HL_BUILDER_ADDRESS: z.string().regex(/^0x[0-9a-fA-F]{40}$/, "address").optional(),
     OPS_KNOWN_ADDRESSES: z.string().regex(/^0x[0-9a-fA-F]{40}(\s*,\s*0x[0-9a-fA-F]{40})*$/, "comma list of addresses").optional(),
     LOG_DIR: path.optional(),
+    CAPSTAN_GEO_DIR: geoDir,
   }),
   facilitator: z.object({
     ...common,
@@ -218,6 +230,28 @@ export function loadConfig<R extends Role>(role: R, env: Record<string, string |
     }
   }
   return { ...(cfg as object), role } as ConfigFor<R>;
+}
+
+/**
+ * Variables the server env template of a role must set explicitly (ops/server/etc/*.env), because the local default
+ * is wrong on the server: the ports, data stores and telemetry outputs, the network, and for the api the proxy and
+ * geo settings without which every write is refused. Plus every variable the schema itself requires.
+ */
+export const SERVER_ENV: Record<Role, readonly string[]> = {
+  api: ["CAPSTAN_NETWORK", "PUBLIC_API_HOST", "OTLP_FILE", "PROM_PORT", "API_PORT", "DATABASE_URL", "REDIS_URL", "CAPSTAN_TRUST_FORWARDED_FOR", "CAPSTAN_GEO_DIR"],
+  ws: ["CAPSTAN_NETWORK", "PUBLIC_API_HOST", "OTLP_FILE", "PROM_PORT", "WS_PORT", "REDIS_URL"],
+  relay: ["CAPSTAN_NETWORK", "PUBLIC_API_HOST", "OTLP_FILE", "PROM_PORT", "RELAY_PORT", "DATABASE_URL", "REDIS_URL", "RELAY_EGRESS_ID", "RELAY_SUBMIT_ARMED", "CAPSTAN_GEO_DIR"],
+  mcp: ["CAPSTAN_NETWORK", "PUBLIC_API_HOST", "OTLP_FILE", "PROM_PORT", "MCP_PORT", "API_BASE_URL", "DATABASE_URL"],
+  workers: ["CAPSTAN_NETWORK", "PUBLIC_API_HOST", "OTLP_FILE", "PROM_PORT", "DATABASE_URL", "REDIS_URL", "WORKER_JOBS"],
+  facilitator: ["CAPSTAN_NETWORK", "PUBLIC_API_HOST", "OTLP_FILE", "PROM_PORT", "FACILITATOR_PORT", "DATABASE_URL", "REDIS_URL", "X402_SETTLE_ARMED"],
+};
+
+/** Names a role's schema requires (no default, not optional): a missing one stops the service at boot. */
+export function requiredConfigNames(role: Role): string[] {
+  const shape = ROLE_SCHEMAS[role].shape as Record<string, z.ZodTypeAny>;
+  return Object.keys(shape)
+    .filter((k) => !shape[k]!.isOptional())
+    .sort();
 }
 
 /** Variable names a role reads (for docs and the .env.example check). */

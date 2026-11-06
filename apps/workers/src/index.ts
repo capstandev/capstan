@@ -3,8 +3,10 @@
 import { createDb, createMarketDataCache, createRedis, loadConfig, logger } from "@capstan/core";
 import { initTelemetry, telemetryEnv } from "@capstan/telemetry";
 import { discoverJobs, selectJobs, startJobs } from "./runner";
+import { onStopSignals, shutdownWorkers } from "./shutdown";
 
 export * from "./runner";
+export * from "./shutdown";
 
 if (import.meta.main) {
   const log = logger("workers");
@@ -16,15 +18,8 @@ if (import.meta.main) {
     const db = createDb(cfg.DATABASE_URL);
     const running = await startJobs(jobs, { db, redis, cache: createMarketDataCache(redis), log, now: () => new Date() }, redis);
     log.info("workers running", { jobs: jobs.map((j) => j.name) });
-    const stop = async () => {
-      await running.stop();
-      await tel.shutdown();
-      await redis.quit();
-      await db.$client.end({ timeout: 5 });
-      process.exit(0);
-    };
-    process.on("SIGTERM", stop);
-    process.on("SIGINT", stop);
+    // SIGTERM: bounded graceful stop (workers, queues, telemetry, Redis, database), then exit 0 within 3 s
+    onStopSignals(() => shutdownWorkers({ running, telemetry: tel, redis, db, log }));
   } catch (e) {
     console.error(`workers: ${(e as Error).message}`);
     process.exit(1);
