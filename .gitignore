@@ -11,6 +11,8 @@ broadcast/
 *.env.*
 .envrc
 !.env.example
+# VPS env templates: placeholders only (@DB_PASSWORD@ and friends), filled in on the server by provision.sh
+!ops/server/etc/*.env
 credentials/
 secrets/
 keystores/

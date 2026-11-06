@@ -35,6 +35,9 @@ const common = {
   CAPSTAN_NETWORK: network,
   LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
   PUBLIC_API_HOST: z.string().regex(/^[a-z0-9.-]+(:\d+)?$/).default("localhost:8710"),
+  // telemetry (packages/telemetry telemetryEnv): span file and the /metrics listener port; unset means off
+  OTLP_FILE: z.string().min(1).optional(),
+  PROM_PORT: z.coerce.number().int().min(1).max(65535).optional(),
 };
 
 // A service signer is either a keystore (path + password file) or, on the local chain only, the dev signer.
@@ -67,7 +70,8 @@ const ROLE_SCHEMAS = {
     RELAY_EGRESS_ID: z.string().min(1).default("local"),
     RELAY_FREE_ORDERS_PER_MIN: posInt(2),
     RELAY_SUBMIT_ARMED: flag(false),
-    RECEIPT_SIGNER: signerKind,
+    // "none": the relay holds no key and receipts are signed by the receipt-sign job (the VPS relay env sets it)
+    RECEIPT_SIGNER: z.enum(["keystore", "dev", "none"]).default("keystore"),
     RECEIPT_KEYSTORE_PATH: path.optional(),
     RECEIPT_KEYSTORE_PASSWORD_FILE: path.optional(),
     RECEIPT_CHAIN_ID: chainId.default(31337),
@@ -100,6 +104,14 @@ const ROLE_SCHEMAS = {
     RECEIPT_KEYSTORE_PATH: path.optional(),
     RECEIPT_KEYSTORE_PASSWORD_FILE: path.optional(),
     RECEIPT_CHAIN_ID: chainId.default(31337),
+    // ops jobs (log-retention, ops-alerts, usage-daily); unarmed alerts are logged, never sent
+    ALERTS_ARMED: flag(false),
+    ALERTS_TOKEN_FILE: path.optional(),
+    ALERTS_CHAT_ID: z.string().regex(/^-?\d+$/, "telegram chat id").optional(),
+    ALERTS_TELEGRAM_API: url.optional(),
+    HL_BUILDER_ADDRESS: z.string().regex(/^0x[0-9a-fA-F]{40}$/, "address").optional(),
+    OPS_KNOWN_ADDRESSES: z.string().regex(/^0x[0-9a-fA-F]{40}(\s*,\s*0x[0-9a-fA-F]{40})*$/, "comma list of addresses").optional(),
+    LOG_DIR: path.optional(),
   }),
   facilitator: z.object({
     ...common,
