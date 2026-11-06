@@ -4,7 +4,7 @@ import { db as schema } from "@capstan/schema";
 import { eq, inArray } from "drizzle-orm";
 import { isExecutable, setExecutable } from "../src/review";
 import { syncMarkets } from "../src/sync";
-import { dbDescribe, freshDb } from "./db-helper";
+import { dbDescribe, freshDb, HOOK_TIMEOUT_MS } from "./db-helper";
 import { arcusSource, variationalSource } from "./fixture-sources";
 
 let ctx: Awaited<ReturnType<typeof freshDb>>;
@@ -15,10 +15,10 @@ dbDescribe("executable", () => {
     ctx = await freshDb();
     db = ctx.db;
     await syncMarkets(db, [variationalSource(), arcusSource()], new Date("2026-11-06T00:15:00Z"));
-  });
+  }, HOOK_TIMEOUT_MS);
   afterAll(async () => {
     await ctx.drop();
-  });
+  }, HOOK_TIMEOUT_MS);
 
   test("data-only", async () => {
     const rows = await db.select().from(schema.markets).where(inArray(schema.markets.venue, ["variational", "arcus"]));

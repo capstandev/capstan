@@ -4,7 +4,7 @@ import { db as schema } from "@capstan/schema";
 import { asc, eq } from "drizzle-orm";
 import { setDexExecutable, setExecutable } from "../src/review";
 import { syncMarkets, type MarketSource } from "../src/sync";
-import { dbDescribe, freshDb } from "./db-helper";
+import { dbDescribe, freshDb, HOOK_TIMEOUT_MS } from "./db-helper";
 import { allFixtureSources, asterSource, hyperliquidSource, lighterSource, staticSource } from "./fixture-sources";
 
 const T1 = new Date("2026-11-06T00:15:00Z");
@@ -21,10 +21,10 @@ dbDescribe("syncMarkets", () => {
   beforeEach(async () => {
     ctx = await freshDb();
     db = ctx.db;
-  });
+  }, HOOK_TIMEOUT_MS);
   afterEach(async () => {
     await ctx.drop();
-  });
+  }, HOOK_TIMEOUT_MS);
 
   test("ticker-collision", async () => {
     const dexes = [{ dex: "io", index: 10, liveMarkets: 1 }, { dex: "vntl", index: 3, liveMarkets: 1 }];

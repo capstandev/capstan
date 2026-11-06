@@ -4,7 +4,7 @@ import { db as schema } from "@capstan/schema";
 import { eq } from "drizzle-orm";
 import { approvedEquivalences, contractSpecDiff, isExecutable, proposeEquivalence, reviewEquivalence, rowToMarket, setDexExecutable } from "../src/review";
 import { syncMarkets } from "../src/sync";
-import { dbDescribe, freshDb } from "./db-helper";
+import { dbDescribe, freshDb, HOOK_TIMEOUT_MS } from "./db-helper";
 import { asterSource, hyperliquidSource, lighterSource, staticSource } from "./fixture-sources";
 
 let ctx: Awaited<ReturnType<typeof freshDb>>;
@@ -23,10 +23,10 @@ dbDescribe("review", () => {
     db = ctx.db;
     await syncMarkets(db, [hyperliquidSource(), lighterSource("lighter-304"), asterSource()], T);
     await syncMarkets(db, [staticSource("arcus", [{ venueSymbol: "TSLA-USD", collateralAsset: "USDC", sessionHours: NYSE, assetClassHint: "EQ" }, { venueSymbol: "AAPL-USD", contractMultiplier: "10", assetClassHint: "EQ" }])], T);
-  });
+  }, HOOK_TIMEOUT_MS);
   afterAll(async () => {
     await ctx.drop();
-  });
+  }, HOOK_TIMEOUT_MS);
 
   test("blocking-diff", async () => {
     // different collateral: Hyperliquid xyz (USDC) vs Aster TSLAUSDT (USDT)

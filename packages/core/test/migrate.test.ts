@@ -4,6 +4,9 @@ import postgres from "postgres";
 import { listMigrations, migrate, migrateDown, MIGRATION_LOCK_ID } from "../src/migrate";
 import { createTempDatabase } from "../src/testing";
 
+// Creating a throwaway database can take longer than Bun's 5 s hook default on a loaded runner.
+const HOOK_TIMEOUT_MS = 30_000;
+
 const BASE = process.env.DATABASE_URL;
 const d = BASE ? describe : describe.skip;
 
@@ -21,10 +24,10 @@ d("migrations", () => {
   let db: Awaited<ReturnType<typeof createTempDatabase>>;
   beforeAll(async () => {
     db = await createTempDatabase(BASE!, { prefix: "capstan_mig" });
-  });
+  }, HOOK_TIMEOUT_MS);
   afterAll(async () => {
     await db?.drop();
-  });
+  }, HOOK_TIMEOUT_MS);
 
   test("every migration has a down file", () => {
     for (const m of listMigrations()) expect(m.down, m.tag).not.toBeNull();

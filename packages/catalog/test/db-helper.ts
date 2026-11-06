@@ -16,3 +16,6 @@ export async function freshDb(): Promise<{ db: Db; drop(): Promise<void> }> {
     },
   };
 }
+
+// Creating and migrating a throwaway database can take longer than Bun's 5 s hook default on a loaded runner.
+export const HOOK_TIMEOUT_MS = 30_000;
