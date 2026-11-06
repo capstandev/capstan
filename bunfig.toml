@@ -10,4 +10,5 @@ minimumReleaseAge = 259200
 
 [test]
 # Integration tests that need Postgres or Redis read DATABASE_URL / REDIS_URL and skip when they are unset.
-timeout = 30000
+# Bun 1.4.4 ignores a `timeout` key here (checked 2026-11-05: a 6 s test still failed at 5 s), so the per-test
+# timeout is the `--timeout 30000` flag in package.json scripts and CI. Run `bun run test`, not a bare `bun test`.

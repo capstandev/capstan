@@ -58,7 +58,7 @@ jobs:
       - name: migrations (up from empty)
         run: bun run db:migrate
       - name: tests (includes the invariant check tests and the database tests)
-        run: bun test
+        run: bun test --timeout 30000
 
   coverage:
     runs-on: ubuntu-latest
@@ -88,7 +88,7 @@ jobs:
         with: { bun-version: 1.4.4 }
       - run: bun install --frozen-lockfile
       - name: tests with coverage
-        run: bun test --coverage --coverage-reporter=lcov
+        run: bun test --timeout 30000 --coverage --coverage-reporter=lcov
       - name: at least 70% of lines in packages/ (raise later)
         run: bun ops/ci/check-coverage.ts coverage/lcov.info 70
       - name: keep the report as a run artifact (nothing is uploaded anywhere else)

@@ -9,6 +9,8 @@ import { runCli } from "../src/cli/catalog-review";
 const REDIS = process.env.REDIS_URL;
 const PG = process.env.DATABASE_URL;
 const quiet = logger("test", { sink: () => {} });
+// Creating and migrating a throwaway database can exceed Bun's 5 s default on a loaded runner.
+const DB_TEST_TIMEOUT_MS = 30_000;
 
 describe("catalog-sync job", () => {
   test("definition", async () => {
@@ -42,7 +44,7 @@ describe("catalog-sync job", () => {
   let drop: (() => Promise<void>) | null = null;
   afterAll(async () => {
     await drop?.();
-  });
+  }, DB_TEST_TIMEOUT_MS);
 
   test("report, alerts and the review CLI", async () => {
     const { createTempDatabase, createDb, closeDb } = await import("@capstan/core");
@@ -78,5 +80,5 @@ describe("catalog-sync job", () => {
     expect(out.join("\n")).toContain(`approved ${id}`);
     expect(await runCli(["dex", "hyperliquid", "flx", "--reviewer", "rev", "--notes", "n"], db, io)).toBe(1);
     expect(await runCli(["nope"], db, io)).toBe(2);
-  });
+  }, DB_TEST_TIMEOUT_MS);
 });
