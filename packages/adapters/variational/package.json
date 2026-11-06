@@ -5,5 +5,11 @@
   "type": "module",
   "description": "Variational read-only adapter",
   "main": "src/index.ts",
-  "types": "src/index.ts"
+  "types": "src/index.ts",
+  "dependencies": {
+    "@capstan/core": "workspace:*",
+    "@capstan/schema": "workspace:*",
+    "@capstan/venue-client": "workspace:*",
+    "ioredis": "5.11.1"
+  }
 }

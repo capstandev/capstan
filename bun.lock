@@ -14,13 +14,17 @@
       "name": "@capstan/api",
       "version": "0.0.0",
       "dependencies": {
+        "@capstan/adapter-arcus": "workspace:*",
         "@capstan/adapter-aster": "workspace:*",
+        "@capstan/adapter-variational": "workspace:*",
         "@capstan/core": "workspace:*",
+        "@capstan/quote": "workspace:*",
         "@capstan/schema": "workspace:*",
         "@capstan/telemetry": "workspace:*",
         "@capstan/venue-client": "workspace:*",
         "@hono/trpc-server": "0.4.2",
         "@trpc/server": "11.23.0",
+        "drizzle-orm": "0.45.4",
         "hono": "4.13.16",
         "zod": "4.6.7",
       },
@@ -53,12 +57,15 @@
       "name": "@capstan/workers",
       "version": "0.0.0",
       "dependencies": {
+        "@capstan/adapter-arcus": "workspace:*",
         "@capstan/adapter-aster": "workspace:*",
         "@capstan/adapter-hyperliquid": "workspace:*",
         "@capstan/adapter-lighter": "workspace:*",
+        "@capstan/adapter-variational": "workspace:*",
         "@capstan/catalog": "workspace:*",
         "@capstan/core": "workspace:*",
         "@capstan/ops-usage": "workspace:*",
+        "@capstan/quote": "workspace:*",
         "@capstan/receipts": "workspace:*",
         "@capstan/schema": "workspace:*",
         "@capstan/telemetry": "workspace:*",
@@ -92,6 +99,12 @@
     "packages/adapters/arcus": {
       "name": "@capstan/adapter-arcus",
       "version": "0.0.0",
+      "dependencies": {
+        "@capstan/core": "workspace:*",
+        "@capstan/schema": "workspace:*",
+        "@capstan/venue-client": "workspace:*",
+        "ioredis": "5.11.1",
+      },
     },
     "packages/adapters/aster": {
       "name": "@capstan/adapter-aster",
@@ -139,6 +152,12 @@
     "packages/adapters/variational": {
       "name": "@capstan/adapter-variational",
       "version": "0.0.0",
+      "dependencies": {
+        "@capstan/core": "workspace:*",
+        "@capstan/schema": "workspace:*",
+        "@capstan/venue-client": "workspace:*",
+        "ioredis": "5.11.1",
+      },
     },
     "packages/catalog": {
       "name": "@capstan/catalog",
@@ -171,6 +190,26 @@
     "packages/eligibility": {
       "name": "@capstan/eligibility",
       "version": "0.0.0",
+    },
+    "packages/quote": {
+      "name": "@capstan/quote",
+      "version": "0.0.0",
+      "dependencies": {
+        "@capstan/adapter-hyperliquid": "workspace:*",
+        "@capstan/adapter-lighter": "workspace:*",
+        "@capstan/catalog": "workspace:*",
+        "@capstan/core": "workspace:*",
+        "@capstan/schema": "workspace:*",
+        "@capstan/signer-hl": "workspace:*",
+        "drizzle-orm": "0.45.4",
+        "viem": "2.57.14",
+      },
+      "devDependencies": {
+        "@capstan/adapter-arcus": "workspace:*",
+        "@capstan/adapter-aster": "workspace:*",
+        "@capstan/adapter-variational": "workspace:*",
+        "@capstan/venue-client": "workspace:*",
+      },
     },
     "packages/receipts": {
       "name": "@capstan/receipts",
@@ -297,6 +336,8 @@
     "@capstan/mcp": ["@capstan/mcp@workspace:apps/mcp"],
 
     "@capstan/ops-usage": ["@capstan/ops-usage@workspace:ops/usage"],
+
+    "@capstan/quote": ["@capstan/quote@workspace:packages/quote"],
 
     "@capstan/receipts": ["@capstan/receipts@workspace:packages/receipts"],
 

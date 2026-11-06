@@ -1,0 +1,88 @@
+{
+ "note": "Back-test of the EWMA funding forecast (half-life 8 h, 7-day lookback, 24-row warm-up) against naive carry (last rate held). MAE in bps per hour on settled rates. Observed data; it says nothing about future funding.",
+ "window": {
+  "from": "2026-10-07T03:00:00.000Z",
+  "to": "2026-11-06T03:00:00.000Z"
+ },
+ "fixtures": [
+  {
+   "name": "funding/arcus-btc",
+   "marketId": "arcus:-:BTC-USD",
+   "rows": 721
+  },
+  {
+   "name": "funding/aster-btcusdt",
+   "marketId": "aster:-:BTCUSDT",
+   "rows": 90
+  },
+  {
+   "name": "funding/hl-btc",
+   "marketId": "hyperliquid:-:BTC",
+   "rows": 720
+  },
+  {
+   "name": "funding/hl-eth",
+   "marketId": "hyperliquid:-:ETH",
+   "rows": 720
+  },
+  {
+   "name": "funding/hl-xyz-tsla",
+   "marketId": "hyperliquid:xyz:TSLA",
+   "rows": 720
+  },
+  {
+   "name": "funding/lighter-btc",
+   "marketId": "lighter-mainnet:-:BTC",
+   "rows": 719
+  },
+  {
+   "name": "funding/lighter-eth",
+   "marketId": "lighter-mainnet:-:ETH",
+   "rows": 719
+  }
+ ],
+ "results": [
+  {
+   "marketId": "arcus:-:BTC-USD",
+   "maeForecast": 0.036602,
+   "maeNaiveCarry": 0.024905,
+   "n": 697
+  },
+  {
+   "marketId": "aster:-:BTCUSDT",
+   "maeForecast": 0.018039,
+   "maeNaiveCarry": 0.018432,
+   "n": 66
+  },
+  {
+   "marketId": "hyperliquid:-:BTC",
+   "maeForecast": 0.023917,
+   "maeNaiveCarry": 0.014702,
+   "n": 696
+  },
+  {
+   "marketId": "hyperliquid:-:ETH",
+   "maeForecast": 0.047012,
+   "maeNaiveCarry": 0.029004,
+   "n": 696
+  },
+  {
+   "marketId": "hyperliquid:xyz:TSLA",
+   "maeForecast": 0.083666,
+   "maeNaiveCarry": 0.074372,
+   "n": 696
+  },
+  {
+   "marketId": "lighter-mainnet:-:BTC",
+   "maeForecast": 0.017339,
+   "maeNaiveCarry": 0.014806,
+   "n": 695
+  },
+  {
+   "marketId": "lighter-mainnet:-:ETH",
+   "maeForecast": 0.04151,
+   "maeNaiveCarry": 0.028619,
+   "n": 695
+  }
+ ]
+}

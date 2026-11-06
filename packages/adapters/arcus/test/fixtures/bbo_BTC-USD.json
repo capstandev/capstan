@@ -1,0 +1,25 @@
+{
+ "name": "arcus/bbo_BTC-USD",
+ "capturedAt": "2026-11-06T01:37:29.932Z",
+ "source": "live",
+ "venue": "arcus",
+ "request": {
+  "method": "GET",
+  "url": "https://api.arcus.xyz/v1/bbo/BTC-USD",
+  "body": null
+ },
+ "status": 200,
+ "response": {
+  "bestBid": {
+   "price": "76067.1",
+   "size": "2.96901412"
+  },
+  "bestAsk": {
+   "price": "76069.6",
+   "size": "0.65729279"
+  },
+  "lastSequenceId": 647953848,
+  "globalSequenceId": 9026393585,
+  "timestamp": 1793929049636463
+ }
+}

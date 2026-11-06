@@ -1,3 +1,5 @@
-// @capstan/adapter-variational: Variational read-only adapter.
-// Scaffold only. The real code lands in its own milestone (see the build order in the backend spec).
+// @capstan/adapter-variational: Variational read-only adapter (data only, never executes).
 export const PACKAGE_NAME = "@capstan/adapter-variational" as const;
+export * from "./readonly";
+export * from "./normalize";
+export * from "./adapter";

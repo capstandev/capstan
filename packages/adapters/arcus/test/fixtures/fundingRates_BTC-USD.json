@@ -1,0 +1,311 @@
+{
+ "name": "arcus/fundingRates_BTC-USD",
+ "capturedAt": "2026-11-06T01:37:29.752Z",
+ "source": "live",
+ "venue": "arcus",
+ "request": {
+  "method": "GET",
+  "url": "https://api.arcus.xyz/v1/fundingRates?market=BTC-USD",
+  "body": null
+ },
+ "status": 200,
+ "response": {
+  "fundingRates": [
+   {
+    "marketId": 1,
+    "marketDisplayName": "BTC-USD",
+    "fundingRate": "0.0000125",
+    "time": 1793926800000000
+   },
+   {
+    "marketId": 1,
+    "marketDisplayName": "BTC-USD",
+    "fundingRate": "0.0000125",
+    "time": 1793923200000000
+   },
+   {
+    "marketId": 1,
+    "marketDisplayName": "BTC-USD",
+    "fundingRate": "0.0000125",
+    "time": 1793919600000000
+   },
+   {
+    "marketId": 1,
+    "marketDisplayName": "BTC-USD",
+    "fundingRate": "0.000035059620353181",
+    "time": 1793916000000000
+   },
+   {
+    "marketId": 1,
+    "marketDisplayName": "BTC-USD",
+    "fundingRate": "0.000033910800342961",
+    "time": 1793912400000000
+   },
+   {
+    "marketId": 1,
+    "marketDisplayName": "BTC-USD",
+    "fundingRate": "0.0000125",
+    "time": 1793908800000000
+   },
+   {
+    "marketId": 1,
+    "marketDisplayName": "BTC-USD",
+    "fundingRate": "0.000040365030148886",
+    "time": 1793905200000000
+   },
+   {
+    "marketId": 1,
+    "marketDisplayName": "BTC-USD",
+    "fundingRate": "0.000017623249676486",
+    "time": 1793901600000000
+   },
+   {
+    "marketId": 1,
+    "marketDisplayName": "BTC-USD",
+    "fundingRate": "0.0000125",
+    "time": 1793898000000000
+   },
+   {
+    "marketId": 1,
+    "marketDisplayName": "BTC-USD",
+    "fundingRate": "0.0000125",
+    "time": 1793894400000000
+   },
+   {
+    "marketId": 1,
+    "marketDisplayName": "BTC-USD",
+    "fundingRate": "0.0000125",
+    "time": 1793890800000000
+   },
+   {
+    "marketId": 1,
+    "marketDisplayName": "BTC-USD",
+    "fundingRate": "0.0000125",
+    "time": 1793887200000000
+   },
+   {
+    "marketId": 1,
+    "marketDisplayName": "BTC-USD",
+    "fundingRate": "0.0000125",
+    "time": 1793883600000000
+   },
+   {
+    "marketId": 1,
+    "marketDisplayName": "BTC-USD",
+    "fundingRate": "0.0000125",
+    "time": 1793880000000000
+   },
+   {
+    "marketId": 1,
+    "marketDisplayName": "BTC-USD",
+    "fundingRate": "0.0000125",
+    "time": 1793876400000000
+   },
+   {
+    "marketId": 1,
+    "marketDisplayName": "BTC-USD",
+    "fundingRate": "0.0000125",
+    "time": 1793872800000000
+   },
+   {
+    "marketId": 1,
+    "marketDisplayName": "BTC-USD",
+    "fundingRate": "0.0000125",
+    "time": 1793869200000000
+   },
+   {
+    "marketId": 1,
+    "marketDisplayName": "BTC-USD",
+    "fundingRate": "0.000008607105822811",
+    "time": 1793865600000000
+   },
+   {
+    "marketId": 1,
+    "marketDisplayName": "BTC-USD",
+    "fundingRate": "0.0000125",
+    "time": 1793862000000000
+   },
+   {
+    "marketId": 1,
+    "marketDisplayName": "BTC-USD",
+    "fundingRate": "0.0000125",
+    "time": 1793858400000000
+   },
+   {
+    "marketId": 1,
+    "marketDisplayName": "BTC-USD",
+    "fundingRate": "0.0000125",
+    "time": 1793854800000000
+   },
+   {
+    "marketId": 1,
+    "marketDisplayName": "BTC-USD",
+    "fundingRate": "0.0000125",
+    "time": 1793851200000000
+   },
+   {
+    "marketId": 1,
+    "marketDisplayName": "BTC-USD",
+    "fundingRate": "0.000007516416523814",
+    "time": 1793847600000000
+   },
+   {
+    "marketId": 1,
+    "marketDisplayName": "BTC-USD",
+    "fundingRate": "0.000004711023437948",
+    "time": 1793844000000000
+   },
+   {
+    "marketId": 1,
+    "marketDisplayName": "BTC-USD",
+    "fundingRate": "-0.000001570187891302",
+    "time": 1793840400000000
+   },
+   {
+    "marketId": 1,
+    "marketDisplayName": "BTC-USD",
+    "fundingRate": "0.00001060280519425",
+    "time": 1793836800000000
+   },
+   {
+    "marketId": 1,
+    "marketDisplayName": "BTC-USD",
+    "fundingRate": "-0.000003872846889038",
+    "time": 1793833200000000
+   },
+   {
+    "marketId": 1,
+    "marketDisplayName": "BTC-USD",
+    "fundingRate": "0.000008306515156453",
+    "time": 1793829600000000
+   },
+   {
+    "marketId": 1,
+    "marketDisplayName": "BTC-USD",
+    "fundingRate": "0.000000448640365465",
+    "time": 1793826000000000
+   },
+   {
+    "marketId": 1,
+    "marketDisplayName": "BTC-USD",
+    "fundingRate": "0.000002173370774873",
+    "time": 1793822400000000
+   },
+   {
+    "marketId": 1,
+    "marketDisplayName": "BTC-USD",
+    "fundingRate": "0.0000125",
+    "time": 1793818800000000
+   },
+   {
+    "marketId": 1,
+    "marketDisplayName": "BTC-USD",
+    "fundingRate": "0.000005216625658173",
+    "time": 1793815200000000
+   },
+   {
+    "marketId": 1,
+    "marketDisplayName": "BTC-USD",
+    "fundingRate": "-0.000006535725040119",
+    "time": 1793811600000000
+   },
+   {
+    "marketId": 1,
+    "marketDisplayName": "BTC-USD",
+    "fundingRate": "0.0000125",
+    "time": 1793808000000000
+   },
+   {
+    "marketId": 1,
+    "marketDisplayName": "BTC-USD",
+    "fundingRate": "0.0000125",
+    "time": 1793804400000000
+   },
+   {
+    "marketId": 1,
+    "marketDisplayName": "BTC-USD",
+    "fundingRate": "0.0000125",
+    "time": 1793800800000000
+   },
+   {
+    "marketId": 1,
+    "marketDisplayName": "BTC-USD",
+    "fundingRate": "0.0000125",
+    "time": 1793797200000000
+   },
+   {
+    "marketId": 1,
+    "marketDisplayName": "BTC-USD",
+    "fundingRate": "0.0000125",
+    "time": 1793793600000000
+   },
+   {
+    "marketId": 1,
+    "marketDisplayName": "BTC-USD",
+    "fundingRate": "0.0000125",
+    "time": 1793790000000000
+   },
+   {
+    "marketId": 1,
+    "marketDisplayName": "BTC-USD",
+    "fundingRate": "0.0000125",
+    "time": 1793786400000000
+   },
+   {
+    "marketId": 1,
+    "marketDisplayName": "BTC-USD",
+    "fundingRate": "0.0000125",
+    "time": 1793782800000000
+   },
+   {
+    "marketId": 1,
+    "marketDisplayName": "BTC-USD",
+    "fundingRate": "0.0000125",
+    "time": 1793779200000000
+   },
+   {
+    "marketId": 1,
+    "marketDisplayName": "BTC-USD",
+    "fundingRate": "0.0000125",
+    "time": 1793775600000000
+   },
+   {
+    "marketId": 1,
+    "marketDisplayName": "BTC-USD",
+    "fundingRate": "0.0000125",
+    "time": 1793772000000000
+   },
+   {
+    "marketId": 1,
+    "marketDisplayName": "BTC-USD",
+    "fundingRate": "0.0000125",
+    "time": 1793768400000000
+   },
+   {
+    "marketId": 1,
+    "marketDisplayName": "BTC-USD",
+    "fundingRate": "0.0000125",
+    "time": 1793764800000000
+   },
+   {
+    "marketId": 1,
+    "marketDisplayName": "BTC-USD",
+    "fundingRate": "0.0000125",
+    "time": 1793761200000000
+   },
+   {
+    "marketId": 1,
+    "marketDisplayName": "BTC-USD",
+    "fundingRate": "0.0000125",
+    "time": 1793757600000000
+   }
+  ],
+  "total": 1000
+ },
+ "trimmed": {
+  "path": "fundingRates",
+  "kept": 48,
+  "total": 1000,
+  "rule": "first 48"
+ }
+}
