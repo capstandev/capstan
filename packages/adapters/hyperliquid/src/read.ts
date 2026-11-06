@@ -2,9 +2,9 @@
 // through the governed VenueHttp with its info weight. Queries always use the MASTER address: the venue answers an
 // agent address with an empty account, so an agent address is refused before any call.
 import type { MarketDataCache } from "@capstan/core";
-import { CapstanError, type FundingSnapshot, type Hex, type MarketEvent, type Order, type OrderBook, type Unsubscribe, type VenueIdentity } from "@capstan/schema";
+import { CapstanError, type FundingSnapshot, type Market, type Hex, type MarketEvent, type Order, type OrderBook, type Unsubscribe, type VenueIdentity } from "@capstan/schema";
 import { hlInfoWeight, venueWs, VenueHttpError, type VenueHttp, type VenueKey, type VenueWs } from "@capstan/venue-client";
-import { collateralFor, parseMarketId, parsePerpDexs, type HlAssetCtx, type HlDex, type HlMeta, type HlMetaAndAssetCtxs, type HlPerpDexRaw } from "./meta";
+import { collateralFor, HIP3_WIRING, parseMarketId, parsePerpDexs, type HlAssetCtx, type HlDex, type HlMeta, type HlMetaAndAssetCtxs, type HlPerpDexRaw } from "./meta";
 import {
   HL_CORE_FUNDING_CAP_PER_HOUR,
   nextHourIso,
@@ -20,6 +20,7 @@ import {
   type HlL2Book,
   type HlMarket,
   type HlOpenOrder,
+  fromCatalogMarket,
 } from "./normalize";
 
 export interface HlConfig {
@@ -90,8 +91,10 @@ export interface HlReader {
   /** Raw clearinghouseState for one dex (null = core) of the master address. */
   dexAccount(owner: Hex, dex: string | null): Promise<HlDexAccount>;
   userFees(user: Hex): Promise<HlUserFees>;
-  /** Dexes queried for account reads: core plus every dex with at least one listed market. */
+  /** Dexes queried for account reads: core plus every dex with at least one listed market, plus gone dexes. */
   accountDexes(): Promise<(string | null)[]>;
+  /** HIP-3 dexes that left perpDexs while their markets were known (todo 08 R12). */
+  goneDexes(): Promise<HlGoneDex[]>;
 }
 
 export interface HlUserFees {
@@ -109,6 +112,56 @@ export interface HlReaderOptions {
   ws?: VenueWs;
   /** Meta (precision) refresh period; the spec says 10 minutes. */
   metaTtlMs?: number;
+  /**
+   * Dexes the catalog knows with their last-seen markets (todo 08 R12). A dex in this list that is missing from
+   * perpDexs is treated as gone: its markets stay readable as reduce_only so positions there can still be closed.
+   */
+  lastKnownDexes?: () => Promise<LastKnownDex[]>;
+  /**
+   * HIP-3 dexes whose asset contexts and OI caps the market list reads (core always). Default: the wired dexes
+   * (xyz, io, para). Every other dex is listed from allPerpMetas only: never executable (todo 08 R3), so no cap.
+   */
+  detailDexes?: readonly string[];
+  /** Per-dex reads in flight at once when the market list falls back to one read per dex. Default 4. */
+  catalogConcurrency?: number;
+}
+
+/** Map with at most `limit` calls in flight; results keep the input order. */
+export async function mapLimit<T, R>(items: readonly T[], limit: number, fn: (x: T, i: number) => Promise<R>): Promise<R[]> {
+  const out = new Array<R>(items.length);
+  let next = 0;
+  const worker = async () => {
+    while (next < items.length) {
+      const i = next++;
+      out[i] = await fn(items[i]!, i);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.max(1, Math.min(limit, items.length)) }, worker));
+  return out;
+}
+
+/** allPerpMetas entry i belongs to perpDexs entry i only when every coin carries that dex's prefix. */
+function metaMatches(meta: HlMeta | undefined, dex: HlDex): meta is HlMeta {
+  if (!meta || !Array.isArray(meta.universe)) return false;
+  return meta.universe.every((u) => (dex.name === null ? !u.name.includes(":") : u.name.startsWith(`${dex.name}:`)));
+}
+
+/** A dex and its markets as the catalog last saw them (markets rows plus the dexes row index). */
+export interface LastKnownDex {
+  dex: string;
+  dexIndex: number;
+  markets: Market[];
+}
+
+/** A HIP-3 dex gone from perpDexs, kept with its last-known instruments (all reduce_only, delisted stay delisted). */
+export interface HlGoneDex {
+  dex: HlDex;
+  markets: HlMarket[];
+}
+
+/** Last-known market -> reduce-only instrument. Delisted markets stay delisted. */
+function asReduceOnly(m: HlMarket): HlMarket {
+  return m.status === "delisted" ? m : { ...m, status: "reduce_only", executable: false };
 }
 
 export const META_TTL_MS = 10 * 60 * 1000;
@@ -146,7 +199,7 @@ export function createHlReader(cfg: HlConfig, http: VenueHttp, cache: MarketData
   const metaTtl = opts.metaTtlMs ?? META_TTL_MS;
   const knownAgents = new Set<string>();
   let ws = opts.ws ?? null;
-  type MetaState = { at: number; dexes: HlDex[]; markets: Map<string, HlMarket> };
+  type MetaState = { at: number; dexes: HlDex[]; markets: Map<string, HlMarket>; gone: Map<string, HlGoneDex> };
   let state: MetaState | null = null;
   let loading: Promise<MetaState> | null = null;
 
@@ -192,21 +245,85 @@ export function createHlReader(cfg: HlConfig, http: VenueHttp, cache: MarketData
     return { totalOiCap: String(r.totalOiCap), coinToOiCap };
   }
 
+  /** Every dex's universe in one call (one entry per perpDexs entry, same order); null when the venue has no such type. */
+  async function allPerpMetas(): Promise<HlMeta[] | null> {
+    try {
+      const r = await info<unknown>({ type: "allPerpMetas" });
+      return Array.isArray(r) ? (r as HlMeta[]) : null;
+    } catch (e) {
+      if (e instanceof HlUnknownInfoType) return null;
+      throw e;
+    }
+  }
+
   async function listMarkets(): Promise<HlMarket[]> {
     const t = new Date(now());
-    const dexes = await perpDexs();
-    const out: HlMarket[] = [];
-    for (const dex of dexes) {
-      const [meta, ctxs] = await metaAndAssetCtxs(dex.name);
+    const detail = new Set<string>(opts.detailDexes ?? HIP3_WIRING);
+    // perpDexs and every universe in two calls; contexts and caps only where they matter, bounded-parallel
+    const [dexes, all] = await Promise.all([perpDexs(), allPerpMetas()]);
+    const perDex = await mapLimit(dexes, opts.catalogConcurrency ?? 4, async (dex) => {
+      const isDetail = dex.name === null || detail.has(dex.name);
+      const batched = all?.[dex.index];
+      let meta: HlMeta;
+      let ctxs: (HlAssetCtx | null)[] = [];
+      try {
+        if (isDetail || !metaMatches(batched, dex)) [meta, ctxs] = await metaAndAssetCtxs(dex.name);
+        else meta = batched;
+      } catch (e) {
+        throw new CapstanError("VENUE_ERROR", `hyperliquid: metaAndAssetCtxs for dex ${dex.name ?? "core"} failed: ${(e as Error).message}`);
+      }
       const live = meta.universe.some((u) => !u.isDelisted);
-      const limits = dex.name !== null && live ? await perpDexLimits(dex.name) : null;
-      meta.universe.forEach((entry, i) => {
-        out.push(toMarket({ entry, indexInMeta: i, dex, collateralToken: meta.collateralToken, ctx: ctxs[i] ?? null, oiCapUsd: limits?.coinToOiCap[entry.name] ?? null, now: t }));
-      });
-    }
-    state = { at: now(), dexes, markets: new Map(out.map((m) => [m.id, m])) };
+      let limits: { coinToOiCap: Record<string, string> } | null = null;
+      if (dex.name !== null && isDetail && live) {
+        try {
+          limits = await perpDexLimits(dex.name);
+        } catch (e) {
+          throw new CapstanError("VENUE_ERROR", `hyperliquid: perpDexLimits for dex ${dex.name} failed: ${(e as Error).message}`);
+        }
+      }
+      return meta.universe.map((entry, i) => toMarket({ entry, indexInMeta: i, dex, collateralToken: meta.collateralToken, ctx: ctxs[i] ?? null, oiCapUsd: limits?.coinToOiCap[entry.name] ?? null, now: t }));
+    });
+    const out: HlMarket[] = perDex.flat();
+    state = { at: now(), dexes, markets: new Map(out.map((m) => [m.id, m])), gone: await goneAfter(state, dexes) };
     await cache.putMeta("hyperliquid", { at: state.at, dexes: dexes.map((d) => ({ index: d.index, name: d.name })), markets: out.length });
     return out;
+  }
+
+  /**
+   * Dexes missing from this perpDexs answer whose markets were known: from the previous state, earlier gone dexes and
+   * the catalog's last-known list. A dex that comes back leaves the gone list.
+   */
+  async function goneAfter(prev: MetaState | null, dexes: HlDex[]): Promise<Map<string, HlGoneDex>> {
+    const listed = new Set(dexes.map((d) => d.name).filter((n): n is string => n !== null));
+    const gone = new Map<string, HlGoneDex>();
+    for (const [name, g] of prev?.gone ?? []) if (!listed.has(name)) gone.set(name, g);
+    if (prev) {
+      for (const d of prev.dexes) {
+        if (d.name === null || listed.has(d.name) || gone.has(d.name)) continue;
+        const ms = [...prev.markets.values()].filter((m) => m.dex === d.name).map(asReduceOnly);
+        if (ms.length) gone.set(d.name, { dex: d, markets: ms });
+      }
+    }
+    if (opts.lastKnownDexes) {
+      for (const k of await opts.lastKnownDexes()) {
+        if (listed.has(k.dex) || gone.has(k.dex)) continue;
+        const dex: HlDex = { index: k.dexIndex, name: k.dex, fullName: k.dex, deployer: null, oracleUpdater: null, fundingClamp: {}, fundingMultiplier: {}, streamingOiCap: {} };
+        const ms = k.markets.filter((m) => m.dex === k.dex).flatMap((m) => {
+          const h = fromCatalogMarket(m, k.dexIndex);
+          return h ? [asReduceOnly(h)] : [];
+        });
+        if (ms.length) gone.set(k.dex, { dex, markets: ms });
+      }
+    }
+    return gone;
+  }
+
+  function goneMarket(s: MetaState, id: string): HlMarket | undefined {
+    for (const g of s.gone.values()) {
+      const m = g.markets.find((x) => x.id === id);
+      if (m) return m;
+    }
+    return undefined;
   }
 
   async function ensureState(): Promise<MetaState> {
@@ -224,7 +341,7 @@ export function createHlReader(cfg: HlConfig, http: VenueHttp, cache: MarketData
 
   async function instrument(id: string): Promise<HlMarket> {
     const s = await ensureState();
-    const m = s.markets.get(id);
+    const m = s.markets.get(id) ?? goneMarket(s, id);
     if (!m) throw new CapstanError("NOT_FOUND", `hyperliquid: unknown market ${id}`);
     return m;
   }
@@ -282,14 +399,19 @@ export function createHlReader(cfg: HlConfig, http: VenueHttp, cache: MarketData
     const s = await ensureState();
     const withMarkets = new Set<string>();
     for (const m of s.markets.values()) if (m.dex !== null && m.status !== "delisted") withMarkets.add(m.dex);
-    return [null, ...s.dexes.filter((d) => d.name !== null && withMarkets.has(d.name)).map((d) => d.name)];
+    const gone = [...s.gone.values()].filter((g) => g.markets.some((m) => m.status !== "delisted")).map((g) => g.dex.name);
+    return [null, ...s.dexes.filter((d) => d.name !== null && withMarkets.has(d.name)).map((d) => d.name), ...gone];
+  }
+
+  async function goneDexes(): Promise<HlGoneDex[]> {
+    return [...(await ensureState()).gone.values()];
   }
 
   async function dexAccount(owner: Hex, dex: string | null): Promise<HlDexAccount> {
     const o = await assertMaster(owner);
     const s = await ensureState();
     const raw = await info<HlClearinghouseState>(dex === null ? { type: "clearinghouseState", user: o } : { type: "clearinghouseState", user: o, dex });
-    const sample = [...s.markets.values()].find((m) => m.dex === dex);
+    const sample = [...s.markets.values()].find((m) => m.dex === dex) ?? (dex !== null ? s.gone.get(dex)?.markets[0] : undefined);
     const coll = sample?.collateralAsset ?? collateralFor(0).asset;
     return toDexAccount(dex, coll, raw);
   }
@@ -299,14 +421,38 @@ export function createHlReader(cfg: HlConfig, http: VenueHttp, cache: MarketData
     const o = await assertMaster(id.owner);
     if (id.agentAddress && id.agentAddress.toLowerCase() === o) throw new CapstanError("INVALID_INPUT", "hyperliquid: owner equals the agent address");
     const perDex: HlDexAccount[] = [];
-    for (const dex of await accountDexes()) perDex.push(await dexAccount(o, dex));
-    return toAccountSnapshot({ ...id, owner: o }, perDex, new Date(now()).toISOString());
+    const s = await ensureState();
+    const unreadable: { dex: string; error: string }[] = [];
+    for (const dex of await accountDexes()) {
+      if (dex !== null && s.gone.has(dex)) {
+        // a gone dex may no longer answer: say so instead of dropping its positions silently
+        try {
+          perDex.push(await dexAccount(o, dex));
+        } catch (e) {
+          unreadable.push({ dex, error: (e as Error).message });
+        }
+        continue;
+      }
+      perDex.push(await dexAccount(o, dex));
+    }
+    const snap = toAccountSnapshot({ ...id, owner: o }, perDex, new Date(now()).toISOString());
+    return unreadable.length ? { ...snap, unreadableDexes: unreadable } : snap;
   }
 
   async function getOpenOrders(id: VenueIdentity): Promise<Order[]> {
     const o = await assertMaster(id.owner);
     const out: Order[] = [];
+    const s = await ensureState();
     for (const dex of await accountDexes()) {
+      if (dex !== null && s.gone.has(dex)) {
+        try {
+          const rows = await info<HlOpenOrder[]>({ type: "frontendOpenOrders", user: o, dex });
+          for (const r of rows ?? []) out.push(toOrder(dex, r));
+        } catch {
+          /* a gone dex that no longer answers has no orders we can cancel; close-all reports the dex */
+        }
+        continue;
+      }
       const rows = await info<HlOpenOrder[]>(dex === null ? { type: "frontendOpenOrders", user: o } : { type: "frontendOpenOrders", user: o, dex });
       for (const r of rows ?? []) out.push(toOrder(dex, r));
     }
@@ -403,6 +549,7 @@ export function createHlReader(cfg: HlConfig, http: VenueHttp, cache: MarketData
     dexAccount,
     userFees,
     accountDexes,
+    goneDexes,
   };
 }
 

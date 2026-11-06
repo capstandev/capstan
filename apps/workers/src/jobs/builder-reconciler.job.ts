@@ -5,7 +5,7 @@
 import { createHlRuntime } from "@capstan/adapter-hyperliquid";
 import { asterConfig, asterHttp, egressLabel } from "@capstan/adapter-aster";
 import type { JobDef, JobDeps } from "@capstan/core";
-import type { Hex } from "@capstan/schema";
+import { venueNetwork, type Hex } from "@capstan/schema";
 import { AsterNonce, type DigestSigner } from "@capstan/signer-aster";
 import { createGovernor, createMemoryGovernor } from "@capstan/venue-client";
 import { homedir } from "node:os";
@@ -90,7 +90,7 @@ export async function runReconciler(deps: JobDeps, env: Record<string, string | 
     try {
       let reports = o.asterReports;
       if (!reports) {
-        const network = env.CAPSTAN_ASTER_NETWORK === "Testnet" ? "Testnet" : "Mainnet";
+        const network = venueNetwork("aster", env) === "testnet" ? "Testnet" : "Mainnet";
         const gov = deps.redis ? createGovernor(deps.redis, egressLabel(env)) : createMemoryGovernor(egressLabel(env));
         const nonce = new AsterNonce();
         reports = signedAsterBuilderReports({ http: asterHttp(asterConfig(network), gov, { priority: "free" }), network, builder: env.ASTER_BUILDER_ADDRESS as Hex, agent: env.ASTER_BUILDER_AGENT_ADDRESS as Hex, sign: castDigestSigner(env), nonce: () => nonce.next(BigInt(Date.now()) * 1000n) });

@@ -16,6 +16,40 @@ export interface VenueWsOptions {
   backoffBaseMs?: number; // default 500
   backoffMaxMs?: number; // default 30 000
   onError?: (e: unknown) => void;
+  /**
+   * User-Agent sent on the upgrade. Some venue CDNs refuse an upgrade without one (Lighter RH testnet answers 403),
+   * and the runtime sends none by default. Default "capstan-ws".
+   */
+  userAgent?: string;
+}
+
+/** A WebSocket failure with the runtime's real text (an ErrorEvent prints as "[object ErrorEvent]"). */
+export class VenueWsError extends Error {
+  readonly venue: string;
+  readonly url: string;
+  /** HTTP status of a refused upgrade ("Expected 101 status code: 400"), when the runtime reports one. */
+  readonly httpStatus: number | null;
+  constructor(venue: string, url: string, message: string) {
+    super(`${venue} ws ${url}: ${message}`);
+    this.name = "VenueWsError";
+    this.venue = venue;
+    this.url = url;
+    const m = /status code:?\s*(\d{3})/i.exec(message);
+    this.httpStatus = m ? Number(m[1]) : null;
+  }
+}
+
+/** The text of any error a socket hands us: ErrorEvent.message, its .error, an Error, or the value itself. */
+export function wsErrorText(e: unknown): string {
+  if (e instanceof Error) return e.message;
+  if (e && typeof e === "object") {
+    const x = e as { message?: unknown; error?: unknown; type?: unknown; code?: unknown; reason?: unknown };
+    if (typeof x.message === "string" && x.message) return x.message;
+    if (x.error instanceof Error && x.error.message) return x.error.message;
+    if (typeof x.reason === "string" && x.reason) return `${x.code ?? ""} ${x.reason}`.trim();
+    if (typeof x.type === "string") return `${x.type} event with no message`;
+  }
+  return String(e);
 }
 
 export interface VenueWs {
@@ -81,7 +115,8 @@ export function venueWs(venue: VenueKey, url: string, opts: VenueWsOptions): Ven
     openHistory.push(at);
     if (openHistory.length > 1000) openHistory.shift();
     opened++;
-    const ws = new WebSocket(url);
+    // Bun's WebSocket takes headers as a second argument; the DOM type does not know it
+    const ws = new WebSocket(url, { headers: { "User-Agent": opts.userAgent ?? "capstan-ws" } } as unknown as string[]);
     c.ws = ws;
     ws.onopen = () => {
       c.open = true;
@@ -106,7 +141,7 @@ export function venueWs(venue: VenueKey, url: string, opts: VenueWsOptions): Ven
         }
       }
     };
-    ws.onerror = (e) => opts.onError?.(e);
+    ws.onerror = (e) => opts.onError?.(new VenueWsError(venue, url, wsErrorText(e)));
     ws.onclose = () => {
       c.open = false;
       if (c.ping) clearInterval(c.ping);

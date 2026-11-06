@@ -150,7 +150,9 @@ export function createLighterIngest(
   cfg: Readonly<LighterConfig>,
   opts: { ws?: VenueWs; maxBooks?: number; now?: () => number; depth?: number; onError?: (e: unknown) => void } = {},
 ): LighterIngest {
-  const ws = opts.ws ?? venueWs(cfg.governorKey, cfg.ws, lighterWsOptions(opts.onError));
+  // Market data only, so always the read-only stream: the full stream refuses a restricted jurisdiction at the upgrade
+  // (HTTP 400, code 20558) and the ingest would never receive a message (venue-lighter.md, restricted regions).
+  const ws = opts.ws ?? venueWs(cfg.governorKey, cfg.readonlyWs, lighterWsOptions(opts.onError));
   const now = opts.now ?? (() => Date.now());
   const maxBooks = Math.min(opts.maxBooks ?? LIGHTER_WS_DEFAULT_MAX_BOOKS, LIGHTER_WS_MAX_SUBS - 1);
   const depth = opts.depth ?? BOOK_DEPTH;

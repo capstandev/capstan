@@ -3,7 +3,7 @@
 // 10) is fetched at most once per minute and is never trusted for longer than one hour, because the venue changes
 // intervals per market without notice (PTBUSDT moved 1 h -> 4 h).
 import type { MarketDataCache } from "@capstan/core";
-import { CapstanError, type FundingSnapshot, type Market, type MarketEvent, type OrderBook, type Unsubscribe } from "@capstan/schema";
+import { CapstanError, venueNetwork, type FundingSnapshot, type Market, type MarketEvent, type OrderBook, type Unsubscribe } from "@capstan/schema";
 import { asterWeight, createGovernor, createMemoryGovernor, isUnknownOutcome, venueHttp, venueWs, type Governor, type VenueHttp, type VenueHttpOptions, type VenueWs } from "@capstan/venue-client";
 import type { Redis } from "ioredis";
 import { asterConfig, assertV3Path, validateAsterConfig, type AsterConfig, type AsterNetwork } from "./config";
@@ -216,7 +216,7 @@ export function egressLabel(env: Record<string, string | undefined> = process.en
 /** Reader wired from the environment: Redis governor when a client is given, else an in-process one. */
 export function defaultAsterReader(opts: { redis?: Redis | null; cache?: MarketDataCache | null; network?: AsterNetwork; env?: Record<string, string | undefined> } = {}): AsterReader {
   const env = opts.env ?? process.env;
-  const network: AsterNetwork = opts.network ?? (env.CAPSTAN_ASTER_NETWORK === "Testnet" ? "Testnet" : "Mainnet");
+  const network: AsterNetwork = opts.network ?? (venueNetwork("aster", env) === "testnet" ? "Testnet" : "Mainnet");
   const cfg = asterConfig(network);
   const egress = egressLabel(env);
   const gov = opts.redis ? createGovernor(opts.redis, egress) : createMemoryGovernor(egress);

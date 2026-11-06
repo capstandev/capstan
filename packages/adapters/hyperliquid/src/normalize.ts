@@ -101,6 +101,26 @@ export function toMarket(i: ToMarketInput): HlMarket {
   } as HlMarket;
 }
 
+/**
+ * A catalog markets row (todo 03) back to an instrument, for a dex that left perpDexs. Size decimals come from the
+ * stored lot size and the asset id from the stored dex index and raw universe index; a row without a raw index is
+ * skipped (the asset id would be a guess).
+ */
+export function fromCatalogMarket(m: Market, dexIndex: number): HlMarket | null {
+  if (m.venue !== "hyperliquid" || m.dex === null || typeof m.venueIndex !== "number" || m.venueIndex < 0) return null;
+  const lot = m.lotSize.includes(".") ? m.lotSize.replace(/0+$/, "").replace(/\.$/, "") : m.lotSize;
+  if (!/^(1|0\.0*1)$/.test(lot)) return null;
+  const szDecimals = decimals(lot);
+  return {
+    ...m,
+    szDecimals,
+    pxDecimalsMax: pxDecimalsMax(szDecimals),
+    assetId: 100_000 + dexIndex * 10_000 + m.venueIndex,
+    dexIndex,
+    onlyIsolated: m.marginModes.length === 1 && m.marginModes[0] === "isolated",
+  };
+}
+
 /** HL publishes funding per hour; interval 3600 s; annualised = perHour x 8760 (display only, observed). */
 export function normalizeFunding(ratePerHour: string): Pick<FundingSnapshot, "ratePerInterval" | "intervalS" | "ratePerHour" | "rateAnnualised"> {
   if (!/^-?\d+(\.\d+)?$/.test(ratePerHour)) throw new Error(`hyperliquid: funding rate is not a decimal: ${ratePerHour}`);
@@ -205,6 +225,8 @@ export function toDexAccount(dex: string | null, collateralAsset: string, s: HlC
  */
 export interface HlAccountSnapshot extends AccountSnapshot {
   perDex: HlDexAccount[];
+  /** Gone dexes (left perpDexs) whose account could not be read; their positions are unknown, never assumed empty. */
+  unreadableDexes?: { dex: string; error: string }[];
 }
 
 export function toAccountSnapshot(identity: VenueIdentity, perDex: HlDexAccount[], nowIso: string): HlAccountSnapshot {

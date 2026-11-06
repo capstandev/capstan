@@ -4,7 +4,7 @@
 // 12 ingests per owner per minute.
 import { ingestSignedRead, redisAccountStore, memoryAccountStore, defaultAsterReader, asterHttp, asterConfig, egressLabel, type AccountSnapshotStore, type DelegationLookup, type IngestBody, type IngestDeps } from "@capstan/adapter-aster";
 import { createDb, createRedis, type RouteSpec } from "@capstan/core";
-import { CapstanError, errorBody, type Hex } from "@capstan/schema";
+import { CapstanError, errorBody, venueNetwork, type Hex } from "@capstan/schema";
 import { createGovernor, createMemoryGovernor } from "@capstan/venue-client";
 import type { Context } from "hono";
 
@@ -101,7 +101,7 @@ let resolved: Promise<RiskIngestDeps> | null = null;
 /** Wiring from the environment (api role): Redis store and limiter, delegations from Postgres, the venue client. */
 async function envDeps(): Promise<RiskIngestDeps> {
   const env = process.env;
-  const network = env.CAPSTAN_ASTER_NETWORK === "Testnet" ? "Testnet" : "Mainnet";
+  const network = venueNetwork("aster", env) === "testnet" ? "Testnet" : "Mainnet";
   const cfg = asterConfig(network);
   const redis = env.REDIS_URL ? createRedis(env.REDIS_URL) : null;
   const store: AccountSnapshotStore = redis ? redisAccountStore(redis) : memoryAccountStore();

@@ -2,12 +2,13 @@
 // client on this host's egress, the shared Redis market-data cache, the eligibility declaration step (todo 23), the
 // policy step (todo 22), onboarding bundles from onboarding_sessions and catalog executability (todo 03).
 // Route files take their adapters from here (getAdapters, killAdapters). Tests inject their own maps instead.
-import { createAdapter as createHlAdapter, createHip3Gate, createHip3Hook, createHlReader, HL_MAINNET, HL_TESTNET } from "@capstan/adapter-hyperliquid";
-import { createAdapter as createLighterAdapter } from "@capstan/adapter-lighter";
+import { createAdapter as createHlAdapter, createHip3Gate, createHip3Hook, createHlReader, HL_MAINNET, HL_TESTNET, type LastKnownDex } from "@capstan/adapter-hyperliquid";
+import { rowToMarket } from "@capstan/catalog";
+import { createAdapter as createLighterAdapter, lighterConfigsFor } from "@capstan/adapter-lighter";
 import { createMarketDataCache, createRedis, schema, type Db, type MarketDataCache, type Redis } from "@capstan/core";
 import { declarationStep } from "@capstan/eligibility";
 import { policyTypedData, type KillAdapter } from "@capstan/policy";
-import type { AgentPolicy, BuildContext, Hex, OnboardingBundle, OnboardingStep, UnsignedVenuePayload, VenueAdapter, VenueId, VenueIdentity } from "@capstan/schema";
+import { venueNetwork, type AgentPolicy, type BuildContext, type Hex, type OnboardingBundle, type OnboardingStep, type UnsignedVenuePayload, type VenueAdapter, type VenueId, type VenueIdentity } from "@capstan/schema";
 import { createGovernor, venueHttp, type Governor } from "@capstan/venue-client";
 import { and, eq, inArray, sql } from "drizzle-orm";
 
@@ -43,8 +44,17 @@ export function dbBundles(db: Db) {
 
 export const policyStepOf = (policy: unknown): OnboardingStep | null => (policy ? { kind: "agent_policy", signer: "main_wallet", typedData: policyTypedData(policy as AgentPolicy) } : null);
 
+/** Gone HIP-3 dexes from the catalog (dexes.status 'gone') with their stored markets rows. */
+export async function lastKnownHlDexes(db: Db): Promise<LastKnownDex[]> {
+  const gone = await db.select().from(schema.dexes).where(and(eq(schema.dexes.venue, "hyperliquid"), eq(schema.dexes.status, "gone")));
+  if (!gone.length) return [];
+  const rows = await db.select().from(schema.markets).where(and(eq(schema.markets.venue, "hyperliquid"), inArray(schema.markets.dex, gone.map((g) => g.dex))));
+  return gone.map((g) => ({ dex: g.dex, dexIndex: g.dexIndex, markets: rows.filter((r) => r.dex === g.dex).map(rowToMarket) }));
+}
+
 export async function composeAdapters(env: Record<string, string | undefined>, o: { db: Db | null; redis: Redis | null; governor?: Governor; cache?: MarketDataCache }): Promise<AdapterSet> {
-  const mainnet = env.CAPSTAN_NETWORK === "mainnet";
+  // every host comes from the network profile (packages/schema networks.ts), so one profile never mixes networks
+  const mainnet = venueNetwork("hyperliquid", env) === "mainnet";
   const egress = env.RELAY_EGRESS_ID ?? "local";
   const gov = o.governor ?? (o.redis ? createGovernor(o.redis, egress) : (await import("@capstan/venue-client")).createMemoryGovernor(egress));
   const { memoryMarketDataCache } = await import("@capstan/core");
@@ -60,7 +70,9 @@ export async function composeAdapters(env: Record<string, string | undefined>, o
   const hlCfg = { ...(mainnet ? HL_MAINNET : HL_TESTNET), builderAddress: (env.HL_BUILDER_ADDRESS as Hex | undefined) ?? ZERO };
   const hlKey = mainnet ? "hyperliquid" : "hyperliquid-testnet";
   const hlHttp = venueHttp(hlKey, hlCfg.infoUrl.replace(/\/info$/, ""), gov, { userAgent: "capstan-api" });
-  const reader = createHlReader(hlCfg, hlHttp, cache);
+  // a HIP-3 dex that left perpDexs keeps its last-known markets from the catalog, so close-all still covers it (08 R12)
+  const lastKnownDexes = o.db ? () => lastKnownHlDexes(o.db!) : undefined;
+  const reader = createHlReader(hlCfg, hlHttp, cache, lastKnownDexes ? { lastKnownDexes } : {});
   const hip3 = createHip3Hook({ reader, gate: createHip3Gate(env), isExecutable, eqExecutionAllowed: () => env.EQ_EXECUTION_ALLOWED === "1", network: mainnet ? "Mainnet" : "Testnet" });
   adapters.set(
     "hyperliquid",
@@ -85,12 +97,13 @@ export async function composeAdapters(env: Record<string, string | undefined>, o
       agentState: () => "active",
     }) as BuildAdapter,
   );
-  for (const [venue, config] of [["lighter-mainnet", mainnet ? "mainnet" : "mainnetTestnet"], ["lighter-rh", mainnet ? "rh" : "rhTestnet"]] as const) {
-    adapters.set(venue, createLighterAdapter({ config, gov, cache, execution: env.LIGHTER_EXECUTION === "1" }) as BuildAdapter);
+  for (const cfg of lighterConfigsFor(env)) {
+    adapters.set(cfg.venue, createLighterAdapter({ config: cfg.name, gov, cache, execution: env.LIGHTER_EXECUTION === "1" }) as BuildAdapter);
   }
   const aster = await import("@capstan/adapter-aster");
-  const asterCfg = aster.asterConfig(mainnet ? "Mainnet" : "Testnet");
-  const asterHttp = venueHttp(mainnet ? "aster" : "aster-testnet", asterCfg.rest, gov, { userAgent: "capstan-api" });
+  const asterMainnet = venueNetwork("aster", env) === "mainnet";
+  const asterCfg = aster.asterConfig(asterMainnet ? "Mainnet" : "Testnet");
+  const asterHttp = venueHttp(asterMainnet ? "aster" : "aster-testnet", asterCfg.rest, gov, { userAgent: "capstan-api" });
   adapters.set(
     "aster",
     aster.createAdapter(

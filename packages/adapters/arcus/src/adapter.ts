@@ -5,7 +5,7 @@
 // ARCUS_WEIGHT_PER_S (10 weight per second, averaged over a 10 s window) so data reads never crowd anything else out.
 // Execution is T2: no key path, no session key, no referral rail exists here. Capstan never collects or relays KYC.
 import type { MarketDataCache } from "@capstan/core";
-import { CapstanError, VENUE_HOSTS, type FundingSnapshot, type Market, type MarketEvent, type OrderBook, type Unsubscribe, type VenueCapabilities } from "@capstan/schema";
+import { CapstanError, VENUE_HOSTS, venueNetwork, type FundingSnapshot, type Market, type MarketEvent, type OrderBook, type Unsubscribe, type VenueCapabilities } from "@capstan/schema";
 import { arcusWeight, createGovernor, createMemoryGovernor, venueHttp, type Governor, type VenueHttp, type VenueHttpOptions } from "@capstan/venue-client";
 import type { Redis } from "ioredis";
 import { displayNameOf, markOf, normalizeBook, normalizeFunding, normalizeMarket, type ArcusBbo, type ArcusBook, type ArcusMarket, type ArcusMarkets } from "./normalize";
@@ -235,7 +235,7 @@ export function arcusHttp(cfg: ArcusConfig, gov: Governor, opts: VenueHttpOption
 
 export function defaultArcusAdapter(o: { redis?: Redis | null; cache?: MarketDataCache | null; env?: Record<string, string | undefined> } = {}): ArcusAdapter {
   const env = o.env ?? process.env;
-  const cfg = env.CAPSTAN_ARCUS_NETWORK === "Testnet" ? ARCUS_TESTNET : ARCUS_MAINNET;
+  const cfg = venueNetwork("arcus", env) === "testnet" ? ARCUS_TESTNET : ARCUS_MAINNET;
   const egress = env.RELAY_EGRESS_IP?.trim() || "local";
   const gov = o.redis ? createGovernor(o.redis, egress) : createMemoryGovernor(egress);
   return createArcusAdapter(cfg, arcusHttp(cfg, gov), o.cache ?? null);

@@ -5,14 +5,13 @@
 import { CapstanError, Dec, type CanonicalAsset, type FundingSnapshot, type Hex, type Market, type OnboardingStep, type OrderBook, type OrderIntent, type VenueQuote } from "@capstan/schema";
 import { l1Digest, type HlNetwork, type HlUpdateLeverageAction } from "@capstan/signer-hl";
 import type { VenueHttp } from "@capstan/venue-client";
-import { assetId } from "../meta";
+import { assetId, HIP3_WIRING } from "../meta";
 import { mulStr, type HlMarket } from "../normalize";
 import { BUILD_LIFE_MS, type HlBuildContext, type HlBuildDeps, type Hip3Hook } from "../orders";
 import { fx, fxStr, HL_BASE_FEES, quote, type HlFeeTier, type HlQuoteInput } from "../quote";
 import type { HlReader } from "../read";
 import { collateralMoveStep } from "../templates";
 
-export const HIP3_WIRING = ["xyz", "io", "para"] as const;
 export type Hip3WiredDex = (typeof HIP3_WIRING)[number];
 
 export function hip3AssetId(dexIndex: number, indexInMeta: number): number {

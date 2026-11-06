@@ -7,7 +7,10 @@ import { sharedHlIngest } from "@capstan/adapter-hyperliquid";
 export async function runIngestHl(deps: JobDeps, env: Record<string, string | undefined> = process.env) {
   const ingest = await sharedHlIngest(env, { redis: deps.redis, cache: deps.cache, db: deps.db, log: deps.log });
   const report = await ingest.pollOnce();
-  deps.log.info("ingest-hl poll", { marks: report.marks, funding: report.funding, snapshots: report.snapshots, errors: report.errors.length });
+  const fields = { marks: report.marks, funding: report.funding, snapshots: report.snapshots, errors: report.errors.length };
+  // each error names the dex and the endpoint, so a failing dex is visible in the log line itself
+  if (report.errors.length) deps.log.warn("ingest-hl poll", { ...fields, errorDetail: report.errors });
+  else deps.log.info("ingest-hl poll", fields);
   return report;
 }
 

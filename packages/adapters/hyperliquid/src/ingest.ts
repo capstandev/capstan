@@ -5,7 +5,7 @@
 // mark_ticks / funding_ticks and stores the top 20 levels of every cached book into book_snapshots.
 // It never subscribes to user channels (the venue allows only 10 unique users per IP).
 import { memoryMarketDataCache, type Db, type Logger, type MarketDataCache, type Redis } from "@capstan/core";
-import { db as tables, type OrderBook } from "@capstan/schema";
+import { db as tables, venueNetwork, type OrderBook } from "@capstan/schema";
 import { createGovernor, createMemoryGovernor, venueHttp, type Governor, type VenueHttp, type VenueWs } from "@capstan/venue-client";
 import { parseMarketId } from "./meta";
 import { mulStr, type HlMarket } from "./normalize";
@@ -34,8 +34,8 @@ export interface HlPollReport {
 }
 
 export interface HlIngest {
-  /** Load the markets and subscribe. Idempotent. */
-  start(): Promise<{ subscribed: number; skipped: string[] }>;
+  /** Load the markets and subscribe. Idempotent. skippedDexes: configured dexes this network does not list. */
+  start(): Promise<{ subscribed: number; skipped: string[]; skippedDexes: string[] }>;
   pollOnce(): Promise<HlPollReport>;
   stop(): void;
   readonly markets: string[];
@@ -49,13 +49,19 @@ export function createHlIngest(o: HlIngestOptions): HlIngest {
   const maxSubs = o.maxSubsPerConn ?? 1000;
   const topN = o.snapshotTopN ?? 20;
   const wanted = o.dexes ?? DEFAULT_INGEST_DEXES;
-  let started: { subscribed: number; skipped: string[] } | null = null;
+  let started: { subscribed: number; skipped: string[]; skippedDexes: string[] } | null = null;
+  // the dexes polled: the configured ones this network lists (testnet has no io or para)
+  let polled: (string | null)[] = wanted;
   let unsub: (() => void) | null = null;
   const marketIds: string[] = [];
 
   async function start() {
     if (started) return started;
     const all = await o.reader.listMarkets();
+    const listed = new Set<string | null>([null, ...all.map((m) => m.dex)]);
+    const skippedDexes = wanted.filter((d): d is string => d !== null && !listed.has(d));
+    polled = wanted.filter((d) => listed.has(d));
+    if (skippedDexes.length) o.log?.warn("ingest-hl: configured dexes not listed on this network, skipped", { dexes: skippedDexes });
     const active = all.filter((m) => m.status !== "delisted" && wanted.includes(m.dex));
     // dex by dex, in the configured order, so each connection carries one dex where it can
     active.sort((a, b) => wanted.indexOf(a.dex) - wanted.indexOf(b.dex) || (a.venueIndex ?? 0) - (b.venueIndex ?? 0));
@@ -70,7 +76,7 @@ export function createHlIngest(o: HlIngestOptions): HlIngest {
       const p = e.kind === "book" ? o.cache.putBook(e.book) : e.kind === "mark" ? o.cache.putMark(e.marketId, e.mark, e.asOf) : null;
       p?.catch((err) => o.log?.error("ingest-hl: cache write failed", { error: String(err) }));
     });
-    started = { subscribed: take.length, skipped };
+    started = { subscribed: take.length, skipped, skippedDexes };
     o.log?.info("ingest-hl: streaming", { markets: take.length, dexes: dexCount });
     return started;
   }
@@ -80,7 +86,7 @@ export function createHlIngest(o: HlIngestOptions): HlIngest {
     const ts = new Date(now());
     const markRows: (typeof tables.markTicks.$inferInsert)[] = [];
     const fundRows: (typeof tables.fundingTicks.$inferInsert)[] = [];
-    for (const dex of wanted) {
+    for (const dex of polled) {
       try {
         const [meta, ctxs] = await o.reader.metaAndAssetCtxs(dex);
         report.dexes++;
@@ -92,7 +98,7 @@ export function createHlIngest(o: HlIngestOptions): HlIngest {
           fundRows.push({ ts, marketId: id, ratePerInterval: c.funding, intervalS: 3600, ratePerHour: c.funding, predictedNext: null, source: "venue" });
         });
       } catch (e) {
-        report.errors.push(`${dex ?? "core"}: ${(e as Error).message}`);
+        report.errors.push(`metaAndAssetCtxs dex ${dex ?? "core"}: ${(e as Error).message}`);
       }
     }
     const snapRows: (typeof tables.bookSnapshots.$inferInsert)[] = [];
@@ -138,12 +144,12 @@ export interface HlRuntime {
 }
 
 /**
- * Build the governed HTTP client and reader from the environment. HL_NETWORK=Testnet (or CAPSTAN_NETWORK=testnet)
- * reads the testnet host; otherwise the keyless public mainnet info host (reads only, nothing is ever sent there).
+ * Build the governed HTTP client and reader from the environment. The network profile decides (venueNetwork): local
+ * and testnet read the testnet host, mainnet the mainnet host; HL_NETWORK overrides it.
  * The governor shares budgets through Redis when one is given, else it is per process.
  */
 export function createHlRuntime(env: Record<string, string | undefined>, deps: { redis?: Redis | null; cache?: MarketDataCache | null } = {}): HlRuntime {
-  const testnet = env.HL_NETWORK === "Testnet" || (env.HL_NETWORK === undefined && env.CAPSTAN_NETWORK === "testnet");
+  const testnet = venueNetwork("hyperliquid", env) === "testnet";
   const base = testnet ? HL_TESTNET : HL_MAINNET;
   const builder = env.HL_BUILDER_ADDRESS && /^0x[0-9a-fA-F]{40}$/.test(env.HL_BUILDER_ADDRESS) ? (env.HL_BUILDER_ADDRESS.toLowerCase() as `0x${string}`) : null;
   const cfg: HlConfig = { ...base, builderAddress: builder };

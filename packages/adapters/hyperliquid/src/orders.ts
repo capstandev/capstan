@@ -331,6 +331,7 @@ export async function buildOrder(intent: OrderIntent, ctx: HlBuildContext, d: Hl
   if (!intent || typeof intent.marketId !== "string") throw new CapstanError("INVALID_INPUT", "marketId is required");
   const m = await d.reader.instrument(intent.marketId);
   if (m.status === "delisted") throw new CapstanError("MARKET_NOT_EXECUTABLE", `${m.id} is delisted`);
+  if (m.status === "reduce_only" && !intent.reduceOnly) throw new CapstanError("MARKET_NOT_EXECUTABLE", `${m.id} is reduce-only: only closing orders are accepted`);
   if (m.marketType !== "perp") throw new CapstanError("MARKET_NOT_EXECUTABLE");
   if (m.collateralAsset.startsWith("TOKEN:")) throw new CapstanError("MARKET_NOT_EXECUTABLE", `${m.id} uses an unknown collateral token`);
   let builderOn = true;
@@ -401,6 +402,12 @@ export async function buildCloseAll(id: VenueIdentity, ctx: HlBuildContext, d: H
   assertEnabled(d);
   assertAgent(ctx);
   const acct = await d.reader.getAccount(id);
+  // a dex that left perpDexs and no longer answers: its positions are unknown, so never return a silent partial list
+  if (acct.unreadableDexes?.length) {
+    const names = acct.unreadableDexes.map((u) => u.dex).join(", ");
+    throw new CapstanError("VENUE_ERROR", `hyperliquid close-all: the ${names} dex left perpDexs and its account could not be read, so positions there cannot be closed from here. Close them on Hyperliquid directly.`);
+  }
+  const gone = new Set((await d.reader.goneDexes()).map((g) => g.dex.name));
   const open = await d.reader.getOpenOrders(id);
   const slip = ctx.closeAllSlippageBps ?? CLOSE_ALL_DEFAULT_SLIPPAGE_BPS;
   const out: HlUnsignedPayload[] = [];
@@ -423,7 +430,13 @@ export async function buildCloseAll(id: VenueIdentity, ctx: HlBuildContext, d: H
         builderOn = h.builderOn;
         feeTier = h.feeTier;
       }
-      out.push(await buildOne(d, m, { side, size: absStr(p.size), type: "market", tif: "ioc", reduceOnly: true, maxSlippageBps: slip }, ctx, { builderOn, feeTier, kind: "close", warnings: ["close-all"] }));
+      const warnings = m.dex !== null && gone.has(m.dex) ? ["close-all", `${m.dex} left perpDexs: reduce-only close from the last-known market`] : ["close-all"];
+      try {
+        out.push(await buildOne(d, m, { side, size: absStr(p.size), type: "market", tif: "ioc", reduceOnly: true, maxSlippageBps: slip }, ctx, { builderOn, feeTier, kind: "close", warnings }));
+      } catch (e) {
+        if (m.dex === null || !gone.has(m.dex)) throw e;
+        throw new CapstanError("VENUE_ERROR", `hyperliquid close-all: ${m.id} on the ${m.dex} dex (gone from perpDexs) could not be built: ${(e as Error).message}`);
+      }
     }
   }
   return out;

@@ -95,6 +95,9 @@ export function parsePerpDexs(raw: (HlPerpDexRaw | null)[]): HlDex[] {
   );
 }
 
+/** HIP-3 dexes that can ever execute, in wiring order (spec 4.2); every other dex stays non-executable. */
+export const HIP3_WIRING = ["xyz", "io", "para"] as const;
+
 export const HIP3_ASSET_BASE = 100_000;
 export const HIP3_DEX_STRIDE = 10_000;
 

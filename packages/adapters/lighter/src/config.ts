@@ -1,7 +1,7 @@
 // Lighter configs. One object carries the base URL, the WebSocket URL, the signing chain id and the governor bucket
 // together, so nothing ever derives a host from a chain id (both testnets share signing id 300).
 // 466324 is Lighter's L2 signing id for the Robinhood Chain exchange, not an EVM chain id; the EVM chain is l1ChainId.
-import { BUILDER_FEE_DEFAULTS, VENUE_HOSTS, type Hex, type VenueCapabilities, type VenueId } from "@capstan/schema";
+import { BUILDER_FEE_DEFAULTS, VENUE_HOSTS, venueNetwork, type Hex, type VenueCapabilities, type VenueId } from "@capstan/schema";
 import type { VenueKey } from "@capstan/venue-client";
 
 export type LighterVenue = Extract<VenueId, "lighter-mainnet" | "lighter-rh">;
@@ -86,6 +86,14 @@ export const LIGHTER_CONFIGS: Readonly<Record<LighterConfigName, Readonly<Lighte
     exchangeName: "Lighter on Robinhood Chain testnet",
   }),
 });
+
+/** The two Lighter configs (mainnet exchange, RH exchange) for this environment's network profile. */
+export function lighterConfigsFor(env: Record<string, string | undefined>): [Readonly<LighterConfig>, Readonly<LighterConfig>] {
+  return [
+    LIGHTER_CONFIGS[venueNetwork("lighter-mainnet", env) === "mainnet" ? "mainnet" : "mainnetTestnet"],
+    LIGHTER_CONFIGS[venueNetwork("lighter-rh", env) === "mainnet" ? "rh" : "rhTestnet"],
+  ];
+}
 
 /** Pick a config by its name. There is deliberately no lookup by chain id. */
 export function lighterConfig(name: LighterConfigName): Readonly<LighterConfig> {

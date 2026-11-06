@@ -3,10 +3,10 @@
 // Timescale gets at most one mark tick, one funding tick and one top-20 book snapshot per market per minute.
 // This job runs every 5 minutes: the first run opens the streams; every run re-reads orderBookDetails over REST (two
 // calls per config through the 1 req/s governor) and resubscribes only when the set of live perps changed.
-import { createLighterIngest, lighterReaderFor, LIGHTER_CONFIGS, type IngestMarket, type LighterConfig, type LighterIngest, type LighterReader } from "@capstan/adapter-lighter";
+import { createLighterIngest, lighterConfigsFor, lighterReaderFor, type IngestMarket, type LighterConfig, type LighterIngest, type LighterReader } from "@capstan/adapter-lighter";
 import type { Db, JobDef, JobDeps, MarketDataCache } from "@capstan/core";
 import { db as schema, type MarketEvent, type Unsubscribe } from "@capstan/schema";
-import { createGovernor, createMemoryGovernor, type Governor } from "@capstan/venue-client";
+import { createGovernor, createMemoryGovernor, VenueWsError, wsErrorText, type Governor } from "@capstan/venue-client";
 
 export const INGEST_LIGHTER_EVERY_MS = 5 * 60_000;
 export const PERSIST_EVERY_MS = 60_000;
@@ -66,12 +66,12 @@ export async function runIngestTick(deps: JobDeps, f: IngestFactories = {}, st: 
   const egress = process.env.CAPSTAN_EGRESS_ID ?? "local";
   if (!st) {
     const gov = deps.redis ? createGovernor(deps.redis, egress) : createMemoryGovernor(egress);
-    const configs = f.configs ?? [LIGHTER_CONFIGS.mainnet, LIGHTER_CONFIGS.rh];
+    const configs = f.configs ?? lighterConfigsFor(process.env); // the network profile's two configs
     st = {
       runs: configs.map((cfg) => ({
         cfg,
         reader: (f.reader ?? lighterReaderFor)(cfg, gov, deps.cache),
-        ingest: (f.ingest ?? ((c) => createLighterIngest(c, { onError: (e) => deps.log.warn("lighter ws error", { venue: c.venue, error: String(e) }) })))(cfg),
+        ingest: (f.ingest ?? ((c) => createLighterIngest(c, { onError: (e) => deps.log.warn("lighter ws error", { venue: c.venue, error: wsErrorText(e), ...(e instanceof VenueWsError && e.httpStatus !== null ? { httpStatus: e.httpStatus } : {}) }) })))(cfg),
         markets: [],
         unsub: null,
         lastPersist: new Map(),

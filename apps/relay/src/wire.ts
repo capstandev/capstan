@@ -2,12 +2,12 @@
 // clients skip the governor because the pipeline itself acquires the budget with the right priority (one acquire per
 // submit, never two). Aster submits are signed calls: they are wired only on the VPS (CAPSTAN_RUNNER=vps).
 import { createAdapter as createHlAdapter, createHlReader, HL_MAINNET, HL_TESTNET } from "@capstan/adapter-hyperliquid";
-import { createLighterAdapter, lighterConfig, type LighterConfigName } from "@capstan/adapter-lighter";
+import { createLighterAdapter, lighterConfigsFor } from "@capstan/adapter-lighter";
 import { createDb, createRedis, loadConfig, memoryMarketDataCache, QUEUES, ulid, type ConfigFor, type Db, type Redis } from "@capstan/core";
 import { decide } from "@capstan/eligibility";
 import { activePolicyFor } from "@capstan/policy";
 import { createReceiptService, pgReceiptStore, type ReceiptDraft } from "@capstan/receipts";
-import type { Hex, Receipt, VenueId } from "@capstan/schema";
+import { venueNetwork, type Hex, type Receipt, type VenueId } from "@capstan/schema";
 import { dbWalletActivity, limitsFor, tierOf, viemLockReader, type LockReader, type Tier } from "@capstan/plans";
 import { createGovernor, venueHttp, type Governor } from "@capstan/venue-client";
 import { Queue, QueueEvents } from "bullmq";
@@ -33,7 +33,8 @@ export function passThroughGovernor(real: Governor): Governor {
 const ZERO = "0x0000000000000000000000000000000000000000" as Hex;
 
 export async function relayVenues(env: Record<string, string | undefined>, gov: Governor): Promise<Map<VenueId, RelayVenue>> {
-  const mainnet = env.CAPSTAN_NETWORK === "mainnet";
+  // hosts from the network profile (packages/schema networks.ts), the same choice the api makes
+  const mainnet = venueNetwork("hyperliquid", env) === "mainnet";
   const pass = passThroughGovernor(gov);
   const out = new Map<VenueId, RelayVenue>();
   const hlCfg = { ...(mainnet ? HL_MAINNET : HL_TESTNET), builderAddress: (env.HL_BUILDER_ADDRESS as Hex | undefined) ?? ZERO };
@@ -43,17 +44,17 @@ export async function relayVenues(env: Record<string, string | undefined>, gov: 
   // the pipeline checks delegation state itself; the adapter's own check would also block direct-mode claims
   const hl = createHlAdapter(hlCfg, { http: hlHttp, cache, reader: createHlReader(hlCfg, hlHttp, cache), agentState: () => "active" });
   out.set("hyperliquid", hlRelayVenue(hl, { governorKey: hlKey }));
-  for (const [venue, name] of [["lighter-mainnet", mainnet ? "mainnet" : "mainnetTestnet"], ["lighter-rh", mainnet ? "rh" : "rhTestnet"]] as const) {
-    const cfg = lighterConfig(name as LighterConfigName);
+  for (const cfg of lighterConfigsFor(env)) {
+    const venue = cfg.venue;
     const http = venueHttp(cfg.governorKey, cfg.rest, pass, { userAgent: "capstan-relay" });
     const a = createLighterAdapter(cfg, { http, cache: null, execution: env.LIGHTER_EXECUTION === "1" });
     out.set(venue, lighterRelayVenue(venue, a, { governorKey: cfg.governorKey, l1Of: (b) => b.owner }));
   }
   if (env.CAPSTAN_RUNNER === "vps") {
     const aster = await import("@capstan/adapter-aster");
-    const net = mainnet ? "Mainnet" : "Testnet";
-    const cfg = aster.asterConfig(net);
-    const key = mainnet ? "aster" : "aster-testnet";
+    const asterMainnet = venueNetwork("aster", env) === "mainnet";
+    const cfg = aster.asterConfig(asterMainnet ? "Mainnet" : "Testnet");
+    const key = asterMainnet ? "aster" : "aster-testnet";
     const http = venueHttp(key, cfg.rest, pass, { userAgent: "capstan-relay" });
     const a = aster.createAdapter({ ...cfg, builder: (env.ASTER_BUILDER_ADDRESS as Hex | undefined) ?? ZERO, execution: aster.asterExecutionEnabled(env) }, { http, cache: null, reader: aster.createAsterReader(cfg, http, null) });
     out.set("aster", asterRelayVenue(a, { governorKey: key }));
