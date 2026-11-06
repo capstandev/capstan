@@ -1,0 +1,16 @@
+{
+  "name": "@capstan/spreads",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Funding-rate spread trades (at-risk): scanner over approved equivalences, planner, acks, events and the client-side executor",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "dependencies": {
+    "@capstan/catalog": "workspace:*",
+    "@capstan/core": "workspace:*",
+    "@capstan/quote": "workspace:*",
+    "@capstan/schema": "workspace:*",
+    "drizzle-orm": "0.45.4"
+  }
+}

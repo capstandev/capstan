@@ -43,6 +43,11 @@ memories.md
 TODO*
 PLAN*
 RESUME*
+# macOS checkouts use core.ignorecase=true, so TODO*/PLAN*/RESUME* above also match lowercase source
+# such as plan.ts. Re-include the lane source that is named that way (it must be committed).
+!packages/spreads/src/plan.ts
+!packages/spreads/test/plan/
+!packages/spreads/test/plan/**
 STATUS.md
 Dockerfile*
 docker-compose.*.yml

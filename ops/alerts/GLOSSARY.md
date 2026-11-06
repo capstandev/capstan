@@ -122,6 +122,16 @@ Severity: act
 Means: the facilitator hot key holds more than the float limit (200 USD).
 Do: the owner runs the sweep command printed in the alert to move the extra to the brand Safe.
 
+## spreads.event_mismatch
+Severity: act
+Means: a spread plan event reported a leg fill that differs from the venue's own read by more than one lot; the event was stored with mismatch true.
+Do: compare the plan's events with the venue fills; tell the owner if the reported residual is wrong. Nothing was changed automatically.
+
+## spreads.market_changed
+Severity: act
+Means: a market in an approved equivalence now differs from its pair in a blocking contract field (collateral, contract size, session hours, oracle or type) that the approval did not cover, so the spread scan dropped the pair.
+Do: review the equivalence again with the catalog review tool; approve it again or reject it.
+
 ## x402.eip3009_absent
 Severity: act
 Means: the daily check no longer finds EIP-3009 on a USDG or USDC rail, so that rail stops offering it.

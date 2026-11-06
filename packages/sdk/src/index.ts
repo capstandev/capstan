@@ -19,3 +19,4 @@ export { sdkSpendControls, selectPayment, payingFetch, usdToAtomic, X402_NETWORK
 export { capstanMessage, type CapstanMessageFields, type SignedPurpose } from "./signed-message";
 export { intentFromPayload } from "./intent";
 export { SdkError, SDK_ERROR_CODES, type SdkErrorCode } from "./errors";
+export { clientSpreadPorts, executeSpread, executeSpreadPlan, spreadAckMessage, SPREAD_ACK_TEXT, type ExecuteResult, type ExecutorEvent, type ExecutorPorts, type SpreadPortOptions } from "./spreads";

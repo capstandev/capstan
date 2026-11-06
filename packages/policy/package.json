@@ -1,0 +1,23 @@
+{
+  "name": "@capstan/policy",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Agent-safe mode: CapstanAgentPolicy typed data, the policy check shared by the relay and the SDK, the kill switch and revocation bundles",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "dependencies": {
+    "@capstan/core": "workspace:*",
+    "@capstan/schema": "workspace:*",
+    "@noble/curves": "2.4.0",
+    "drizzle-orm": "0.45.4",
+    "ioredis": "5.11.1",
+    "viem": "2.57.14"
+  },
+  "devDependencies": {
+    "@capstan/adapter-aster": "workspace:*",
+    "@capstan/adapter-hyperliquid": "workspace:*",
+    "@capstan/receipts": "workspace:*",
+    "@capstan/signer-aster": "workspace:*"
+  }
+}

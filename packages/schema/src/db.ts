@@ -193,14 +193,22 @@ export const onboardingSessions = pgTable("onboarding_sessions", {
   createdAt: tsz("created_at").notNull().defaultNow(),
 });
 
-export const agentPolicies = pgTable("agent_policies", {
-  id: text("id").primaryKey(),
-  owner: text("owner").notNull(),
-  policy: jsonb("policy").notNull(),
-  ownerSig: text("owner_sig").notNull(),
-  expiresAt: tsz("expires_at").notNull(),
-  revoked: boolean("revoked").notNull().default(false),
-});
+export const agentPolicies = pgTable(
+  "agent_policies",
+  {
+    id: text("id").primaryKey(),
+    owner: text("owner").notNull(), // lowercased main wallet
+    policy: jsonb("policy").notNull(),
+    ownerSig: text("owner_sig").notNull(),
+    expiresAt: tsz("expires_at").notNull(),
+    revoked: boolean("revoked").notNull().default(false),
+    // todo 22: a nonce is used once per owner; the latest stored policy for an agent wins (issuedAt = store time)
+    nonce: text("nonce").notNull(),
+    agentRefs: text("agent_refs").array().notNull(),
+    issuedAt: tsz("issued_at").notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("ap_owner_nonce").on(t.owner, t.nonce), index("ap_owner").on(t.owner)],
+);
 
 export const orderBuilds = pgTable("order_builds", {
   id: text("id").primaryKey(),
@@ -476,6 +484,10 @@ export const webhooks = pgTable(
     kinds: text("kinds").array().notNull(),
     disabled: boolean("disabled").notNull().default(false),
     createdAt: tsz("created_at").notNull().defaultNow(),
+    // todo 36: disabled after 20 consecutive failed deliveries; the owner sees the reason
+    consecutiveFailures: integer("consecutive_failures").notNull().default(0),
+    disabledReason: text("disabled_reason"),
+    lastFailureAt: tsz("last_failure_at"),
   },
   (t) => [index("wh_owner").on(t.owner)],
 );
@@ -492,8 +504,9 @@ export const alertEvents = pgTable(
     status: text("status").notNull(),
     attempts: integer("attempts").notNull().default(0),
     ts: tsz("ts").notNull().defaultNow(),
+    dedupeKey: text("dedupe_key"), // todo 36: one alert per key per window (no user data in the key beyond ids)
   },
-  (t) => [index("ae_webhook").on(t.webhookId)],
+  (t) => [index("ae_webhook").on(t.webhookId), index("ae_dedupe").on(t.dedupeKey, t.ts)],
 );
 
 export const usageDaily = pgTable(

@@ -43,6 +43,13 @@
       "when": 1793943290327,
       "tag": "0005_eligibility_rules_extra",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1793946780828,
+      "tag": "0006_policy_alerts",
+      "breakpoints": true
     }
   ]
 }

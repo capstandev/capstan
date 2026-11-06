@@ -12,6 +12,7 @@
     "@capstan/signer-aster": "workspace:*",
     "@capstan/signer-hl": "workspace:*",
     "@capstan/signer-lighter-wasm": "workspace:*",
+    "@capstan/spreads": "workspace:*",
     "@noble/curves": "2.4.0",
     "@noble/hashes": "2.4.0",
     "canonicalize": "5.1.0"

@@ -16,15 +16,22 @@
       "dependencies": {
         "@capstan/adapter-arcus": "workspace:*",
         "@capstan/adapter-aster": "workspace:*",
+        "@capstan/adapter-hyperliquid": "workspace:*",
         "@capstan/adapter-variational": "workspace:*",
         "@capstan/core": "workspace:*",
         "@capstan/eligibility": "workspace:*",
         "@capstan/plans": "workspace:*",
+        "@capstan/policy": "workspace:*",
         "@capstan/quote": "workspace:*",
+        "@capstan/receipts": "workspace:*",
+        "@capstan/risk": "workspace:*",
         "@capstan/schema": "workspace:*",
+        "@capstan/spreads": "workspace:*",
         "@capstan/telemetry": "workspace:*",
         "@capstan/venue-client": "workspace:*",
+        "@capstan/workers": "workspace:*",
         "@hono/trpc-server": "0.4.2",
+        "@noble/hashes": "2.4.0",
         "@trpc/server": "11.23.0",
         "drizzle-orm": "0.45.4",
         "hono": "4.13.16",
@@ -82,8 +89,10 @@
         "@capstan/plans": "workspace:*",
         "@capstan/quote": "workspace:*",
         "@capstan/receipts": "workspace:*",
+        "@capstan/risk": "workspace:*",
         "@capstan/schema": "workspace:*",
         "@capstan/signer-aster": "workspace:*",
+        "@capstan/spreads": "workspace:*",
         "@capstan/telemetry": "workspace:*",
         "@capstan/venue-client": "workspace:*",
         "@capstan/x402": "workspace:*",
@@ -216,6 +225,24 @@
         "viem": "2.57.14",
       },
     },
+    "packages/policy": {
+      "name": "@capstan/policy",
+      "version": "0.0.0",
+      "dependencies": {
+        "@capstan/core": "workspace:*",
+        "@capstan/schema": "workspace:*",
+        "@noble/curves": "2.4.0",
+        "drizzle-orm": "0.45.4",
+        "ioredis": "5.11.1",
+        "viem": "2.57.14",
+      },
+      "devDependencies": {
+        "@capstan/adapter-aster": "workspace:*",
+        "@capstan/adapter-hyperliquid": "workspace:*",
+        "@capstan/receipts": "workspace:*",
+        "@capstan/signer-aster": "workspace:*",
+      },
+    },
     "packages/quote": {
       "name": "@capstan/quote",
       "version": "0.0.0",
@@ -249,6 +276,20 @@
         "viem": "2.57.14",
       },
     },
+    "packages/risk": {
+      "name": "@capstan/risk",
+      "version": "0.0.0",
+      "dependencies": {
+        "@capstan/adapter-aster": "workspace:*",
+        "@capstan/adapter-hyperliquid": "workspace:*",
+        "@capstan/adapter-lighter": "workspace:*",
+        "@capstan/core": "workspace:*",
+        "@capstan/quote": "workspace:*",
+        "@capstan/schema": "workspace:*",
+        "@capstan/venue-client": "workspace:*",
+        "drizzle-orm": "0.45.4",
+      },
+    },
     "packages/schema": {
       "name": "@capstan/schema",
       "version": "0.0.0",
@@ -266,6 +307,7 @@
         "@capstan/signer-aster": "workspace:*",
         "@capstan/signer-hl": "workspace:*",
         "@capstan/signer-lighter-wasm": "workspace:*",
+        "@capstan/spreads": "workspace:*",
         "@noble/curves": "2.4.0",
         "@noble/hashes": "2.4.0",
         "canonicalize": "5.1.0",
@@ -304,6 +346,17 @@
     "packages/signers/lighter-wasm": {
       "name": "@capstan/signer-lighter-wasm",
       "version": "0.0.0",
+    },
+    "packages/spreads": {
+      "name": "@capstan/spreads",
+      "version": "0.0.0",
+      "dependencies": {
+        "@capstan/catalog": "workspace:*",
+        "@capstan/core": "workspace:*",
+        "@capstan/quote": "workspace:*",
+        "@capstan/schema": "workspace:*",
+        "drizzle-orm": "0.45.4",
+      },
     },
     "packages/telemetry": {
       "name": "@capstan/telemetry",
@@ -393,11 +446,15 @@
 
     "@capstan/plans": ["@capstan/plans@workspace:packages/tiers"],
 
+    "@capstan/policy": ["@capstan/policy@workspace:packages/policy"],
+
     "@capstan/quote": ["@capstan/quote@workspace:packages/quote"],
 
     "@capstan/receipts": ["@capstan/receipts@workspace:packages/receipts"],
 
     "@capstan/relay": ["@capstan/relay@workspace:apps/relay"],
+
+    "@capstan/risk": ["@capstan/risk@workspace:packages/risk"],
 
     "@capstan/schema": ["@capstan/schema@workspace:packages/schema"],
 
@@ -408,6 +465,8 @@
     "@capstan/signer-hl": ["@capstan/signer-hl@workspace:packages/signers/hl"],
 
     "@capstan/signer-lighter-wasm": ["@capstan/signer-lighter-wasm@workspace:packages/signers/lighter-wasm"],
+
+    "@capstan/spreads": ["@capstan/spreads@workspace:packages/spreads"],
 
     "@capstan/telemetry": ["@capstan/telemetry@workspace:packages/telemetry"],
 
