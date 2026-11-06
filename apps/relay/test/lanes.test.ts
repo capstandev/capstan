@@ -67,6 +67,27 @@ describe("lanes", () => {
     expect(order).toEqual(["pro", "pro", "pro", "free", "free", "free"]);
   });
 
+  test("reduce-only-never-rate-limited", async () => {
+    // found on the fork run (todo 40): a spread's flatten (a reduce-only IOC) was refused by the free lane right after
+    // leg A from the same IP, leaving the position unhedged. Reduce-only orders pass the lanes like cancels and closes.
+    const s = relayStack();
+    stacks.push(s);
+    s.laneOf.value = async () => ({ lane: "free", perMin: 2 });
+    const now = NOW;
+    s.deps.now = () => now;
+    const send = async (over: Partial<import("@capstan/schema").OrderIntent>) => {
+      const h = await s.hl(over);
+      s.store.builds.get(h.b.buildId)!.expiresAt = now + 30_000;
+      return codeOf(handleSubmit({ buildId: h.b.buildId, signedEnvelope: h.env }, { ip: "203.0.113.21" }, s.deps));
+    };
+    expect((await send({})).code).toBeNull();
+    expect((await send({})).code).toBeNull();
+    expect((await send({})).code).toBe("VENUE_RATE_LIMITED");
+    for (let i = 0; i < 3; i++) expect((await send({ reduceOnly: true, side: "sell" })).code).toBeNull();
+    // opening orders are still limited afterwards
+    expect((await send({})).code).toBe("VENUE_RATE_LIMITED");
+  });
+
   test("ipv6-64", async () => {
     expect(ipBucket("2001:db8:1:2::1")).toBe(ipBucket("2001:db8:1:2:ffff:ffff:ffff:ffff"));
     expect(ipBucket("2001:db8:1:2::1")).not.toBe(ipBucket("2001:db8:1:3::1"));

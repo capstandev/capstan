@@ -72,7 +72,7 @@ export function edgeMiddleware(deps: EdgeDeps & { write: RouteWrite }): Middlewa
     const venue = asVenue(w.venue ? await w.venue(c, body) : (c.req.query("venue") ?? field(body, "venue") ?? marketId?.split(":")[0]));
     if (!venue) return c.json(errorBody("INVALID_INPUT", "venue is required"), 400);
     const authOwner = ctxGet(c, "owner");
-    const rawOwner = typeof authOwner === "string" ? authOwner : field(body, "owner");
+    const rawOwner = typeof authOwner === "string" ? authOwner : (field(body, "owner") ?? (w.owner ? await w.owner(c, body) : undefined));
     const owner = typeof rawOwner === "string" && ADDR.test(rawOwner) ? (rawOwner as Hex) : undefined;
     const authAgent = ctxGet(c, "agentRef");
     const rawAgent = typeof authAgent === "string" ? authAgent : field(body, "agentRef");

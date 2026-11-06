@@ -15,6 +15,11 @@ export interface X402State {
   tokens?: Partial<Record<RailId, TokenInfo>>;
   /** Rails dropped by the boot economics check (REL-3) or by ops. */
   droppedRails?: readonly RailId[];
+  /**
+   * Settle cost per rail in USD from the boot economics check (null: unknown). A rail is offered on a route only when
+   * its cost is at most 50% of that route's price, so a rail too dear for a $0.01 call still serves a $0.02 one.
+   */
+  railCostsUsd?: Partial<Record<RailId, number | null>>;
   /** Mainnet USDG EIP-3009 switch (BACKLOG E7). Undefined = read X402_USDG_EIP3009_MAINNET from the environment. */
   eip3009MainnetEnabled?: boolean;
   /** Solana fee payer (the facilitator's sponsor address from /supported). */
@@ -71,6 +76,9 @@ export function acceptsFor(route: PricedRoute, state: X402State, env: X402Env, o
   const out: PaymentRequirements[] = [];
   for (const id of RAIL_IDS) {
     if (dropped.has(id)) continue;
+    // REL-3 per route: the settle must cost at most half of what this call earns
+    const cost = state.railCostsUsd?.[id];
+    if (cost !== undefined && (cost === null || cost > Number(usd) * 0.5)) continue;
     if (id === "rhc-usdg-eip3009" && !eip3009Enabled(state, env)) continue;
     const def = defs[id];
     const info = state.tokens?.[id];
@@ -156,15 +164,23 @@ export function settleCostUsd(c: RailCostInput): number | null {
 
 export interface RailEconomics {
   minRouteUsd: number;
+  /** 50% of the cheapest route: a rail at or under it is offered on every route. */
   limitUsd: number;
+  /** 50% of the dearest route: a rail above it (or of unknown cost) serves no route and is dropped. */
+  maxLimitUsd: number;
   costs: Partial<Record<RailId, number | null>>;
   dropped: RailId[];
-  alerts: { kind: "x402.rail_dropped"; rail: RailId; costUsd: number | null; limitUsd: number }[];
+  /** Rails offered only on routes priced at least twice their settle cost (acceptsFor checks per route). */
+  limited: RailId[];
+  alerts: { kind: "x402.rail_dropped" | "x402.rail_limited"; rail: RailId; costUsd: number | null; limitUsd: number }[];
 }
 
 /**
- * A rail whose settle cost exceeds 50% of the smallest price on any route is dropped (or whose cost is unknown:
- * fail closed), so every settle stays positive.
+ * REL-3, every settle stays positive: a rail is offered on a route only when its settle cost is at most 50% of that
+ * route's price (acceptsFor applies it per route from X402State.railCostsUsd). A rail whose cost is unknown (fail
+ * closed) or above 50% of the dearest route is dropped everywhere; one above 50% of the cheapest route is limited to
+ * the dearer routes. Found on the fork run (todo 40): at the live RHC gas price the USDG rails cost about $0.006 to
+ * settle, over half of the $0.01 routes, and the old global rule dropped them from every route.
  */
 export function railEconomics(routes: Record<string, PricedRoute>, costs: Partial<Record<RailId, RailCostInput>>): RailEconomics {
   const prices = Object.values(routes).map((r) => Number(r.usd));
@@ -172,14 +188,18 @@ export function railEconomics(routes: Record<string, PricedRoute>, costs: Partia
   for (const p of prices) if (!(p > 0)) throw new AcceptsError("a payment of amount 0 is refused");
   const minRouteUsd = Math.min(...prices);
   const limitUsd = minRouteUsd * 0.5;
-  const out: RailEconomics = { minRouteUsd, limitUsd, costs: {}, dropped: [], alerts: [] };
+  const maxLimitUsd = Math.max(...prices) * 0.5;
+  const out: RailEconomics = { minRouteUsd, limitUsd, maxLimitUsd, costs: {}, dropped: [], limited: [], alerts: [] };
   for (const id of RAIL_IDS) {
     const c = costs[id];
     const usd = c ? settleCostUsd(c) : null;
     out.costs[id] = usd;
-    if (usd === null || usd > limitUsd) {
+    if (usd === null || usd > maxLimitUsd) {
       out.dropped.push(id);
-      out.alerts.push({ kind: "x402.rail_dropped", rail: id, costUsd: usd, limitUsd });
+      out.alerts.push({ kind: "x402.rail_dropped", rail: id, costUsd: usd, limitUsd: maxLimitUsd });
+    } else if (usd > limitUsd) {
+      out.limited.push(id);
+      out.alerts.push({ kind: "x402.rail_limited", rail: id, costUsd: usd, limitUsd });
     }
   }
   return out;

@@ -14,7 +14,8 @@
     "packages/*",
     "packages/adapters/*",
     "packages/signers/*",
-    "ops/usage"
+    "ops/usage",
+    "ops/fork"
   ],
   "scripts": {
     "typecheck": "tsc --noEmit",

@@ -19,6 +19,8 @@ describe("aster caps", () => {
       signingDomain: { chainId: 1666, name: "AsterSignTransaction" },
     });
     expect(c.collateral).toEqual(["USDT", "USD1", "USDC", "U"]);
+    // no builder configured: no rail at all (a zero-address rail made every SDK client refuse the server)
+    expect(asterCaps("0x0000000000000000000000000000000000000000", { execution: false }).builderFee).toBeNull();
     expect(asterCaps(BUILDER, { execution: true, network: "Testnet" }).signingDomain?.chainId).toBe(714);
     // the execution flag is off unless ASTER_EXECUTION is set
     expect(asterExecutionEnabled({})).toBe(false);

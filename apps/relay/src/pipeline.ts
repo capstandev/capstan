@@ -181,16 +181,19 @@ export async function handleSubmit(req: SubmitRequest, ctx: SubmitContext, deps:
   const inserted = await deps.store.insertOrder({ id: orderId, buildId: b.build.buildId, venue: b.venue, marketId: b.marketId, owner: b.owner.toLowerCase() as Hex, signedPayloadHash: payloadHash, mode: "relay", status: "pending", builderFeeBps: b.build.preview.builderFeeBps, submittedAt: new Date(now) });
   if (!inserted) return refuse(deps, "DUPLICATE_PAYLOAD", ref);
 
-  // 7: lanes
+  // 7: lanes. A reduce-only order is exit traffic, like a cancel or a close: never refused by the per-minute lanes and
+  // sent at safety priority (found on the fork run, todo 40: a spread's flatten of leg A was refused free_ip right
+  // after leg A, which left the user unhedged). Eligibility treats it the same way in step 5.
+  const exit = b.kind !== "order" || b.build.preview.reduceOnly === true;
   const { lane, perMin } = await deps.laneOf(b.owner, ctx.apiKey);
-  const taken = await deps.lanes.take({ wallet: b.owner, ipBucket: ipBucket(ctx.ip), lane, perMin, kind: b.kind, nowMs: now });
+  const taken = await deps.lanes.take({ wallet: b.owner, ipBucket: ipBucket(ctx.ip), lane, perMin, kind: exit ? "close" : b.kind, nowMs: now });
   if (!taken.ok) {
     await deps.store.releaseOrder(orderId);
     return refuse(deps, "VENUE_RATE_LIMITED", { ...ref, message: DIRECT_MODE_HINT, field: taken.reason ?? "lane" });
   }
 
   // 8: governed submit, exactly once
-  const priority: Priority = b.kind === "order" ? lane : "safety";
+  const priority: Priority = exit ? "safety" : lane;
   const deadlineMs = priority === "safety" ? undefined : priority === "pro" ? (deps.proBudgetWaitMs ?? 10_000) : (deps.freeBudgetWaitMs ?? 2_000);
   let result: SubmitResult;
   try {

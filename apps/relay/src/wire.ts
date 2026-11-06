@@ -7,7 +7,7 @@ import { createDb, createRedis, loadConfig, memoryMarketDataCache, QUEUES, ulid,
 import { decide } from "@capstan/eligibility";
 import { activePolicyFor } from "@capstan/policy";
 import { createReceiptService, pgReceiptStore, type ReceiptDraft } from "@capstan/receipts";
-import { venueNetwork, type Hex, type Receipt, type VenueId } from "@capstan/schema";
+import { venueNetwork, venueUrlOverride, type Hex, type Receipt, type VenueId } from "@capstan/schema";
 import { dbWalletActivity, limitsFor, tierOf, viemLockReader, type LockReader, type Tier } from "@capstan/plans";
 import { tracedFetch } from "@capstan/telemetry";
 import { createGovernor, venueHttp, type Governor } from "@capstan/venue-client";
@@ -38,7 +38,10 @@ export async function relayVenues(env: Record<string, string | undefined>, gov: 
   const mainnet = venueNetwork("hyperliquid", env) === "mainnet";
   const pass = passThroughGovernor(gov);
   const out = new Map<VenueId, RelayVenue>();
-  const hlCfg = { ...(mainnet ? HL_MAINNET : HL_TESTNET), builderAddress: (env.HL_BUILDER_ADDRESS as Hex | undefined) ?? ZERO };
+  const hlBase = { ...(mainnet ? HL_MAINNET : HL_TESTNET), builderAddress: (env.HL_BUILDER_ADDRESS as Hex | undefined) ?? ZERO };
+  // a local stand-in venue (fork stack) replaces the hosts; venueUrlOverride accepts loopback URLs only
+  const hlUrl = venueUrlOverride("hyperliquid", env);
+  const hlCfg = hlUrl ? { ...hlBase, infoUrl: `${hlUrl}/info`, exchangeUrl: `${hlUrl}/exchange`, wsUrl: `${hlUrl.replace(/^http/, "ws")}/ws` } : hlBase;
   const hlKey = mainnet ? "hyperliquid" : "hyperliquid-testnet";
   const hlHttp = venueHttp(hlKey, hlCfg.exchangeUrl.replace(/\/exchange$/, ""), pass, { userAgent: "capstan-relay", fetchImpl: tracedFetch("hyperliquid") });
   const cache = memoryMarketDataCache();
@@ -47,7 +50,7 @@ export async function relayVenues(env: Record<string, string | undefined>, gov: 
   out.set("hyperliquid", hlRelayVenue(hl, { governorKey: hlKey }));
   for (const cfg of lighterConfigsFor(env)) {
     const venue = cfg.venue;
-    const http = venueHttp(cfg.governorKey, cfg.rest, pass, { userAgent: "capstan-relay", fetchImpl: tracedFetch(venue) });
+    const http = venueHttp(cfg.governorKey, venueUrlOverride(venue, env) ?? cfg.rest, pass, { userAgent: "capstan-relay", fetchImpl: tracedFetch(venue) });
     const a = createLighterAdapter(cfg, { http, cache: null, execution: env.LIGHTER_EXECUTION === "1" });
     out.set(venue, lighterRelayVenue(venue, a, { governorKey: cfg.governorKey, l1Of: (b) => b.owner }));
   }
@@ -159,14 +162,10 @@ export async function relayRuntime(cfg: ConfigFor<"relay">, env: Record<string, 
   return { deps, flags, db, redis, kill };
 }
 
-/** CPSTLock reader for lock tiers: the RHC RPC and the deployed lock, or none (every wallet reads as unlocked). */
+/** CPSTLock reader for lock tiers: the shared reader (packages/tiers lockReaderFromEnv), the same one the api uses. */
 async function lockReaderFromEnv(env: Record<string, string | undefined>): Promise<LockReader> {
-  const none: LockReader = { lockedOf: async () => ({ amount: 0n, unlockAt: 0n }) };
-  const rpc = env.RHC_RPC_URL;
-  const lockAddr = env.CPST_LOCK_ADDRESS as Hex | undefined;
-  if (!rpc || !lockAddr) return none;
-  const { createPublicClient, http } = await import("viem");
-  return viemLockReader(createPublicClient({ transport: http(rpc) }), lockAddr);
+  const { lockReaderFromEnv: shared } = await import("@capstan/plans");
+  return shared(env);
 }
 
 export function relayConfig(): ConfigFor<"relay"> {

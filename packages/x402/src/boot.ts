@@ -89,7 +89,7 @@ export async function buildX402State(i: BootInputs): Promise<{ state: X402State;
   const economics = railEconomics(i.routes, costs);
   for (const a of economics.alerts) await alert(a);
   return {
-    state: { usdgEip3009: i.usdgEip3009, payTo: i.payTo, tokens, droppedRails: economics.dropped, solFeePayer: i.solFeePayer, hotKeys: i.hotKeys },
+    state: { usdgEip3009: i.usdgEip3009, payTo: i.payTo, tokens, droppedRails: economics.dropped, railCostsUsd: economics.costs, solFeePayer: i.solFeePayer, hotKeys: i.hotKeys },
     economics,
   };
 }

@@ -16,6 +16,8 @@ export interface RouteWrite {
   action: "onboarding" | "order" | "spread_leg";
   venue?: (c: Context, body: unknown) => string | null | Promise<string | null>;
   marketId?: (c: Context, body: unknown) => string | null | Promise<string | null>;
+  /** The owner the write acts for when neither the auth nor the body names one (onboarding submit: the bundle's). */
+  owner?: (c: Context, body: unknown) => string | null | Promise<string | null>;
   /** True for equity (stock) markets. Default: every Hyperliquid HIP-3 dex market counts as equity (strict). */
   isEquityMarket?: (c: Context, body: unknown, marketId: string | null) => boolean | Promise<boolean>;
 }

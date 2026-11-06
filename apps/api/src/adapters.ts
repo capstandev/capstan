@@ -8,7 +8,7 @@ import { createAdapter as createLighterAdapter, lighterConfigsFor } from "@capst
 import { createMarketDataCache, createRedis, schema, type Db, type MarketDataCache, type Redis } from "@capstan/core";
 import { declarationStep } from "@capstan/eligibility";
 import { policyTypedData, type KillAdapter } from "@capstan/policy";
-import { venueNetwork, type AgentPolicy, type BuildContext, type Hex, type OnboardingBundle, type OnboardingStep, type UnsignedVenuePayload, type VenueAdapter, type VenueId, type VenueIdentity } from "@capstan/schema";
+import { venueNetwork, venueUrlOverride, type AgentPolicy, type BuildContext, type Hex, type OnboardingBundle, type OnboardingStep, type UnsignedVenuePayload, type VenueAdapter, type VenueId, type VenueIdentity } from "@capstan/schema";
 import { createGovernor, venueHttp, type Governor } from "@capstan/venue-client";
 import { and, eq, inArray, sql } from "drizzle-orm";
 
@@ -52,6 +52,13 @@ export async function lastKnownHlDexes(db: Db): Promise<LastKnownDex[]> {
   return gone.map((g) => ({ dex: g.dex, dexIndex: g.dexIndex, markets: rows.filter((r) => r.dex === g.dex).map(rowToMarket) }));
 }
 
+/** The Hyperliquid config for this environment: the profile's hosts, or a local stand-in venue (CAPSTAN_VENUE_URL_HYPERLIQUID). */
+export function hlConfigFor(env: Record<string, string | undefined>, mainnet: boolean) {
+  const base = { ...(mainnet ? HL_MAINNET : HL_TESTNET), builderAddress: (env.HL_BUILDER_ADDRESS as Hex | undefined) ?? ZERO };
+  const o = venueUrlOverride("hyperliquid", env);
+  return o ? { ...base, infoUrl: `${o}/info`, exchangeUrl: `${o}/exchange`, wsUrl: `${o.replace(/^http/, "ws")}/ws` } : base;
+}
+
 export async function composeAdapters(env: Record<string, string | undefined>, o: { db: Db | null; redis: Redis | null; governor?: Governor; cache?: MarketDataCache }): Promise<AdapterSet> {
   // every host comes from the network profile (packages/schema networks.ts), so one profile never mixes networks
   const mainnet = venueNetwork("hyperliquid", env) === "mainnet";
@@ -67,7 +74,7 @@ export async function composeAdapters(env: Record<string, string | undefined>, o
   };
   const adapters = new Map<VenueId, BuildAdapter>();
 
-  const hlCfg = { ...(mainnet ? HL_MAINNET : HL_TESTNET), builderAddress: (env.HL_BUILDER_ADDRESS as Hex | undefined) ?? ZERO };
+  const hlCfg = hlConfigFor(env, mainnet);
   const hlKey = mainnet ? "hyperliquid" : "hyperliquid-testnet";
   const hlHttp = venueHttp(hlKey, hlCfg.infoUrl.replace(/\/info$/, ""), gov, { userAgent: "capstan-api" });
   // a HIP-3 dex that left perpDexs keeps its last-known markets from the catalog, so close-all still covers it (08 R12)
@@ -98,7 +105,8 @@ export async function composeAdapters(env: Record<string, string | undefined>, o
     }) as BuildAdapter,
   );
   for (const cfg of lighterConfigsFor(env)) {
-    adapters.set(cfg.venue, createLighterAdapter({ config: cfg.name, gov, cache, execution: env.LIGHTER_EXECUTION === "1" }) as BuildAdapter);
+    const rest = venueUrlOverride(cfg.venue, env);
+    adapters.set(cfg.venue, createLighterAdapter({ config: cfg.name, gov, cache, execution: env.LIGHTER_EXECUTION === "1", ...(rest ? { rest } : {}) }) as BuildAdapter);
   }
   const aster = await import("@capstan/adapter-aster");
   const asterMainnet = venueNetwork("aster", env) === "mainnet";

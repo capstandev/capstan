@@ -56,7 +56,7 @@ contract DeployAll is DeployAnchorLock {
             console.log("skip: already deployed at", d.cpst);
         } else {
             d.cpst = address(new CPST(safe));
-            d.cpstBlock = block.number;
+            d.cpstBlock = Deployments.chainBlock();
             d.cpstSymbol = "CPST";
             d.cpstDecimals = 18;
             d.cpstSupply = "1000000000";

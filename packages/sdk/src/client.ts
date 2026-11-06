@@ -213,11 +213,16 @@ export function createClient(o: CapstanClientOptions): CapstanClient {
   const keyAuth: RequestAuth = async (): Promise<Record<string, string>> => {
     if (o.apiKey) return {}; // already on every call
     if (o.anonymousApiKey === false) return {};
-    anonKey ??= api
-      .post<{ key?: unknown }>("/account/keys", { owner: null })
-      .then((r) => (typeof r?.key === "string" && /^cpst_[A-Za-z0-9_-]{20,200}$/.test(r.key) ? r.key : null))
-      .catch(() => null);
-    const k = await anonKey;
+    anonKey ??= api.post<{ key?: unknown }>("/account/keys", { owner: null }).then((r) => (typeof r?.key === "string" && /^cpst_[A-Za-z0-9_-]{20,200}$/.test(r.key) ? r.key : null));
+    let k: string | null;
+    try {
+      k = await anonKey;
+    } catch (e) {
+      // the server refused the key (a rate limit, an outage): say so, rather than send the call without a key and
+      // report the server's "owner signature missing" (found on the fork run, todo 40)
+      anonKey = null;
+      throw e;
+    }
     if (!k) {
       anonKey = null; // try again next time; this call goes without a key and the server answers 401
       return {};

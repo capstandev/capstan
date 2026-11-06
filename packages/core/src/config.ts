@@ -4,6 +4,7 @@
 // Raw key variables are refused: service keys load only through keystoreSigner from a path (local chain 31337 may use
 // the dev signer instead).
 import { z } from "zod";
+import { applyForkDeployments } from "./fork";
 
 export type Role = "api" | "ws" | "relay" | "mcp" | "workers" | "facilitator";
 export const ROLES: readonly Role[] = ["api", "ws", "relay", "mcp", "workers", "facilitator"];
@@ -189,6 +190,8 @@ const SIGNER_PREFIXES = ["RECEIPT", "ANCHOR", "FACILITATOR"] as const;
 const RAW_KEY_NAME = /(^|_)(PRIVATE_?KEY|PRIV_?KEY|MNEMONIC|SEED|SEED_PHRASE)($|_)/i;
 
 export function loadConfig<R extends Role>(role: R, env: Record<string, string | undefined> = process.env): ConfigFor<R> {
+  // a fork stack (ops/fork) adds its throwaway contract record before anything reads DEPLOYMENTS
+  if (env.CAPSTAN_FORK_DEPLOYMENTS) applyForkDeployments(env);
   const schema = ROLE_SCHEMAS[role];
   if (!schema) throw new Error(`config: unknown role ${String(role)}`);
   const refused = Object.keys(env).filter((k) => RAW_KEY_NAME.test(k) && env[k] !== undefined && env[k] !== "");

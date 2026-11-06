@@ -11,6 +11,7 @@ import { drafts, type ReceiptDraft } from "@capstan/receipts";
 import { sha256Jcs } from "@capstan/relay";
 import { CapstanError, errorBody, OnboardingBuildZ, OnboardingPreflightQueryZ, OnboardingSubmitZ, type Hex, type OnboardingBundle, type OnboardingRequest, type VenueId } from "@capstan/schema";
 import { recordOnboardingPrompt } from "@capstan/telemetry";
+import { storeDeclaration } from "@capstan/eligibility";
 import { and, eq, ne } from "drizzle-orm";
 import type { Context } from "hono";
 import { bundleOfRow, type BuildAdapter } from "../adapters";
@@ -145,6 +146,15 @@ export function createOnboardingRoutes(getDeps: () => Promise<OnboardingRouteDep
           const [r] = await deps.db.select({ venue: schema.onboardingSessions.venue }).from(schema.onboardingSessions).where(eq(schema.onboardingSessions.id, id)).limit(1);
           return r?.venue ?? "hyperliquid";
         },
+        // the bundle's owner (an API-key submit names none): the edge checks that owner's region and the handler
+        // stores that owner's signed declaration
+        async owner(_c, body) {
+          const id = (body as { bundleId?: unknown } | null)?.bundleId;
+          if (typeof id !== "string") return null;
+          const deps = await getDeps();
+          const [r] = await deps.db.select({ owner: schema.onboardingSessions.owner }).from(schema.onboardingSessions).where(eq(schema.onboardingSessions.id, id)).limit(1);
+          return r?.owner ?? null;
+        },
       },
       async handler(c) {
         const body = await json(c);
@@ -170,6 +180,22 @@ export function createOnboardingRoutes(getDeps: () => Promise<OnboardingRouteDep
         const venue = row.venue as VenueId;
         const a = deps.adapters.get(venue);
         if (!a) return c.json(errorBody("UNSUPPORTED_VENUE"), 400);
+        // the signed eligibility declaration (spec 10 item 2) is verified and stored before any venue step is sent;
+        // later writes find it (the edge refuses orders without it)
+        const di = bundle.steps.findIndex((st) => st.kind === "eligibility_declaration" && st.typedData);
+        if (di >= 0) {
+          const sig = (p.data.signatures as { step: number; sig: Hex }[]).find((x) => x.step === di)?.sig;
+          try {
+            if (!sig) throw new CapstanError("DECLARATION_MISSING", "The eligibility declaration step is not signed.");
+            const td = bundle.steps[di]!.typedData!;
+            if (String((td.message as { owner?: unknown }).owner ?? "").toLowerCase() !== row.owner.toLowerCase()) throw new CapstanError("UNAUTHORIZED", "The declaration names another owner.");
+            await storeDeclaration(td, sig, deps.db, now);
+          } catch (e) {
+            await deps.db.update(s).set({ status: "failed" }).where(eq(s.id, row.id));
+            if (e instanceof CapstanError) return c.json(e.toBody(), e.status as 400);
+            throw e;
+          }
+        }
         let res;
         try {
           res = await a.submitOnboarding({ bundleId: row.id, signatures: p.data.signatures as { step: number; sig: Hex }[], ...(p.data.lighterSignedTx !== undefined ? { lighterSignedTx: p.data.lighterSignedTx } : {}) });

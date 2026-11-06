@@ -76,4 +76,25 @@ contract DeployForkTest is Test {
         vm.expectRevert(); // the same deployment with an EOA named as the brand Safe fails the Safe check
         pdc.checkCpst(d, deployer.addr);
     }
+
+    /// Found on the fork run (todo 40): the deployment record took block.number, which on Robinhood Chain (Arbitrum
+    /// Orbit) is the L1 block, so the RootPosted indexer would start about 81 million blocks early. The record now
+    /// holds the L2 block (ArbSys arbBlockNumber), the number eth_getLogs uses.
+    function test_recordBlockIsTheL2Block() public {
+        string memory rpc = vm.envOr("RHC_RPC_URL", string(""));
+        if (bytes(rpc).length == 0) {
+            vm.skip(true);
+            return;
+        }
+        vm.createSelectFork(rpc);
+        uint256 l2 = Deployments.chainBlock();
+        // the node's eth_blockNumber is the L2 head, the number eth_getLogs and receipts use
+        bytes memory raw = vm.rpc("eth_blockNumber", "[]");
+        uint256 head;
+        for (uint256 i; i < raw.length; ++i) {
+            head = (head << 8) | uint8(raw[i]);
+        }
+        assertGt(l2, block.number, "the L2 block is above the L1 block NUMBER answers");
+        assertApproxEqAbs(l2, head, 100_000, "the record block is the node's own block number");
+    }
 }

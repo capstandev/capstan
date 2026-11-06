@@ -5,9 +5,9 @@
 //   after that the owner is treated as having nothing locked (fail to the lower tier).
 // - Sybil rule: a new wallet (first seen under 24 h ago, no venue activity) gets half the free build and relay rate.
 import { schema, type Db } from "@capstan/core";
-import type { Hex } from "@capstan/schema";
+import { DEPLOYMENTS, type Hex } from "@capstan/schema";
 import { eq } from "drizzle-orm";
-import { parseAbi, type PublicClient } from "viem";
+import { createPublicClient, http, parseAbi, type PublicClient } from "viem";
 import { LOCK_FEE, limitsFor, lockTierOf, multiplierOf, NEW_WALLET_AGE_MS, STANDARD_FEE, type BuilderFee, type Limits, type Tier } from "./tiers";
 
 export interface LockReader {
@@ -27,6 +27,23 @@ export function viemLockReader(client: Pick<PublicClient, "readContract">, lock:
       return { amount, unlockAt: BigInt(unlockAt) };
     },
   };
+}
+
+/** Nothing is locked (no CPSTLock deployed on this chain yet, or no RPC): every wallet reads as unlocked. */
+export const NO_LOCK: LockReader = { lockedOf: async () => ({ amount: 0n, unlockAt: 0n }) };
+
+/**
+ * The one CPSTLock reader every role uses (api account and order builds, relay lanes): the chain the network profile
+ * names (4663 on mainnet, else 46630), that chain's lock (CPST_LOCK_ADDRESS, else the deployment record) and that
+ * chain's RPC (RHC_RPC_URL or RHC_TESTNET_RPC_URL). Missing pieces give NO_LOCK, never another chain's reader.
+ */
+export function lockReaderFromEnv(env: Record<string, string | undefined> = process.env): LockReader {
+  const chainId = env.CAPSTAN_NETWORK === "mainnet" ? 4663 : 46630;
+  const fromEnv = env.CPST_LOCK_ADDRESS && /^0x[0-9a-fA-F]{40}$/.test(env.CPST_LOCK_ADDRESS) ? (env.CPST_LOCK_ADDRESS as Hex) : undefined;
+  const lock = fromEnv ?? (DEPLOYMENTS[chainId]?.contracts.CPSTLock?.address as Hex | undefined);
+  const rpc = chainId === 4663 ? env.RHC_RPC_URL : env.RHC_TESTNET_RPC_URL;
+  if (!lock || !rpc) return NO_LOCK;
+  return viemLockReader(createPublicClient({ transport: http(rpc, { retryCount: 2 }) }), lock);
 }
 
 export interface WalletActivity {

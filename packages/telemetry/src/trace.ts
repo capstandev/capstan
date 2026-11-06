@@ -89,8 +89,11 @@ export interface Telemetry {
   /** traceparent (and tracestate) for the active span, written into the carrier. */
   inject<C extends Carrier>(carrier?: C): C;
   extract(carrier: Carrier): Context;
-  /** Wrap a fetch-style handler: one SERVER span per request, continuing the caller's traceparent. */
-  serve(handler: (req: Request) => Response | Promise<Response>): (req: Request) => Promise<Response>;
+  /**
+   * Wrap a fetch-style handler: one SERVER span per request, continuing the caller's traceparent. Every extra argument
+   * Bun.serve passes (the server, which Hono's getConnInfo reads the caller's socket address from) reaches the handler.
+   */
+  serve<A extends unknown[]>(handler: (req: Request, ...rest: A) => Response | Promise<Response>): (req: Request, ...rest: A) => Promise<Response>;
   /** Job data with the current traceparent added (enqueue side). */
   jobData<D extends object>(data: D): D & { traceparent?: string };
   /** Continue the trace carried in job data (worker side). */
@@ -173,7 +176,7 @@ export function initTelemetry(service: Role, opts: TelemetryOptions = {}): Telem
     inject,
     extract,
     serve(handler) {
-      return async (req: Request) => {
+      return async (req: Request, ...rest) => {
         const headers: Carrier = {};
         req.headers.forEach((v, k) => (headers[k] = v));
         const url = new URL(req.url);
@@ -181,7 +184,7 @@ export function initTelemetry(service: Role, opts: TelemetryOptions = {}): Telem
           `${req.method} ${url.pathname}`,
           async (s) => {
             SERVICE_METRICS.httpRequests.inc(service);
-            const res = await handler(req);
+            const res = await handler(req, ...rest);
             s.setAttribute("http.response.status_code", res.status);
             return res;
           },

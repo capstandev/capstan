@@ -27,6 +27,22 @@ library Deployments {
         string sourcifyUrl;
     }
 
+    /// @notice Arbitrum's ArbSys precompile (Robinhood Chain is an Arbitrum Orbit chain).
+    address internal constant ARB_SYS = address(0x64);
+
+    /// @notice The chain's own block number for the deployment record. On an Arbitrum chain the NUMBER opcode
+    /// (`block.number`) answers the L1 block (about 26 million on 4663 in November 2026, while the L2 head is about
+    /// 107 million), so a record written from it makes every log scan start tens of millions of blocks early. ArbSys
+    /// arbBlockNumber() answers the L2 block that eth_getLogs and receipts use; other chains keep block.number.
+    function chainBlock() internal view returns (uint256) {
+        if (block.chainid == 4663 || block.chainid == 46630) {
+            (bool ok, bytes memory ret) = ARB_SYS.staticcall(abi.encodeWithSignature("arbBlockNumber()"));
+            if (ok && ret.length == 32) return abi.decode(ret, (uint256));
+            revert("ArbSys arbBlockNumber() did not answer on an Arbitrum chain");
+        }
+        return block.number;
+    }
+
     /// @notice The deployment file path for the connected chain (relative to the contracts folder).
     function path() internal view returns (string memory) {
         return VM.envOr("DEPLOYMENTS_FILE", string.concat("deployments/", VM.toString(block.chainid), ".json"));

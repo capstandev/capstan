@@ -110,8 +110,30 @@ describe("REL-1 and REL-3", () => {
     // the dropped rails disappear from accepts
     const acc = acceptsFor(routes.forecast, fullState("testnet", { droppedRails: e.dropped }), "testnet");
     expect(acc.map((a) => railOf(a, "testnet"))).toEqual(["base-usdc", "solana-usdc"]);
-    // at the edge: exactly 50% is kept, a hair over is dropped
+    // at the edge: exactly 50% of the cheapest route is kept everywhere; a hair over is limited to the dearer route;
+    // over 50% of the dearest route is dropped
     expect(railEconomics(routes, { "base-usdc": { usd: 0.005 } }).dropped).not.toContain("base-usdc");
-    expect(railEconomics(routes, { "base-usdc": { usd: 0.0050001 } }).dropped).toContain("base-usdc");
+    expect(railEconomics(routes, { "base-usdc": { usd: 0.005 } }).limited).not.toContain("base-usdc");
+    const lim = railEconomics(routes, { "base-usdc": { usd: 0.0050001 } });
+    expect(lim.dropped).not.toContain("base-usdc");
+    expect(lim.limited).toContain("base-usdc");
+    expect(railEconomics(routes, { "base-usdc": { usd: 0.0100001 } }).dropped).toContain("base-usdc");
+  });
+
+  test("per-route-economics", () => {
+    // found on the fork run (todo 40): RHC USDG settles at the live gas price cost about $0.006, so the rail is kept for
+    // a $0.02 call and left out of a $0.01 call (never dropped from every route)
+    const routes = { forecast: { usd: "0.01", description: "f" }, scan: { usd: "0.02", description: "s" } };
+    const e = railEconomics(routes, { "base-usdc": { usd: 0.002 }, "rhc-usdg-permit2": { usd: 0.0068 }, "rhc-usdg-eip3009": { usd: 0.0058 }, "solana-usdc": { usd: 0.003 } });
+    expect(e.dropped).toEqual([]);
+    expect(e.limited.sort()).toEqual(["rhc-usdg-eip3009", "rhc-usdg-permit2"]);
+    const st = fullState("mainnet", { droppedRails: e.dropped, railCostsUsd: e.costs, eip3009MainnetEnabled: true });
+    const rails = (r: { usd: string; description: string }) => acceptsFor(r, st, "mainnet").map((a) => railOf(a, "mainnet"));
+    expect(rails(routes.forecast)).not.toContain("rhc-usdg-permit2");
+    expect(rails(routes.forecast)).not.toContain("rhc-usdg-eip3009");
+    expect(rails(routes.scan)).toContain("rhc-usdg-permit2");
+    expect(rails(routes.scan)).toContain("rhc-usdg-eip3009");
+    // an unknown cost is never offered (fail closed), whatever the price
+    expect(acceptsFor({ usd: "100", description: "x" }, fullState("mainnet", { railCostsUsd: { "base-usdc": null } }), "mainnet").map((a) => railOf(a, "mainnet"))).not.toContain("base-usdc");
   });
 });

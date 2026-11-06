@@ -152,8 +152,11 @@ export async function decide(input: EligibilityInput, deps: DecideDeps): Promise
         else who = bound;
       }
       const dcl = who ? await findValidDeclaration(deps.db, who, input.venue, rule, now) : null;
-      if (!dcl) code = "DECLARATION_MISSING";
-      else declarationId = dcl.id;
+      if (dcl) declarationId = dcl.id;
+      // The owner's first onboarding is where the declaration is signed (it is step 0 of the bundle, spec 10 item 2),
+      // so an owner onboarding needs no stored one yet: the submit stores the signed declaration before any venue
+      // step is sent (apps/api onboarding.routes.ts). An agent never onboards without one (default-deny).
+      else if (!(input.action === "onboarding" && input.agentRef === undefined && owner !== null)) code = "DECLARATION_MISSING";
     }
   } else if (geoRefused || equityRefused) {
     readOnly = true;

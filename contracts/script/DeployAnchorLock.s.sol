@@ -48,7 +48,7 @@ contract DeployAnchorLock is Script {
             } else {
                 token = address(new MockERC20("Local Test Token", "TEST"));
                 d.cpst = token;
-                d.cpstBlock = block.number;
+                d.cpstBlock = Deployments.chainBlock();
                 d.cpstSymbol = "TEST";
                 d.cpstDecimals = 18;
                 d.cpstSupply = "0";
@@ -62,7 +62,7 @@ contract DeployAnchorLock is Script {
             console.log("skip: already deployed at", d.lock);
         } else {
             d.lock = address(new CPSTLock(token));
-            d.lockBlock = block.number;
+            d.lockBlock = Deployments.chainBlock();
             changed = true;
         }
         if (d.anchor != address(0) && d.anchor.code.length > 0) {
@@ -73,7 +73,7 @@ contract DeployAnchorLock is Script {
             console.log("skip: already deployed at", d.anchor);
         } else {
             d.anchor = address(new CapstanReceiptAnchor(poster));
-            d.anchorBlock = block.number;
+            d.anchorBlock = Deployments.chainBlock();
             d.poster = poster;
             changed = true;
         }

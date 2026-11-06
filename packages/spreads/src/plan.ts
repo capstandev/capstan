@@ -7,6 +7,7 @@ import { bodyHash, ulid, verifyCapstanMessage, type NonceStore } from "@capstan/
 import { quoteHash, type QuoteMarket } from "@capstan/quote";
 import { Dec, SPREAD_RISK_LABEL, type Hex, type OrderIntent, type SpreadLeg, type SpreadPlan, type UnsignedVenuePayload, type VenueId } from "@capstan/schema";
 import { DATA_ONLY, scan, type ScanDeps, type ScanLeg, type ScanRow } from "./scan";
+import { legClientOrderId } from "./executor";
 
 export const DEFAULT_LEG_TIMEOUT_MS = 3000;
 export const DEFAULT_LEG_SLIPPAGE_BPS = 50;
@@ -72,7 +73,7 @@ export function commonFloor(x: string, lots: string[]): string {
 
 /** The intent template each leg carries: an IOC market order of the leg's size (A first, then B sized to A's fill). */
 export function legIntent(planId: string, leg: Pick<SpreadLeg, "marketId" | "side" | "size">, which: "a" | "b", maxSlippageBps: number): OrderIntent {
-  return { marketId: leg.marketId, side: leg.side, size: leg.size, type: "market", tif: "ioc", reduceOnly: false, clientOrderId: `${planId}-${which}`, maxSlippageBps };
+  return { marketId: leg.marketId, side: leg.side, size: leg.size, type: "market", tif: "ioc", reduceOnly: false, clientOrderId: legClientOrderId(planId, which, leg.marketId.split(":")[0] as VenueId), maxSlippageBps };
 }
 
 function encodingOf(v: VenueId): UnsignedVenuePayload["encoding"] {

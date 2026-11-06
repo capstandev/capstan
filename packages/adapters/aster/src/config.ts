@@ -96,14 +96,18 @@ export function asterCaps(builderAddress: Hex, opts: { execution?: boolean; netw
     keyType: "secp256k1",
     delegation: "agent",
     canWithdraw: false,
-    builderFee: {
-      kind: BUILDER_FEE_DEFAULTS.aster.kind,
-      unit: BUILDER_FEE_DEFAULTS.aster.unit,
-      capBps: BUILDER_FEE_DEFAULTS.aster.capBps,
-      chargeBps: BUILDER_FEE_DEFAULTS.aster.chargeBps,
-      approvalSignedBy: "main_wallet",
-      builderAddress,
-    },
+    // no builder configured yet (ASTER_BUILDER_ADDRESS unset): no rail is advertised, rather than the zero address,
+    // which every SDK release refuses as an unpinned builder (found on the fork run, todo 40)
+    builderFee: /^0x0{40}$/i.test(builderAddress)
+      ? null
+      : {
+          kind: BUILDER_FEE_DEFAULTS.aster.kind,
+          unit: BUILDER_FEE_DEFAULTS.aster.unit,
+          capBps: BUILDER_FEE_DEFAULTS.aster.capBps,
+          chargeBps: BUILDER_FEE_DEFAULTS.aster.chargeBps,
+          approvalSignedBy: "main_wallet",
+          builderAddress,
+        },
     collateral: ["USDT", "USD1", "USDC", "U"],
     directSubmitSupported: true,
     publicAccountReads: false,

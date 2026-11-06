@@ -71,7 +71,8 @@ describe("boot state", () => {
     for (const rail of ["base-usdc", "rhc-usdg-permit2", "rhc-usdg-eip3009"] as const) {
       const c = economics.costs[rail];
       expect(typeof c).toBe("number");
-      expect(economics.dropped.includes(rail)).toBe(c! > economics.limitUsd);
+      expect(economics.dropped.includes(rail)).toBe(c! > economics.maxLimitUsd);
+      expect(economics.limited.includes(rail)).toBe(c! > economics.limitUsd && c! <= economics.maxLimitUsd);
     }
     // no Solana sponsor configured: that rail has no cost and is dropped
     expect(economics.dropped).toContain("solana-usdc");

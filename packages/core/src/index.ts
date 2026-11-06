@@ -12,3 +12,4 @@ export * from "./cache";
 export * from "./logger";
 export * from "./signed-message";
 export * from "./testing";
+export * from "./fork";

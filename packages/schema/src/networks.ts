@@ -58,3 +58,34 @@ export function venueNetworkEntry(venue: VenueId, env: Record<string, string | u
 export function venueNetworkProfile(env: Record<string, string | undefined>, venues: readonly VenueId[]): VenueNetworkEntry[] {
   return venues.map((v) => venueNetworkEntry(v, env));
 }
+
+/**
+ * Local stand-in venue hosts (the fork stack's fake venue servers, ops/fork). CAPSTAN_VENUE_URL_<VENUE> replaces a
+ * venue's REST host, e.g. CAPSTAN_VENUE_URL_HYPERLIQUID=http://127.0.0.1:22420. Only a loopback http URL is accepted,
+ * so a typo can never point a venue at some other real host; anything else throws at composition time. Unset means
+ * the network profile decides, as before.
+ */
+export const VENUE_URL_OVERRIDE_ENV: Readonly<Record<VenueId, string>> = Object.freeze({
+  hyperliquid: "CAPSTAN_VENUE_URL_HYPERLIQUID",
+  "lighter-mainnet": "CAPSTAN_VENUE_URL_LIGHTER_MAINNET",
+  "lighter-rh": "CAPSTAN_VENUE_URL_LIGHTER_RH",
+  aster: "CAPSTAN_VENUE_URL_ASTER",
+  arcus: "CAPSTAN_VENUE_URL_ARCUS",
+  variational: "CAPSTAN_VENUE_URL_VARIATIONAL",
+});
+
+export function venueUrlOverride(venue: VenueId, env: Record<string, string | undefined>): string | null {
+  const name = VENUE_URL_OVERRIDE_ENV[venue];
+  const raw = name ? env[name]?.trim() : undefined;
+  if (!raw) return null;
+  let u: URL;
+  try {
+    u = new URL(raw);
+  } catch {
+    throw new Error(`${name} is not a URL`);
+  }
+  if (u.protocol !== "http:" || !["127.0.0.1", "localhost", "[::1]"].includes(u.hostname) || u.username || u.password || u.search || u.hash) {
+    throw new Error(`${name} must be a loopback http URL (a local stand-in venue), never another host`);
+  }
+  return `${u.origin}${u.pathname.replace(/\/+$/, "")}`;
+}

@@ -2,10 +2,9 @@
 // GET /v1/account (API key): the account's plan, lock tier, limits and credits. Locking is never required.
 // Also exports the shared wiring (PlansDeps, envPlansDeps, presentedKey) used by credits.routes.ts.
 import { createDb, createRedis, memoryNonceStore, redisNonceStore, type Db, type NonceStore, type RouteSpec } from "@capstan/core";
-import { ApiKeyError, createApiKey, creditsOf, dbWalletActivity, PERK_COPY, tierOf, verifyApiKey, viemLockReader, type LockReader, type WalletActivity } from "@capstan/plans";
-import { DEPLOYMENTS, errorBody, type Hex } from "@capstan/schema";
+import { ApiKeyError, createApiKey, creditsOf, dbWalletActivity, lockReaderFromEnv, NO_LOCK as NO_LOCK_READER, PERK_COPY, tierOf, verifyApiKey, type LockReader, type WalletActivity } from "@capstan/plans";
+import { errorBody, type Hex } from "@capstan/schema";
 import type { Context } from "hono";
-import { createPublicClient, http } from "viem";
 
 export interface PlansDeps {
   db: Db;
@@ -17,14 +16,11 @@ export interface PlansDeps {
 }
 
 /** No CPSTLock deployed on this chain yet: nothing is locked (every route still works on the free plan). */
-export const NO_LOCK: LockReader = { lockedOf: async () => ({ amount: 0n, unlockAt: 0n }) };
+export const NO_LOCK: LockReader = NO_LOCK_READER;
 
+/** The shared CPSTLock reader (packages/tiers lockReaderFromEnv): the same chain, lock and RPC every role uses. */
 export function lockFromEnv(env: Record<string, string | undefined> = process.env): LockReader {
-  const chainId = env.CAPSTAN_NETWORK === "mainnet" ? 4663 : 46630;
-  const lock = DEPLOYMENTS[chainId]?.contracts.CPSTLock?.address;
-  const rpc = chainId === 4663 ? env.RHC_RPC_URL : env.RHC_TESTNET_RPC_URL;
-  if (!lock || !rpc) return NO_LOCK;
-  return viemLockReader(createPublicClient({ transport: http(rpc, { retryCount: 2 }) }), lock as Hex);
+  return lockReaderFromEnv(env);
 }
 
 let cached: Promise<PlansDeps> | null = null;

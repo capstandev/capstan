@@ -108,6 +108,11 @@ describe.skipIf(!PG)("eligibility edge", () => {
         seen.length = 0;
         const path = w.path.replace(":id", "p1");
         const r = await post(a, path, b);
+        // an owner's first onboarding signs its declaration inside the bundle (first-onboarding.test.ts in eligibility)
+        if (code === "DECLARATION_MISSING" && w.write!.action === "onboarding") {
+          expect(r.status, `${code} ${path}`).toBe(200);
+          continue;
+        }
         expect(r.status, `${code} ${path}`).toBe(403);
         const e = (await r.json()) as { error: { code: string; message: string; receiptId?: string } };
         expect(e.error.code).toBe(code);
@@ -125,5 +130,28 @@ describe.skipIf(!PG)("eligibility edge", () => {
     seen.length = 0;
     expect((await post(a, "/orders/build", { owner: owner.address })).status).toBe(400);
     expect(seen).toEqual([]);
+  });
+});
+
+// Found on the fork run (todo 40): an API-key onboarding submit names no owner in its auth or body, so the edge saw no
+// owner and refused the owner's first onboarding. The route's owner resolver (the bundle's owner) fills it in.
+describe.skipIf(!PG)("edge owner resolver", () => {
+  let f: DbFixture;
+  beforeAll(async () => {
+    f = await dbFixture("edge_owner");
+  });
+  afterAll(async () => {
+    await f?.drop();
+  });
+  test("owner-from-route-resolver", async () => {
+    const owner = wallet("edge-owner-resolver").address;
+    const seen: unknown[] = [];
+    const mk = (withResolver: boolean): RouteSpec => ({ method: "POST", path: "/onboarding/submit", auth: "public", write: { action: "onboarding", venue: () => "hyperliquid", ...(withResolver ? { owner: () => owner } : {}) }, handler: (c) => (seen.push(get(c, "eligibilityDecisionId")), c.json({ ok: 1 })) });
+    for (const [withResolver, status] of [[false, 403], [true, 200]] as const) {
+      const app = (await createApp({ routesDir: EMPTY_ROUTES, extraRoutes: [mk(withResolver)], edge: edgeFor({ geo, db: f.db, now: () => new Date(NOW), issue: (d) => f.receipts.issue(d), ipOf: () => IP.DE! }) })).app;
+      const r = await app.request("/v1/onboarding/submit", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ bundleId: "b1" }) });
+      expect(r.status).toBe(status);
+    }
+    expect(seen).toHaveLength(1);
   });
 });

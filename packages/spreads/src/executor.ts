@@ -11,6 +11,23 @@ import { Dec, type OrderIntent, type SignedEnvelope, type SpreadPlan, type Submi
 
 export const POLL_MS = 250;
 
+const FNV128_OFFSET = 0x6c62272e07bb014262b821756295c58dn;
+const FNV128_PRIME = 0x0000000001000000000000000000013bn;
+const MASK128 = (1n << 128n) - 1n;
+
+/**
+ * The client order id of one leg order, in the form its venue accepts. Hyperliquid takes only 0x + 32 hex (a cloid):
+ * a 128-bit FNV-1a of `<planId>:<leg>`, so each leg of each plan has its own id and the same leg always gets the same
+ * one. Other venues keep `<planId>-<leg>` (Aster allows 36 characters; Lighter numbers its own client order index).
+ * Found on the fork run (todo 40): `<planId>-a` made every Hyperliquid leg build fail.
+ */
+export function legClientOrderId(planId: string, which: string, venue: VenueId): string {
+  if (venue !== "hyperliquid") return `${planId}-${which}`;
+  let h = FNV128_OFFSET;
+  for (const b of new TextEncoder().encode(`${planId}:${which}`)) h = ((h ^ BigInt(b)) * FNV128_PRIME) & MASK128;
+  return `0x${h.toString(16).padStart(32, "0")}`;
+}
+
 export type ExecutorEvent = {
   kind: "leg_a_sent" | "leg_a_filled" | "leg_b_sent" | "leg_b_filled" | "unhedged" | "flattened" | "failed" | "complete";
   data: unknown;
@@ -137,7 +154,7 @@ export async function execute(p: SpreadPlan, ports: ExecutorPorts): Promise<Exec
   const lotA = lotOfLeg(p, "a", ports);
   const lotB = lotOfLeg(p, "b", ports);
   const slip = p.maxLegSlippageBps;
-  const ioc = (leg: SpreadPlan["legA"], size: Dec, which: string, reduceOnly = false, side: "buy" | "sell" = leg.side): OrderIntent => ({ marketId: leg.marketId, side, size: s(size), type: "market", tif: "ioc", reduceOnly, clientOrderId: `${p.planId}-${which}`, maxSlippageBps: slip });
+  const ioc = (leg: SpreadPlan["legA"], size: Dec, which: string, reduceOnly = false, side: "buy" | "sell" = leg.side): OrderIntent => ({ marketId: leg.marketId, side, size: s(size), type: "market", tif: "ioc", reduceOnly, clientOrderId: legClientOrderId(p.planId, which, leg.venue), maxSlippageBps: slip });
 
   // ---- leg A
   const aSize = floorLot(d(p.legA.size), lotA);

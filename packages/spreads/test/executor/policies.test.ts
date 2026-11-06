@@ -1,5 +1,6 @@
 // R5: each hedge-failure policy when leg B is rejected or fills partly.
 import { describe, expect, test } from "bun:test";
+import { legClientOrderId } from "../../src/executor";
 import { execute } from "../../src/executor";
 import { LOTS, planOf, sim } from "./sim";
 
@@ -30,7 +31,8 @@ describe("hedge failure policies", () => {
     const v3 = sim((i) => (i.marketId === p3.legB.marketId ? { reject: true } : {}), LOTS(p3));
     expect(await execute(p3, v3.ports)).toEqual({ status: "flattened", residualDeltaBase: "0", legAFilled: "1", legBFilled: "0" });
     expect(v3.subs.map((x) => [x.venue, x.intent.reduceOnly])).toEqual([["lighter-mainnet", false], ["hyperliquid", false], ["hyperliquid", false], ["lighter-mainnet", true]]);
-    expect(v3.subs[2]!.intent.clientOrderId).toBe("PLAN0001-b2");
+    // leg B here is Hyperliquid: its retry carries the cloid form of PLAN0001 leg b2 (legClientOrderId)
+    expect(v3.subs[2]!.intent.clientOrderId).toBe(legClientOrderId("PLAN0001", "b2", "hyperliquid"));
 
     // retry_then_flatten where the retry fills: complete, no flatten
     const v4 = sim((i, _v, nth) => (i.marketId === p3.legB.marketId && nth === 1 ? { fillFrac: 0.5 } : {}), LOTS(p3));

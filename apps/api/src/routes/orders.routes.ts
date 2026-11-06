@@ -340,8 +340,10 @@ export async function ordersEnvDeps(): Promise<OrdersRouteDeps> {
     const claimDeps: ClaimDeps = { store: relayStore, venues: await relayVenues(env, createGovernor(redis, env.RELAY_EGRESS_ID ?? "local")), receipts, policy, flags: relayFlags(env), kill: memoryKillView(), now: Date.now, id: () => ulid() };
     const { Queue } = await import("bullmq");
     const alertsQ = new Queue("alerts-dispatch", { connection: bull, prefix: "capstan" });
-    const { tierOf, dbWalletActivity, limitsFor } = await import("@capstan/plans");
-    const lock = { lockedOf: async () => ({ amount: 0n, unlockAt: 0n }) };
+    const { tierOf, dbWalletActivity, limitsFor, lockReaderFromEnv } = await import("@capstan/plans");
+    // the real CPSTLock reader (found on the fork run, todo 40: a hard-coded zero lock meant locking never gave the
+    // 1 bp builder fee or the holder lane on an order build)
+    const lock = lockReaderFromEnv(env);
     const tier = async (owner: Hex, apiKeyId?: string) => tierOf(apiKeyId ? { apiKeyId, owner } : { owner }, { db, lock, cacheTtlMs: 60_000, activity: dbWalletActivity(db) }).catch(() => null);
     return {
       db,

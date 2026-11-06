@@ -1,0 +1,31 @@
+{
+  "name": "@capstan/ops-fork",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Local stack on an anvil fork of Robinhood Chain: caching RPC proxy, stand-in venues, every-transaction run",
+  "dependencies": {
+    "@capstan/adapter-hyperliquid": "workspace:*",
+    "@capstan/adapter-lighter": "workspace:*",
+    "@capstan/api": "workspace:*",
+    "@capstan/catalog": "workspace:*",
+    "@capstan/core": "workspace:*",
+    "@capstan/facilitator": "workspace:*",
+    "@capstan/mcp": "workspace:*",
+    "@capstan/plans": "workspace:*",
+    "@capstan/quote": "workspace:*",
+    "@capstan/receipts": "workspace:*",
+    "@capstan/relay": "workspace:*",
+    "@capstan/schema": "workspace:*",
+    "@capstan/sdk": "workspace:*",
+    "@capstan/signer-hl": "workspace:*",
+    "@capstan/spreads": "workspace:*",
+    "@capstan/venue-client": "workspace:*",
+    "@capstan/workers": "workspace:*",
+    "@capstan/x402": "workspace:*",
+    "@x402/core": "2.29.0",
+    "@x402/evm": "2.29.0",
+    "drizzle-orm": "0.45.4",
+    "viem": "2.57.14"
+  }
+}

@@ -110,24 +110,19 @@ const unknownDepeg: DepegReader = { usdgUsdcBps: async () => null, usdtUsdcBps: 
 let resolved: Promise<QuoteRouteDeps> | null = null;
 
 /**
- * Wiring from the environment. Venue adapters come from the shared composition (apps/api/src/adapters.ts, built by
- * the gateway work); until it exists, the keyless read-only feeds and the Aster reader are wired here.
+ * Wiring from the environment. Every venue adapter comes from the shared composition (apps/api/src/adapters.ts):
+ * the executable venues (Hyperliquid, both Lighters, Aster) on the network profile's hosts, and the read-only feeds.
+ * Found on the fork run (todo 40): this route used to wire only the read-only feeds and an Aster reader, so every
+ * Hyperliquid and Lighter quote answered VENUE_UNAVAILABLE on the real api.
  */
-async function envDeps(): Promise<QuoteRouteDeps> {
+export async function quoteDepsFromEnv(compose: () => Promise<{ adapters: Map<VenueId, unknown> }> = async () => (await import("../adapters")).getAdapters()): Promise<QuoteRouteDeps> {
   const env = process.env;
   const redis = env.REDIS_URL ? createRedis(env.REDIS_URL) : null;
   const cache = redis ? createMarketDataCache(redis) : memoryMarketDataCache();
   const db = env.DATABASE_URL ? createDb(env.DATABASE_URL, { max: 4 }) : null;
-  const adapters = new Map<VenueId, QuoteAdapter>();
-  const { defaultVariationalAdapter } = await import("@capstan/adapter-variational");
-  const { defaultArcusAdapter } = await import("@capstan/adapter-arcus");
-  adapters.set("variational", defaultVariationalAdapter({ redis, cache }));
-  adapters.set("arcus", defaultArcusAdapter({ redis, cache }));
-  const aster = await import("@capstan/adapter-aster");
-  const reader = aster.defaultAsterReader({ redis, cache });
-  adapters.set("aster", { caps: aster.asterCaps("0x0000000000000000000000000000000000000000", {}), getBook: (id, depth) => reader.getBook(id, depth), getFunding: (id) => reader.getFunding(id) });
+  const adapters = new Map<VenueId, QuoteAdapter>([...(await compose()).adapters].map(([v, a]) => [v, a as unknown as QuoteAdapter]));
   const catalog: CatalogReader = db ? dbCatalogReader(db) : { marketsByIds: async () => [], marketsForAsset: async () => [] };
   return { adapters, cache, catalog, depeg: redis ? cachedDepegReader(redis) : unknownDepeg, store: db ? dbQuoteStore(db) : null };
 }
 
-export const routes: RouteSpec[] = createQuoteRoutes(() => (resolved ??= envDeps()));
+export const routes: RouteSpec[] = createQuoteRoutes(() => (resolved ??= quoteDepsFromEnv()));
