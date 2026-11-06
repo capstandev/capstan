@@ -16,7 +16,11 @@ describe("catalog-sync job", () => {
   test("definition", async () => {
     expect(job).toMatchObject({ name: "catalog-sync", queue: "catalogSync", schedule: { pattern: "15 0 * * *" }, concurrency: 1 });
     expect(SOURCES_DIR.endsWith(join("jobs", "catalog-sources"))).toBe(true);
-    expect(await loadSources()).toEqual([]); // adapters add their sources; none yet in this lane
+    // adapters drop their sources in; each one must load with a venue and a listMarkets function
+    for (const s of await loadSources()) {
+      expect(typeof s.venue).toBe("string");
+      expect(typeof s.listMarkets).toBe("function");
+    }
   });
 
   (REDIS ? test : test.skip)("schedule", async () => {

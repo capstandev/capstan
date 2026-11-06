@@ -14,8 +14,10 @@
       "name": "@capstan/api",
       "version": "0.0.0",
       "dependencies": {
+        "@capstan/adapter-aster": "workspace:*",
         "@capstan/core": "workspace:*",
         "@capstan/schema": "workspace:*",
+        "@capstan/venue-client": "workspace:*",
         "@hono/trpc-server": "0.4.2",
         "@trpc/server": "11.23.0",
         "hono": "4.13.16",
@@ -47,6 +49,7 @@
       "name": "@capstan/workers",
       "version": "0.0.0",
       "dependencies": {
+        "@capstan/adapter-aster": "workspace:*",
         "@capstan/catalog": "workspace:*",
         "@capstan/core": "workspace:*",
         "@capstan/schema": "workspace:*",
@@ -71,6 +74,17 @@
     "packages/adapters/aster": {
       "name": "@capstan/adapter-aster",
       "version": "0.0.0",
+      "dependencies": {
+        "@capstan/core": "workspace:*",
+        "@capstan/schema": "workspace:*",
+        "@capstan/signer-aster": "workspace:*",
+        "@capstan/venue-client": "workspace:*",
+        "ioredis": "5.11.1",
+        "viem": "2.57.14",
+      },
+      "devDependencies": {
+        "@capstan/catalog": "workspace:*",
+      },
     },
     "packages/adapters/hyperliquid": {
       "name": "@capstan/adapter-hyperliquid",
@@ -135,6 +149,11 @@
     "packages/signers/aster": {
       "name": "@capstan/signer-aster",
       "version": "0.0.0",
+      "dependencies": {
+        "@capstan/schema": "workspace:*",
+        "@noble/curves": "2.4.0",
+        "viem": "2.57.14",
+      },
     },
     "packages/signers/hl": {
       "name": "@capstan/signer-hl",
