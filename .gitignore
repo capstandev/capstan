@@ -13,6 +13,8 @@ broadcast/
 !.env.example
 # VPS env templates: placeholders only (@DB_PASSWORD@ and friends), filled in on the server by provision.sh
 !ops/server/etc/*.env
+# Mainnet env overlays: public values and placeholders only (ops/mainnet/env-review.ts checks them)
+!ops/mainnet/env/*.env
 credentials/
 secrets/
 keystores/

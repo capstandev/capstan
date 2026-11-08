@@ -188,6 +188,18 @@
         "viem": "2.57.14",
       },
     },
+    "ops/mainnet": {
+      "name": "@capstan/ops-mainnet",
+      "version": "0.0.0",
+      "dependencies": {
+        "@capstan/core": "workspace:*",
+        "@capstan/schema": "workspace:*",
+        "@capstan/x402": "workspace:*",
+        "@x402/core": "2.29.0",
+        "@x402/evm": "2.29.0",
+        "viem": "2.57.14",
+      },
+    },
     "ops/usage": {
       "name": "@capstan/ops-usage",
       "version": "0.0.0",
@@ -522,6 +534,8 @@
     "@capstan/mcp": ["@capstan/mcp@workspace:apps/mcp"],
 
     "@capstan/ops-fork": ["@capstan/ops-fork@workspace:ops/fork"],
+
+    "@capstan/ops-mainnet": ["@capstan/ops-mainnet@workspace:ops/mainnet"],
 
     "@capstan/ops-usage": ["@capstan/ops-usage@workspace:ops/usage"],
 

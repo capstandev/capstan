@@ -1,0 +1,15 @@
+{
+  "name": "@capstan/ops-mainnet",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Mainnet launch package: fork dry run of the exact deploy script, env review, live check, builder balances",
+  "dependencies": {
+    "@capstan/core": "workspace:*",
+    "@capstan/schema": "workspace:*",
+    "@capstan/x402": "workspace:*",
+    "@x402/core": "2.29.0",
+    "@x402/evm": "2.29.0",
+    "viem": "2.57.14"
+  }
+}
