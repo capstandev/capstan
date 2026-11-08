@@ -415,7 +415,7 @@ export const serviceNonces = pgTable(
 
 export const apiAccounts = pgTable("api_accounts", {
   id: text("id").primaryKey(),
-  keyHash: text("key_hash").notNull(), // Capstan API key (argon2id); NOT a wallet key
+  keyHash: text("key_hash").notNull(), // Capstan API key (sha256$<hex>, legacy argon2id); NOT a wallet key
   ownerWallet: text("owner_wallet"),
   tier: text("tier").notNull(), // free | payg | pro | lock
   credits: numeric("credits").notNull().default("0"),

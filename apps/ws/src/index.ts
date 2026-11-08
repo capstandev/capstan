@@ -21,6 +21,15 @@ if (import.meta.main) {
     const db = process.env.DATABASE_URL ? createDb(process.env.DATABASE_URL, { max: 2 }) : null;
     const { LIMITS, tierOf } = await import("@capstan/plans");
     const noLock = { lockedOf: async () => ({ amount: 0n, unlockAt: 0n }) };
+    // the catalog's market ids and canonical assets, read at most once a minute (r1 F6: only these may be subscribed)
+    let catalog: { at: number; markets: Set<string>; assets: Set<string> } | null = null;
+    const catalogNow = async () => {
+      if (catalog && Date.now() - catalog.at < 60_000) return catalog;
+      const rows = db ? await db.select({ id: schema.markets.id, asset: schema.markets.canonicalAsset }).from(schema.markets) : [];
+      catalog = { at: Date.now(), markets: new Set(rows.map((r) => r.id)), assets: new Set(rows.map((r) => r.asset).filter((a): a is string => !!a)) };
+      return catalog;
+    };
+    const trustXff = process.env.CAPSTAN_TRUST_FORWARDED_FOR === "1";
     const gw = createWsGateway({
       bus: redisBus(redis),
       host: cfg.PUBLIC_API_HOST,
@@ -31,6 +40,10 @@ if (import.meta.main) {
         return rows.map((r) => r.id);
       },
       bookOf: (id) => cache.getBook(id),
+      knownMarket: async (id) => (await catalogNow()).markets.has(id),
+      knownAsset: async (a) => (await catalogNow()).assets.has(a),
+      // behind Caddy the peer is 127.0.0.1: the first X-Forwarded-For entry (Caddy sets it, never the client's)
+      ipOf: (req, server) => (trustXff ? req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() : undefined) || (server.requestIP(req)?.address ?? ""),
       async planSigners(planId) {
         if (!db) return [];
         const [p] = await db.select({ owner: schema.spreadPlans.owner }).from(schema.spreadPlans).where(eq(schema.spreadPlans.id, planId)).limit(1);

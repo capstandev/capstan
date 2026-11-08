@@ -3,9 +3,9 @@
 // the HTTP transport context, never the client's resource.url, and calls topUpCredits once per settlement).
 // GET /v1/credits (API key): balance and recent ledger entries.
 import type { RouteSpec } from "@capstan/core";
-import { creditsOf, TOPUP_PACKS, verifyApiKey } from "@capstan/plans";
+import { creditsOf, TOPUP_PACKS } from "@capstan/plans";
 import { errorBody } from "@capstan/schema";
-import { envPlansDeps, presentedKey, type PlansDeps } from "./account.routes";
+import { envPlansDeps, gateAccount, type PlansDeps } from "./account.routes";
 
 export function createCreditsRoutes(getDeps: () => Promise<PlansDeps> | PlansDeps): RouteSpec[] {
   const topups: RouteSpec[] = TOPUP_PACKS.map((pack) => ({
@@ -34,8 +34,7 @@ export function createCreditsRoutes(getDeps: () => Promise<PlansDeps> | PlansDep
       description: "Your premium-call credit balance",
       async handler(c) {
         const d = await getDeps();
-        const key = presentedKey(c);
-        const acct = key ? await verifyApiKey(d.db, key) : null;
+        const acct = await gateAccount(c, d);
         if (!acct) return c.json(errorBody("UNAUTHORIZED"), 401);
         const r = await creditsOf(d.db, acct.id);
         return c.json(r ?? { credits: "0", ledger: [] });

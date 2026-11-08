@@ -28,7 +28,7 @@ import {
 import { CancelBuildZ, CapstanError, CloseAllBuildZ, errorBody, OrderBuildZ, OrderSubmitZ, type BuildContext, type ErrorCode, type Hex, type OrderIntent, type UnsignedVenuePayload, type VenueId, type VenueIdentity } from "@capstan/schema";
 import { buildContextFee, STANDARD_FEE, type BuilderFee } from "@capstan/plans";
 import type { Priority } from "@capstan/venue-client";
-import { clientIp } from "@capstan/eligibility";
+import { clientIp, edgeScopeMatches } from "@capstan/eligibility";
 import { and, eq } from "drizzle-orm";
 import type { Context } from "hono";
 import type { BuildAdapter } from "../adapters";
@@ -54,7 +54,6 @@ export interface OrdersRouteDeps {
 }
 
 const ctxGet = (c: Context, k: string): unknown => (c as unknown as { get(k: string): unknown }).get(k);
-const ctxSet = (c: Context, k: string, v: unknown): void => (c as unknown as { set(k: string, v: unknown): void }).set(k, v);
 
 async function json(c: Context): Promise<unknown | undefined> {
   try {
@@ -104,10 +103,14 @@ async function agentOf(db: Db, agentRef: string, owner: Hex): Promise<Agent | "r
   return { id: d.id, venue: d.venue as VenueId, owner: d.owner as Hex, identity, builderMaxBps: d.builderMaxBps };
 }
 
-/** owner_sig must have been made by the owner the request names (or one of its agents); an api_key names anyone. */
-function ownerMatches(c: Context, owner: Hex): boolean {
+/**
+ * The request's authenticated owner (an owner_sig by the owner or one of its agents, or an API key made for that
+ * wallet) must be the owner the request names. Nothing authenticated means refused (r1 R1-04: an API key no longer
+ * names anyone).
+ */
+export function ownerMatches(c: Context, owner: Hex): boolean {
   const authed = ctxGet(c, "owner");
-  return typeof authed !== "string" || authed.toLowerCase() === owner.toLowerCase();
+  return typeof authed === "string" && authed.toLowerCase() === owner.toLowerCase();
 }
 
 function buildCtx(c: Context, a: Agent, fee: BuilderFee, o: { policyId: string | null; mode: "relay" | "direct"; requestHash: Hex; nowMs: number; closing?: boolean }): BuildContext & Record<string, unknown> {
@@ -140,6 +143,14 @@ async function store(deps: OrdersRouteDeps, b: UnsignedVenuePayload, a: Agent, k
 
 const asCapstan = (e: unknown): CapstanError | null => (e instanceof CapstanError ? e : (e as { code?: string })?.code && (e as { status?: number }).status ? (e as CapstanError) : null);
 
+/** The stored build a submit names (owner and market), or null. */
+async function buildOf(deps: OrdersRouteDeps, body: unknown): Promise<{ owner: string; marketId: string } | null> {
+  const id = (body as { buildId?: unknown } | null)?.buildId;
+  if (typeof id !== "string") return null;
+  const [r] = await deps.db.select({ marketId: schema.orderBuilds.marketId, owner: schema.orderBuilds.owner }).from(schema.orderBuilds).where(eq(schema.orderBuilds.id, id)).limit(1);
+  return r ?? null;
+}
+
 export function createOrderRoutes(getDeps: () => Promise<OrdersRouteDeps> | OrdersRouteDeps): RouteSpec[] {
   const buildRoute: RouteSpec = {
     method: "POST",
@@ -156,6 +167,7 @@ export function createOrderRoutes(getDeps: () => Promise<OrdersRouteDeps> | Orde
       const { owner, agentRef, intent, mode } = parsed.data as { owner: Hex; agentRef: string; intent: OrderIntent; mode: "relay" | "direct" };
       if (!ownerMatches(c, owner)) return fail(c, "UNAUTHORIZED", "The signature does not belong to this owner.");
       const venue = intent.marketId.split(":")[0] as VenueId;
+      if (!edgeScopeMatches(c, venue, intent.marketId)) return fail(c, "INVALID_INPUT", "Eligibility was decided for another venue or market.");
       const base = { owner, agentRef, venue, marketId: intent.marketId, body };
       const a = await agentOf(deps.db, agentRef, owner);
       if (a === null || a === "retired") return refuseBuild(c, deps, "RETIRED_AGENT", base);
@@ -227,6 +239,7 @@ export function createOrderRoutes(getDeps: () => Promise<OrdersRouteDeps> | Orde
       if (!marketId) return fail(c, "INVALID_INPUT", "marketId is required (no order with this id is on record)");
       if (!ownerMatches(c, owner)) return fail(c, "UNAUTHORIZED", "The signature does not belong to this owner.");
       const venue = marketId.split(":")[0] as VenueId;
+      if (!edgeScopeMatches(c, venue, null)) return fail(c, "INVALID_INPUT", "Eligibility was decided for another venue.");
       const a = await agentOf(deps.db, agentRef, owner);
       if (a === null || a === "retired") return refuseBuild(c, deps, "RETIRED_AGENT", { owner, agentRef, venue, marketId, body });
       if (a === "killed") return refuseBuild(c, deps, "AGENT_KILLED", { owner, agentRef, venue, marketId, body });
@@ -286,18 +299,11 @@ export function createOrderRoutes(getDeps: () => Promise<OrdersRouteDeps> | Orde
     write: {
       action: "order",
       venue: (_c, body) => ((body as { signedEnvelope?: { venue?: string } } | null)?.signedEnvelope?.venue as string | undefined) ?? null,
-      // the edge decides for the build's owner and market (the body carries only the build id)
-      async marketId(c, body) {
-        const id = (body as { buildId?: unknown } | null)?.buildId;
-        if (typeof id !== "string") return null;
-        const deps = await getDeps();
-        const [r] = await deps.db.select({ marketId: schema.orderBuilds.marketId, owner: schema.orderBuilds.owner }).from(schema.orderBuilds).where(eq(schema.orderBuilds.id, id)).limit(1);
-        if (!r) return null;
-        // the edge decides for the owner; the agent's own state (killed, retired, expired) is the relay's check,
-        // which answers with the precise code
-        if (ctxGet(c, "owner") === undefined) ctxSet(c, "owner", r.owner);
-        return r.marketId;
-      },
+      // the edge decides for the build's owner and market (the body carries only the build id); the agent's own
+      // state (killed, retired, expired) is the relay's check, which answers with the precise code. The build's owner
+      // is a lookup hook, never written into the request context as if it had signed (r1 R1-04)
+      marketId: async (_c, body) => (await buildOf(await getDeps(), body))?.marketId ?? null,
+      owner: async (_c, body) => (await buildOf(await getDeps(), body))?.owner ?? null,
     },
     async handler(c) {
       const body = await json(c);

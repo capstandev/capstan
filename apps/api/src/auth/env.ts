@@ -5,12 +5,12 @@
 // With X402_ENABLED off (the default) every priced route answers 503 "payments unavailable": never served free.
 import { createDb, createRedis, logger, redisNonceStore, schema, type ConfigFor, type Db, type RouteSpec } from "@capstan/core";
 import { clientIp } from "@capstan/eligibility";
-import { LIMITS, limitsFor, multiplierOf, spendCredit, tierOf, topupSettleHook, verifyApiKey, type LockReader } from "@capstan/plans";
+import { LIMITS, limitsFor, multiplierOf, spendCredit, tierOf, topupPendingHook, topupSettleHook, verifyApiKey, type LockReader } from "@capstan/plans";
 import { errorBody, type Hex } from "@capstan/schema";
 import { and, eq, isNotNull } from "drizzle-orm";
 import type { MiddlewareHandler } from "hono";
 import type { CreateAppOptions } from "../app";
-import { memoryWindowStore, rateLimiter, redisWindowStore } from "../ratelimit";
+import { memoryWindowStore, preAuthLimiter, rateLimiter, redisWindowStore } from "../ratelimit";
 import { apiKeyCheck, apiKeyVerifier, internalVerifier, NONCE_TTL_MS, ownerSigVerifier, x402Verifier } from "./index";
 
 export const agentsOfDb = (db: Db) => async (owner: Hex) => {
@@ -21,10 +21,22 @@ export const agentsOfDb = (db: Db) => async (owner: Hex) => {
   return rows.map((r) => ({ address: r.agentAddress as Hex, agentRef: r.id }));
 };
 
-/** The x402 routes table for the payment middleware, from the mounted specs: `<METHOD> /v1<path>`. */
-export function pricedRoutes(specs: RouteSpec[]): Record<string, { usd: string; description: string; perRows?: 1000 }> {
-  const out: Record<string, { usd: string; description: string; perRows?: 1000 }> = {};
-  for (const s of specs) if (s.auth === "x402" && s.priced) out[`${s.method} /v1${s.path}`] = { usd: s.priced.usd, description: s.description ?? s.path, ...((s.priced as { perRows?: 1000 }).perRows ? { perRows: 1000 as const } : {}) };
+type GateRoute = import("@capstan/x402").PricedRoute;
+
+/**
+ * The x402 routes table for the payment middleware, from the mounted specs: `<METHOD> /v1<path>`. A perRows route
+ * carries its priceRequest, so the gate charges what the handler delivers (r1 F2); a perRows route without one is
+ * refused at boot rather than priced from a query value the handler ignores.
+ */
+export function pricedRoutes(specs: RouteSpec[]): Record<string, GateRoute> {
+  const out: Record<string, GateRoute> = {};
+  for (const s of specs) {
+    if (s.auth !== "x402" || !s.priced) continue;
+    const perRows = (s.priced as { perRows?: 1000 }).perRows;
+    const priceRequest = (s as { priceRequest?: GateRoute["priceRequest"] }).priceRequest;
+    if (perRows && typeof priceRequest !== "function") throw new Error(`${s.method} ${s.path}: a per-rows priced route needs priceRequest`);
+    out[`${s.method} /v1${s.path}`] = { usd: s.priced.usd, description: s.description ?? s.path, ...(perRows ? { perRows: 1000 as const, priceRequest: priceRequest! } : {}) };
+  }
   return out;
 }
 
@@ -92,6 +104,9 @@ export async function paymentFromEnv(cfg: ConfigFor<"api">, env: Record<string, 
   const rs = x.createResourceServer(facilitator);
   // 2. the credit lands only through this hook (it reads the served path and ?account=, never the client's resource.url)
   rs.onAfterSettle(topupSettleHook(db, { log, decimalsOf: (n, a) => x.decimalsFromState(rails.current(), net)(n, a) }));
+  // a settle that came back settlement_pending: record the served account and pack, so the topup-reconcile job
+  // credits it once the tx is confirmed (r1 F4)
+  rs.onSettleFailure(async (ctx) => void (await topupPendingHook(db, { log, decimalsOf: (n, a) => x.decimalsFromState(rails.current(), net)(n, a) })(ctx)));
   const gate = x.paymentGate(routes, rs, { env: net, state: rails.load });
   return guardedPayment(gate);
 }
@@ -123,7 +138,7 @@ export function guardedPayment(gate: MiddlewareHandler): MiddlewareHandler {
 }
 
 /** Build the createApp options for the api process. */
-export async function gatewayFromEnv(cfg: ConfigFor<"api">, env: Record<string, string | undefined>, specs: RouteSpec[], overrides: Omit<PaymentOverrides, "db"> = {}): Promise<Pick<CreateAppOptions, "verifiers" | "limiter" | "payment">> {
+export async function gatewayFromEnv(cfg: ConfigFor<"api">, env: Record<string, string | undefined>, specs: RouteSpec[], overrides: Omit<PaymentOverrides, "db"> = {}): Promise<Pick<CreateAppOptions, "verifiers" | "preAuth" | "limiter" | "payment">> {
   const db = createDb(cfg.DATABASE_URL, { max: 6 });
   const redis = createRedis(cfg.REDIS_URL);
   const check = apiKeyCheck({ verify: (k) => verifyApiKey(db, k) });
@@ -137,6 +152,7 @@ export async function gatewayFromEnv(cfg: ConfigFor<"api">, env: Record<string, 
       x402: x402Verifier({ check, spend: (id, route, usd) => spendCredit(db, id, route, usd), ...(env.CAPSTAN_INTERNAL_TOKEN ? { internalToken: env.CAPSTAN_INTERNAL_TOKEN } : {}) }),
       internal: internalVerifier(env.CAPSTAN_INTERNAL_TOKEN),
     },
+    preAuth: preAuthLimiter({ store: redisWindowStore(redis), fallback: memoryWindowStore(), ipOf: (c) => clientIp(c, trust) ?? "" }),
     limiter: rateLimiter({
       store: redisWindowStore(redis),
       fallback: memoryWindowStore(),

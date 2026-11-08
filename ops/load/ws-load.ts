@@ -25,7 +25,7 @@ const pct = (xs: number[], p: number) => (xs.length ? xs[Math.min(xs.length - 1,
 export async function runWsLoad(n = 5000, seconds = 6): Promise<LoadResult> {
   const bus = memoryBus();
   const markets = ["hyperliquid:-:BTC", "lighter-mainnet:-:BTC", "aster:-:BTCUSDT"];
-  const gw = createWsGateway({ bus, host: "load.local", nonces: memoryNonceStore(), marketsForAsset: async () => markets, bookOf: async (id) => ({ marketId: id, bids: [["100", "1"]], asks: [["101", "1"]], asOf: new Date().toISOString(), seq: 0 }), capOf: async () => 50, tickerMs: 1000 });
+  const gw = createWsGateway({ bus, host: "load.local", nonces: memoryNonceStore(), marketsForAsset: async () => markets, bookOf: async (id) => ({ marketId: id, bids: [["100", "1"]], asks: [["101", "1"]], asOf: new Date().toISOString(), seq: 0 }), capOf: async () => 50, knownMarket: async () => true, knownAsset: async () => true, maxConnsPerIp: n + 10, tickerMs: 1000 });
   const server = await gw.start(0);
   const url = `ws://127.0.0.1:${server.port}/v1`;
   const delays: number[] = [];

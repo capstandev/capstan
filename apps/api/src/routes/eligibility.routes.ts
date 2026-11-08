@@ -1,10 +1,11 @@
 // GET /v1/eligibility?venue= (spec 13.1): whether an order on the venue would be allowed from the caller's IP,
 // as { allowed, code, rulesVersion }. The IP is never echoed and never stored (the decision row keeps the country).
-// `owner` is optional; without it a write needs a declaration, so the answer is DECLARATION_MISSING when the region
-// is fine. Free, public.
+// `owner` is accepted for compatibility but not used (security review r1 ELIG-2): the answer is for the region, so it is
+// DECLARATION_MISSING when the region is fine (a write still needs the owner's signed declaration). Nothing is stored.
+// Free, public.
 import { createDb, type Db, type RouteSpec } from "@capstan/core";
 import { clientIp, decide, fileGeo, GEO_FILE, type GeoLookup } from "@capstan/eligibility";
-import { CapstanError, errorBody, type Hex, type VenueId, VENUE_IDS } from "@capstan/schema";
+import { CapstanError, errorBody, type VenueId, VENUE_IDS } from "@capstan/schema";
 import type { Context } from "hono";
 import { join } from "node:path";
 
@@ -30,7 +31,9 @@ export function createEligibilityRoutes(getDeps: () => Promise<EligibilityRouteD
         const deps = await getDeps();
         const ip = (deps.ipOf ?? ((x: Context) => clientIp(x, process.env.CAPSTAN_TRUST_FORWARDED_FOR === "1")))(c) ?? "";
         try {
-          const d = await decide({ ip, venue: venue as VenueId, action: "order", ...(ownerQ ? { owner: ownerQ as Hex } : {}) }, { geo: deps.geo, db: deps.db, now: deps.now ?? (() => new Date()) });
+          // r1 ELIG-2: the public probe answers for the region only (an unsigned ?owner= never reveals whether that
+          // wallet holds a declaration) and writes no decision row
+          const d = await decide({ ip, venue: venue as VenueId, action: "order", persist: false }, { geo: deps.geo, db: deps.db, now: deps.now ?? (() => new Date()) });
           return c.json({ allowed: d.allowed, code: d.code ?? null, rulesVersion: d.rulesVersion });
         } catch (e) {
           if (e instanceof CapstanError) return c.json(e.toBody(), e.status as 400);

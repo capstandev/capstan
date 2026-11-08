@@ -54,7 +54,21 @@ function rowsOf(c: HTTPRequestContext["adapter"], param: string): number | undef
   return Number.isInteger(n) && n > 0 ? n : undefined;
 }
 
-/** Build the @x402/hono routes config for a state. perRows routes price each request from its row count. */
+/** Rows priced by a route's own priceRequest, per Request (the gate sets it, the price callback reads it). */
+const quotedRows = new WeakMap<Request, number>();
+
+/** The rows a perRows route's priceRequest quoted for the request behind an HTTP context; fail closed when missing. */
+function quotedRowsOf(ctx: HTTPRequestContext): number {
+  const raw = (ctx.adapter as unknown as { c?: Context }).c?.req.raw;
+  const rows = raw ? quotedRows.get(raw) : undefined;
+  if (rows === undefined) throw new Error("x402 gate: no quote for this request");
+  return rows;
+}
+
+/**
+ * Build the @x402/hono routes config for a state. perRows routes price each request from its row count: the rows
+ * the route's own priceRequest quoted (what the handler delivers), else the rowsParam query value.
+ */
 export function routesConfig(routes: Record<string, PricedRoute>, state: X402State, opts: Pick<GateOptions, "env" | "rowsParam">): RoutesConfig {
   const out: Record<string, RouteConfig> = {};
   const param = opts.rowsParam ?? "limit";
@@ -66,7 +80,8 @@ export function routesConfig(routes: Record<string, PricedRoute>, state: X402Sta
       return {
         ...o,
         price: (ctx: HTTPRequestContext) => {
-          const r = acceptsFor(route, state, opts.env, { rows: rowsOf(ctx.adapter, param) })[i]!;
+          const rows = route.priceRequest ? quotedRowsOf(ctx) : rowsOf(ctx.adapter, param);
+          const r = acceptsFor(route, state, opts.env, { rows })[i]!;
           return { asset: r.asset, amount: r.amount, extra: r.extra };
         },
       };
@@ -108,6 +123,14 @@ export function paymentGate(routes: Record<string, PricedRoute>, server: x402Res
       cachedKey = sk;
     }
     if (emptyRoutes.has(key)) return c.json(PAYMENTS_UNAVAILABLE, 503);
+    // a route that prices its own request (r1 F2): quote first, so the amount charged is the rows delivered
+    const route = routes[key]!;
+    if (route.perRows && route.priceRequest) {
+      const q = await route.priceRequest(c);
+      if ("error" in q) return c.json({ error: { code: "INVALID_INPUT", message: q.error } }, 400);
+      if (!Number.isInteger(q.rows) || q.rows < 0) return c.json(PAYMENTS_UNAVAILABLE, 503);
+      quotedRows.set(c.req.raw, q.rows);
+    }
     return cached(c, next);
   };
 }

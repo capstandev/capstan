@@ -1,4 +1,4 @@
-// R5: API keys are stored as argon2id hashes only; the plain key is returned once; a wrong key fails; no table holds
+// R5: API keys are stored as hashes only (sha256 of a 256-bit secret since security review r1 F1; legacy argon2id still verifies); the plain key is returned once; a wrong key fails; no table holds
 // the plain key. R11 (SIG-1): the owner signature must be a capstanMessage with purpose api_key_create; read and
 // api_request signatures are refused. Skips without DATABASE_URL.
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
@@ -27,12 +27,12 @@ const HOST = "api.example.test";
     await drop?.();
   }, 30_000);
 
-  test("argon2id-only", async () => {
+  test("hash-only (sha256 form)", async () => {
     const k = await createApiKey(db, null);
     expect(k.key.startsWith(`cpst_${k.id}_`)).toBe(true);
     const rows = await db.select().from(schema.apiAccounts);
     expect(rows.length).toBe(1);
-    expect(rows[0]!.keyHash.startsWith("$argon2id$")).toBe(true);
+    expect(rows[0]!.keyHash.startsWith("sha256$")).toBe(true);
     // the secret is everything after "cpst_<id>_" (it may itself contain "_")
     expect(rows[0]!.keyHash).not.toContain(k.key.slice(`cpst_${k.id}_`.length));
     expect(await verifyApiKey(db, k.key)).toMatchObject({ id: k.id, tier: "free", ownerWallet: null });
@@ -76,4 +76,21 @@ const HOST = "api.example.test";
     expect((await verifyApiKey(db, k.key))?.ownerWallet).toBe(owner.address.toLowerCase());
     expect(((await createApiKey(db, owner.address, good, deps).catch((x) => x)) as ApiKeyError).reason).toContain("replay");
   }, 30_000);
+});
+
+// security review r1 F1: a random secret for a known account id costs microseconds, not an argon2 verify
+describe("api key verify cost (security review r1 F1)", () => {
+  test("verifyApiKey on a sha256-stored key never runs argon2 and a legacy hash runs behind a semaphore", async () => {
+    const { keyMatches, hashApiKey, LEGACY_ARGON2_SLOTS, ApiKeyBusyError } = await import("../src/keys");
+    const key = "cpst_01ARZ3NDEKTSV4RRFFQ69G5FAV_" + "A".repeat(43);
+    const t0 = performance.now();
+    for (let i = 0; i < 200; i++) expect(await keyMatches(key.slice(0, -1) + "B", hashApiKey(key))).toBe(false);
+    expect(performance.now() - t0).toBeLessThan(200);
+    expect(await keyMatches(key, hashApiKey(key))).toBe(true);
+    const legacy = await Bun.password.hash(key, { algorithm: "argon2id" });
+    const runs = Array.from({ length: LEGACY_ARGON2_SLOTS + 4 }, () => keyMatches(key, legacy).then((v) => (v ? "ok" : "no"), (e) => (e instanceof ApiKeyBusyError ? "busy" : "err")));
+    const out = await Promise.all(runs);
+    expect(out.filter((x) => x === "ok").length).toBe(LEGACY_ARGON2_SLOTS);
+    expect(out.filter((x) => x === "busy").length).toBe(4);
+  });
 });

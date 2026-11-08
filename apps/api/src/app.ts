@@ -19,6 +19,8 @@ export interface CreateAppOptions {
   extraRoutes?: RouteSpec[];
   /** Eligibility edge for write routes (todo 23, `edgeFor` in @capstan/eligibility). Required when any route writes. */
   edge?: (spec: RouteSpec) => MiddlewareHandler;
+  /** Cheap IP limiter per route (ratelimit/preAuthLimiter) that runs BEFORE auth, so failed auth is limited too (r1 F1). */
+  preAuth?: (spec: RouteSpec) => MiddlewareHandler;
   /** Rate limiter per route (ratelimit/), after auth so it knows the signed wallet or API key. */
   limiter?: (spec: RouteSpec) => MiddlewareHandler;
   /** The x402 payment middleware (todo 33 paymentGate) for priced routes; skipped when credits paid (x402PaidBy). */
@@ -147,6 +149,7 @@ export async function createApp(opts: CreateAppOptions = {}): Promise<{ app: Hon
     if (spec.write && !opts.edge) throw new MountError(`${file}: write route ${key} has no eligibility edge`);
     const chain: MiddlewareHandler[] = [];
     if (opts.requestLog) chain.push(opts.requestLog(spec));
+    if (opts.preAuth) chain.push(opts.preAuth(spec));
     chain.push(authGate(spec.auth, spec, verifiers));
     if (opts.limiter) chain.push(opts.limiter(spec));
     if (spec.auth === "x402" && opts.payment) {

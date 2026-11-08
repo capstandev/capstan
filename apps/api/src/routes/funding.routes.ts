@@ -48,6 +48,11 @@ export interface HistoryPageOptions {
   maxRows?: number;
   /** Runs between pricing and delivery inside the snapshot (tests). */
   afterPriced?: () => Promise<void>;
+  /**
+   * Count and price only, read no rows (the quote the x402 gate takes on every request, paid or not: an unpaid
+   * request must never cost a 10,000-row read, r1 F2).
+   */
+  countOnly?: boolean;
 }
 
 export interface HistoryReader {
@@ -102,6 +107,7 @@ export function dbHistoryReader(db: Db): HistoryReader {
           const pageRows = Math.min(total, HISTORY_PAGE_ROWS, cap);
           const usd = historyPriceUsd(pageRows);
           await opts.afterPriced?.();
+          if (opts.countOnly) return { window: { from: from.toISOString(), to: to.toISOString() }, totalRows: total, rows: [], pricing: { rows: pageRows, usd, perThousandUsd: HISTORY_PRICE_PER_1000_USD }, nextCursor: null };
           const rows = await tx.select().from(schema.fundingTicks).where(where).orderBy(asc(schema.fundingTicks.ts)).limit(pageRows);
           const out: HistoryRow[] = rows.map((r) => ({
             ts: r.ts.toISOString(),
@@ -166,7 +172,7 @@ export function createFundingRoutes(getDeps: () => Promise<FundingRouteDeps> | F
     const nowMs = (d.now ?? Date.now)();
     const h = historyQuery(c.req.query(), nowMs);
     if (!h.ok) return { error: h.error };
-    const p = await d.history.page(h.marketId, h.window.from, h.window.to, h.cursor);
+    const p = await d.history.page(h.marketId, h.window.from, h.window.to, h.cursor, { countOnly: true });
     quotes.set(c.req.raw, { nowMs, rows: p.pricing.rows, usd: p.pricing.usd });
     return { usd: p.pricing.usd, rows: p.pricing.rows };
   };

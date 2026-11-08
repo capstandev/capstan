@@ -229,7 +229,11 @@ export function createClient(o: CapstanClientOptions): CapstanClient {
     }
     return { authorization: `Bearer ${k}` };
   };
-  /** Agent-scoped calls: the agent's owner signature, or the key when the agent is not a secp key (Lighter). */
+  /**
+   * Agent-scoped calls: the agent's owner signature, or the key when the agent is not a secp key (Lighter). The
+   * gateway lets an API key act only for the wallet it was made for (security review r1 R1-04), so Lighter calls
+   * need a configured `apiKey` made with that wallet's api_key_create signature; the anonymous key covers onboarding.
+   */
   const authAs = (a: AgentRecord | undefined): RequestAuth => {
     const viaAgent = a ? agentAuth(a) : undefined;
     return viaAgent ?? keyAuth;

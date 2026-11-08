@@ -8,8 +8,14 @@
 //   01 capstanMessage with purpose ws_subscribe, body = channel, nonce `ws-<ts>`, issued at ts, valid 5 minutes, signed
 //   by the owner (plan: the plan's owner or one of its active agents). A wrong signer is refused.
 // The number of subscriptions per connection is capped by the caller's tier (LIMITS.wsSubs, todo 34).
+// Abuse limits (security review r1 review-r1:3 F6): at most WS_MAX_CONNS_PER_IP open connections per IP bucket (/32,
+// IPv6 /64), refused with 429 before the upgrade; messages per connection are a token bucket (WS_MSGS_PER_SEC a
+// second, a burst of the subscription cap plus 20) and a connection that runs it dry is closed (1008); book: ids must
+// be catalog markets and funding: and markets.ticker: ids catalog assets, so a random id never creates a Redis
+// subscription or a query; a resync needs the book subscription and runs at most once a second per market; a private
+// subscribe is checked for freshness and a recoverable signature before any database read.
 import { SERVICE_METRICS } from "@capstan/telemetry";
-import { capstanMessage, PUBSUB, verifyCapstanMessage, type NonceStore } from "@capstan/core";
+import { capstanMessage, ipBucket, PUBSUB, recoverPersonalSigner, verifyCapstanMessage, type NonceStore } from "@capstan/core";
 import type { Hex, OrderBook } from "@capstan/schema";
 import type { Server, ServerWebSocket } from "bun";
 import type { Bus } from "./bus";
@@ -18,6 +24,10 @@ export const PRIVATE_PREFIXES = ["account:", "risk:", "plan:", "receipts:"] as c
 export const PUBLIC_PREFIXES = ["markets.ticker:", "book:", "funding:"] as const;
 export const SUB_VALIDITY_MS = 5 * 60_000;
 export const BOOK_LEVELS = 20;
+export const WS_MAX_CONNS_PER_IP = 10;
+export const WS_MSGS_PER_SEC = 20;
+export const WS_MSG_BURST_EXTRA = 20;
+export const WS_RESYNC_MIN_MS = 1000;
 
 export interface WsDeps {
   bus: Bus;
@@ -31,15 +41,29 @@ export interface WsDeps {
   planSigners?(planId: string): Promise<Hex[]>;
   /** Subscriptions allowed per connection for a signed owner (or null for an anonymous connection). */
   capOf(owner: Hex | null): Promise<number>;
+  /** Whether a market id is in the catalog (book: channels). Unknown ids are refused without a subscription. */
+  knownMarket(marketId: string): Promise<boolean>;
+  /** Whether a canonical asset is in the catalog (funding: and markets.ticker: channels). */
+  knownAsset(asset: string): Promise<boolean>;
+  /** The client address of an upgrade request (default: the socket peer). */
+  ipOf?(req: Request, server: Server<ConnState>): string;
+  /** Open connections allowed per IP bucket (default WS_MAX_CONNS_PER_IP). */
+  maxConnsPerIp?: number;
+  /** Sustained messages per second per connection (default WS_MSGS_PER_SEC). */
+  msgsPerSec?: number;
   now?: () => number;
   tickerMs?: number;
 }
 
-interface ConnState {
+export interface ConnState {
   subs: Map<string, () => void>;
   owner: Hex | null;
   cap: number;
   bookSeq: Map<string, number>;
+  ip: string;
+  tokens: number;
+  tokensAt: number;
+  resyncAt: Map<string, number>;
 }
 
 export const wsSubscribeMessage = (owner: Hex, channel: string, ts: number, host: string) =>
@@ -184,6 +208,9 @@ export function createWsGateway(deps: WsDeps) {
     const [prefix, id = ""] = [channel.slice(0, channel.indexOf(":") + 1), channel.slice(channel.indexOf(":") + 1)];
     if (typeof m.owner !== "string" || !/^0x[0-9a-fA-F]{40}$/.test(m.owner) || typeof m.ts !== "number" || typeof m.sig !== "string") return { ok: false, why: "an owner-signed subscribe is required" };
     const owner = m.owner.toLowerCase() as Hex;
+    // cheap checks first (r1 F6): a stale or unrecoverable signature never costs a database read or a nonce write
+    if (now() >= m.ts + SUB_VALIDITY_MS || m.ts > now() + 60_000) return { ok: false, why: "expired" };
+    if (!/^0x[0-9a-fA-F]{130}$/.test(m.sig) || !recoverPersonalSigner(wsSubscribeMessage(owner, channel, m.ts, deps.host), m.sig as Hex)) return { ok: false, why: "signature" };
     let signers: Hex[] = [owner];
     if (prefix === "plan:") {
       const allowed = deps.planSigners ? await deps.planSigners(id) : [];
@@ -195,7 +222,24 @@ export function createWsGateway(deps: WsDeps) {
     return r.ok ? { ok: true, owner } : { ok: false, why: r.reason };
   }
 
+  const msgsPerSec = deps.msgsPerSec ?? WS_MSGS_PER_SEC;
+  /** Take one message token; false when the connection ran its bucket dry. */
+  function takeToken(ws: ServerWebSocket<ConnState>): boolean {
+    const t = now();
+    const burst = ws.data.cap + WS_MSG_BURST_EXTRA;
+    ws.data.tokens = Math.min(burst, ws.data.tokens + ((t - ws.data.tokensAt) / 1000) * msgsPerSec);
+    ws.data.tokensAt = t;
+    if (ws.data.tokens < 1) return false;
+    ws.data.tokens -= 1;
+    return true;
+  }
+
   async function onMessage(ws: ServerWebSocket<ConnState>, raw: string | Buffer) {
+    if (!takeToken(ws)) {
+      err(ws, null, "VENUE_RATE_LIMITED", "too many messages on this connection");
+      ws.close(1008, "rate limit");
+      return;
+    }
     let m: { op?: unknown; channel?: unknown; owner?: unknown; ts?: unknown; sig?: unknown };
     try {
       m = JSON.parse(String(raw));
@@ -209,7 +253,14 @@ export function createWsGateway(deps: WsDeps) {
       ws.data.subs.delete(channel);
       return send(ws, { type: "unsubscribed", channel });
     }
-    if (m.op === "resync" && channel.startsWith("book:")) return snapshot(ws, channel.slice(5));
+    if (m.op === "resync" && channel.startsWith("book:")) {
+      // only on a book this connection holds, at most once a second per market (r1 F6)
+      if (!ws.data.subs.has(channel)) return err(ws, channel, "INVALID_INPUT", "subscribe to the book before a resync");
+      const last = ws.data.resyncAt.get(channel) ?? 0;
+      if (now() - last < WS_RESYNC_MIN_MS) return err(ws, channel, "VENUE_RATE_LIMITED", "at most one resync a second");
+      ws.data.resyncAt.set(channel, now());
+      return snapshot(ws, channel.slice(5));
+    }
     if (m.op !== "sub") return err(ws, channel, "INVALID_INPUT", "op must be sub, unsub or resync");
     if (ws.data.subs.has(channel)) return send(ws, { type: "subscribed", channel });
     const isPrivate = PRIVATE_PREFIXES.some((p) => channel.startsWith(p));
@@ -225,6 +276,9 @@ export function createWsGateway(deps: WsDeps) {
     if (ws.data.subs.size >= ws.data.cap) return err(ws, channel, "VENUE_RATE_LIMITED", `this connection is at its ${ws.data.cap} subscription limit`);
     let off: () => void;
     const id = channel.slice(channel.indexOf(":") + 1);
+    // public ids must be in the catalog (r1 F6): a random id never reaches Redis or the database
+    if (channel.startsWith("book:") && !(await deps.knownMarket(id))) return err(ws, channel, "NOT_FOUND", "unknown market");
+    if ((channel.startsWith("funding:") || channel.startsWith("markets.ticker:")) && !(await deps.knownAsset(id))) return err(ws, channel, "NOT_FOUND", "unknown asset");
     if (channel.startsWith("markets.ticker:")) off = await addTicker(ws, id);
     else if (channel.startsWith("book:")) {
       off = addBook(ws, id);
@@ -238,7 +292,15 @@ export function createWsGateway(deps: WsDeps) {
     send(ws, { type: "subscribed", channel });
   }
 
+  function release(ip: string) {
+    const n = (perIp.get(ip) ?? 1) - 1;
+    if (n <= 0) perIp.delete(ip);
+    else perIp.set(ip, n);
+  }
+
   let open = 0;
+  const perIp = new Map<string, number>();
+  const maxPerIp = deps.maxConnsPerIp ?? WS_MAX_CONNS_PER_IP;
   return {
     async start(port: number, hostname = "127.0.0.1"): Promise<Server<ConnState>> {
       const anonCap = await deps.capOf(null);
@@ -249,7 +311,16 @@ export function createWsGateway(deps: WsDeps) {
           const u = new URL(req.url);
           SERVICE_METRICS.httpRequests.inc("ws");
           if (u.pathname === "/health") return Response.json({ ok: true, service: "ws" });
-          if (u.pathname === "/v1" && server.upgrade(req, { data: { subs: new Map(), owner: null, cap: anonCap, bookSeq: new Map() } })) return undefined;
+          if (u.pathname === "/v1") {
+            // one IP bucket holds at most maxPerIp sockets (r1 F6); counted before the upgrade, released on close
+            const ip = ipBucket(deps.ipOf ? deps.ipOf(req, server) : (server.requestIP(req)?.address ?? ""));
+            const held = perIp.get(ip) ?? 0;
+            if (held >= maxPerIp) return Response.json({ error: { code: "VENUE_RATE_LIMITED", message: "Too many connections from this address." } }, { status: 429 });
+            perIp.set(ip, held + 1);
+            const data: ConnState = { subs: new Map(), owner: null, cap: anonCap, bookSeq: new Map(), ip, tokens: anonCap + WS_MSG_BURST_EXTRA, tokensAt: now(), resyncAt: new Map() };
+            if (server.upgrade(req, { data })) return undefined;
+            release(ip);
+          }
           return Response.json({ error: { code: "NOT_FOUND", message: "Not found." } }, { status: 404 });
         },
         websocket: {
@@ -259,6 +330,7 @@ export function createWsGateway(deps: WsDeps) {
           message: (ws, raw) => void onMessage(ws, raw as string),
           close(ws) {
             SERVICE_METRICS.wsConnections.set(Math.max(0, --open));
+            release(ws.data.ip);
             for (const off of ws.data.subs.values()) off();
             ws.data.subs.clear();
           },
@@ -268,6 +340,6 @@ export function createWsGateway(deps: WsDeps) {
     stop() {
       clearInterval(timer);
     },
-    stats: () => ({ tickers: tickers.size, books: books.size }),
+    stats: () => ({ tickers: tickers.size, books: books.size, ips: perIp.size }),
   };
 }

@@ -100,7 +100,7 @@ describe.skipIf(!PG)("eligibility edge", () => {
       [IP.AE!, { ...body, venue: "lighter-rh", marketId: undefined }, "GEO_REFUSED"],
       [IP.AE!, { ...body, marketId: "hyperliquid:xyz:TSLA" }, "GEO_REFUSED"], // HIP-3 dex market counts as equity by default
       [IP.DE!, { ...body, owner: wallet("nobody").address }, "DECLARATION_MISSING"],
-      [IP.DE!, { ...body, venue: "arcus" }, "VENUE_DATA_ONLY"],
+      [IP.DE!, { ...body, venue: "arcus", marketId: "arcus:-:BTC-USD" }, "VENUE_DATA_ONLY"], // venue and market agree (r1 ELIG-1)
     ];
     for (const [callerIp, b, code] of refusals) {
       ip = callerIp;

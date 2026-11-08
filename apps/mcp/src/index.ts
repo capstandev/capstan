@@ -21,7 +21,7 @@ export async function mcpAppFromEnv(cfg: ConfigFor<"mcp">, env: Record<string, s
   const hosts = (env.MCP_ALLOWED_HOSTS ?? `127.0.0.1:${cfg.MCP_PORT},localhost:${cfg.MCP_PORT}`).split(",").map((s) => s.trim()).filter(Boolean);
   const origins = (env.MCP_ALLOWED_ORIGINS ?? "").split(",").map((s) => s.trim()).filter(Boolean);
   const payments = await paymentsFromEnv(cfg, env, o);
-  const app = createMcpApp({ api: o.api ?? httpApiClient(cfg.API_BASE_URL), version: MCP_VERSION, allowedHosts: hosts, allowedOrigins: origins, ...(payments ? { payments } : {}), ...(o.requestLog ? { requestLog: o.requestLog } : {}) });
+  const app = createMcpApp({ api: o.api ?? httpApiClient(cfg.API_BASE_URL), version: MCP_VERSION, allowedHosts: hosts, allowedOrigins: origins, ...(payments ? { payments } : {}), ...(o.requestLog ? { requestLog: o.requestLog } : {}), rateLimit: { perMin: cfg.MCP_RATE_LIMIT_PER_MIN } });
   return { app, hosts, paidTools: payments !== undefined };
 }
 

@@ -43,5 +43,8 @@ api.@DOMAIN@ {
 
 ws.@DOMAIN@ {
 	import common
-	reverse_proxy 127.0.0.1:8711
+	# the ws gateway caps connections per client IP (r1 F6): it reads the real peer from here (CAPSTAN_TRUST_FORWARDED_FOR=1)
+	reverse_proxy 127.0.0.1:8711 {
+		header_up X-Forwarded-For {remote_host}
+	}
 }

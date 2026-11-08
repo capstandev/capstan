@@ -3,7 +3,7 @@
 // - spendCredit subtracts atomically and never lets the balance go negative (a conditional UPDATE);
 // - all arithmetic is Postgres numeric, never floating point.
 import { schema, ulid, type Db } from "@capstan/core";
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, gt, or, sql } from "drizzle-orm";
 
 /** A settled x402 payment to a top-up route (built from the facilitator's settle result). */
 export interface X402SettlementRecord {
@@ -179,4 +179,126 @@ export function topupSettleHook(
       opts.log?.warn("credit top-up after settle failed", { err, account: served.account });
     }
   };
+}
+
+// ---- pending top-ups (security review r1 review-r1:4 F4) ----------------------------------------------------------
+// A top-up whose settle comes back settlement_pending (the receipt wait timed out or the RPC failed) was charged on
+// chain once the tx mined but never credited: the after-settle hook only runs on success, and the facilitator's
+// reconciler only marks its own x402_payments row settled. Now the resource server's settle-failure hook records the
+// served account and pack server-side as a zero-delta `topup_pending` ledger row (visible in the account's ledger),
+// and the topup-reconcile job credits it exactly once when the facilitator's row for that tx turns settled.
+
+export const TOPUP_PENDING_REASON = "topup_pending";
+export const TOPUP_PENDING_FAILED_REASON = "topup_pending_failed";
+/** A pending top-up still unresolved after this long raises an ops alert. */
+export const TOPUP_PENDING_ALERT_MS = 10 * 60_000;
+/** Pending rows older than this are no longer checked (the facilitator drops a tx it never saw after 10 minutes). */
+export const TOPUP_PENDING_MAX_AGE_MS = 7 * 24 * 60 * 60_000;
+const PENDING_PREFIX = "x402pending:";
+
+/** The ledger ref of a pending top-up: network, tx, atomic amount and decimals (network holds a colon). */
+export const pendingTopupRef = (p: { network: string; transaction: string; amount: string; decimals: number }) => `${PENDING_PREFIX}${p.network}:${p.transaction}:${p.amount}:${p.decimals}`;
+
+export function parsePendingTopupRef(ref: string): { network: string; transaction: string; amount: string; decimals: number } | null {
+  if (!ref.startsWith(PENDING_PREFIX)) return null;
+  const parts = ref.slice(PENDING_PREFIX.length).split(":");
+  if (parts.length < 4) return null;
+  const decimals = Number(parts.pop());
+  const amount = parts.pop()!;
+  const transaction = parts.pop()!;
+  const network = parts.join(":");
+  if (!Number.isInteger(decimals) || !/^\d{1,40}$/.test(amount) || !transaction || !/^[a-z0-9-]+:[A-Za-z0-9]+$/.test(network)) return null;
+  return { network, transaction, amount, decimals };
+}
+
+/** The parts of the x402 settle-failure context the pending hook reads (structurally the SDK's SettleFailureContext). */
+export interface TopupSettleFailureContext {
+  requirements: { network: string; asset: string; amount: string };
+  error: unknown;
+  transportContext?: unknown;
+}
+
+/**
+ * x402 resource-server settle-failure hook for the top-up routes. Register it with `rs.onSettleFailure(...)`.
+ * Only a settlement_pending failure that names a broadcast transaction is recorded; the account and pack come from
+ * the served request (never the client's resource.url) and the amount must be exactly the pack price.
+ */
+export function topupPendingHook(
+  db: Db,
+  opts: { log?: { warn(m: string, f?: Record<string, unknown>): void }; decimalsOf?: (network: string, asset: string) => number | undefined } = {},
+) {
+  return async (ctx: TopupSettleFailureContext): Promise<void> => {
+    const e = ctx.error as { errorReason?: unknown; transaction?: unknown } | null;
+    if (e?.errorReason !== "settlement_pending" || typeof e.transaction !== "string" || !/^[A-Za-z0-9]{16,128}$/.test(e.transaction)) return;
+    const served = servedRequest(ctx.transportContext);
+    if (!served || served.method !== "POST") return;
+    const m = TOPUP_PATH_RE.exec(served.path);
+    if (!m || !served.account) return;
+    const decimals = opts.decimalsOf?.(ctx.requirements.network, ctx.requirements.asset) ?? 6;
+    let usd: string;
+    try {
+      usd = atomicToUsd(ctx.requirements.amount, decimals);
+    } catch {
+      return;
+    }
+    if (usd !== m[1]) return;
+    const ref = pendingTopupRef({ network: ctx.requirements.network, transaction: e.transaction, amount: ctx.requirements.amount, decimals });
+    try {
+      const seen = await db.select({ id: schema.creditLedger.id }).from(schema.creditLedger).where(eq(schema.creditLedger.ref, ref));
+      if (!seen.length) await db.insert(schema.creditLedger).values({ id: ulid(), accountId: served.account, delta: "0", reason: TOPUP_PENDING_REASON, ref });
+    } catch (err) {
+      opts.log?.warn("pending top-up could not be recorded", { err, account: served.account });
+    }
+  };
+}
+
+export interface PendingTopupRun {
+  checked: number;
+  credited: number;
+  failed: number;
+  waiting: number;
+}
+
+/**
+ * Credit pending top-ups whose payment the facilitator has since confirmed (x402_payments row for that tx settled,
+ * same network and amount). Idempotent: the credit uses the after-settle hook's settlement id (network:tx), so a
+ * top-up is credited once whichever path lands first. A payment that failed or was dropped is closed with a
+ * zero-delta `topup_pending_failed` row and an alert; one still waiting after 10 minutes raises an alert.
+ */
+export async function reconcilePendingTopups(db: Db, o: { now: () => number; alert?: (a: { kind: string; [k: string]: unknown }) => Promise<void> | void; alerted?: Set<string> }): Promise<PendingTopupRun> {
+  const out: PendingTopupRun = { checked: 0, credited: 0, failed: 0, waiting: 0 };
+  const since = new Date(o.now() - TOPUP_PENDING_MAX_AGE_MS);
+  const rows = await db
+    .select()
+    .from(schema.creditLedger)
+    .where(and(eq(schema.creditLedger.reason, TOPUP_PENDING_REASON), gt(schema.creditLedger.ts, since)));
+  for (const r of rows) {
+    const p = r.ref ? parsePendingTopupRef(r.ref) : null;
+    if (!p) continue;
+    const creditRef = `x402:${p.network}:${p.transaction}`;
+    const done = await db
+      .select({ id: schema.creditLedger.id })
+      .from(schema.creditLedger)
+      .where(or(eq(schema.creditLedger.ref, creditRef), and(eq(schema.creditLedger.ref, r.ref!), eq(schema.creditLedger.reason, TOPUP_PENDING_FAILED_REASON))));
+    if (done.length) continue;
+    out.checked++;
+    const [pay] = await db.select().from(schema.x402Payments).where(and(eq(schema.x402Payments.chain, p.network), eq(schema.x402Payments.txHash, p.transaction))).limit(1);
+    if (pay?.status === "settled" && BigInt(pay.amount) === BigInt(p.amount)) {
+      if (await topUpCredits(db, r.accountId, { id: `${p.network}:${p.transaction}`, network: p.network, asset: pay.asset, amount: p.amount, decimals: p.decimals, payer: pay.payer, status: "settled" })) out.credited++;
+      continue;
+    }
+    if (pay && (pay.status === "failed" || pay.status === "dropped" || pay.status === "settled")) {
+      // failed, dropped, or settled for another amount: never credited, closed once, ops told
+      await db.insert(schema.creditLedger).values({ id: ulid(), accountId: r.accountId, delta: "0", reason: TOPUP_PENDING_FAILED_REASON, ref: r.ref });
+      await o.alert?.({ kind: "x402.topup_not_credited", account: r.accountId, network: p.network, transaction: p.transaction, status: pay.status });
+      out.failed++;
+      continue;
+    }
+    out.waiting++;
+    if (o.now() - r.ts.getTime() > TOPUP_PENDING_ALERT_MS && !o.alerted?.has(r.id)) {
+      o.alerted?.add(r.id);
+      await o.alert?.({ kind: "x402.topup_pending", account: r.accountId, network: p.network, transaction: p.transaction, sinceMs: o.now() - r.ts.getTime() });
+    }
+  }
+  return out;
 }

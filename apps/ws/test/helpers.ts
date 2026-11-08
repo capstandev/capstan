@@ -14,7 +14,7 @@ export const addr = (sk: Uint8Array) => addressOfSecret(sk).toLowerCase() as Hex
 
 export async function startWs(over: Partial<WsDeps> = {}) {
   const bus = memoryBus();
-  const gw = createWsGateway({ bus, host: HOST, nonces: memoryNonceStore(), marketsForAsset: async () => [], bookOf: async () => null, capOf: async () => 50, tickerMs: 50, ...over });
+  const gw = createWsGateway({ bus, host: HOST, nonces: memoryNonceStore(), marketsForAsset: async () => [], bookOf: async () => null, capOf: async () => 50, knownMarket: async () => true, knownAsset: async () => true, maxConnsPerIp: 1000, tickerMs: 50, ...over });
   const server = await gw.start(0);
   return { bus, gw, url: `ws://127.0.0.1:${server.port}/v1`, stop: () => (gw.stop(), server.stop(true)) };
 }

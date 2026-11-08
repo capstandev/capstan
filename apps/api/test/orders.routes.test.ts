@@ -13,6 +13,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { sign as hlSign } from "../../../packages/adapters/hyperliquid/test/orders/util";
 import { AGENT, HL_REF, NOW, policyFor, relayStack, USER_A } from "../../relay/test/helpers";
+import { trustedOwner } from "./gw-helpers";
 import { createApp } from "../src/app";
 import type { BuildAdapter } from "../src/adapters";
 import { createOrderRoutes, type OrdersRouteDeps } from "../src/routes/orders.routes";
@@ -62,7 +63,7 @@ d("order routes", () => {
     ({ app } = await createApp({
       routesDir: mkdtempSync(join(tmpdir(), "capstan-routes-")),
       extraRoutes: routes,
-      verifiers: { owner_sig: () => null, api_key: () => null },
+      verifiers: { owner_sig: trustedOwner, api_key: trustedOwner },
       edge: () => async (c, next) => {
         (c as unknown as { set(k: string, v: unknown): void }).set("eligibilityDecisionId", "elig-route");
         await next();
@@ -75,7 +76,7 @@ d("order routes", () => {
     await tmp?.drop();
   }, 60_000);
 
-  const post = (path: string, body: unknown) => app.request(`/v1${path}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+  const post = (path: string, body: unknown) => app.request(`/v1${path}`, { method: "POST", headers: { "content-type": "application/json", "x-test-owner": (body as { owner?: string } | null)?.owner ?? USER_A }, body: JSON.stringify(body) });
   const intent = (o: Record<string, unknown> = {}) => ({ marketId: "hyperliquid:-:BTC", side: "buy", size: "0.001", type: "market", tif: "ioc", reduceOnly: false, maxSlippageBps: 50, ...o });
 
   test("build, submit and claim", async () => {

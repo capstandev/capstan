@@ -11,6 +11,7 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { AGENT, HL_REF, NOW, policyFor, relayStack, USER_A } from "../../relay/test/helpers";
+import { trustedOwner } from "./gw-helpers";
 import { createApp } from "../src/app";
 import type { BuildAdapter } from "../src/adapters";
 import { apiKeyCheck, apiKeyVerifier, ownerSigVerifier } from "../src/auth";
@@ -116,9 +117,9 @@ describe("errors", () => {
       let ip = "203.0.113.1";
       const edge = edgeFor({ geo: staticGeo(ips), db: db!, now: () => new Date(NOW), issue: (dr) => s.receipts.issue(dr), ipOf: () => ip });
       const routes: RouteSpec[] = [...createOrderRoutes(() => deps), ...createOnboardingRoutes(() => ({ db: db!, adapters: deps.adapters, issue: deps.issue, now: () => NOW }))];
-      const { app: edged } = await createApp({ routesDir: mkdtempSync(join(tmpdir(), "capstan-ref-")), extraRoutes: routes, verifiers: { owner_sig: () => null, api_key: () => null }, edge });
+      const { app: edged } = await createApp({ routesDir: mkdtempSync(join(tmpdir(), "capstan-ref-")), extraRoutes: routes, verifiers: { owner_sig: trustedOwner, api_key: trustedOwner }, edge });
       // past the edge (an allowed decision), for the build-time refusals
-      const { app } = await createApp({ routesDir: mkdtempSync(join(tmpdir(), "capstan-ref2-")), extraRoutes: routes, verifiers: { owner_sig: () => null, api_key: () => null }, edge: () => async (c, next) => { (c as unknown as { set(k: string, v: unknown): void }).set("eligibilityDecisionId", "elig-allowed"); await next(); } });
+      const { app } = await createApp({ routesDir: mkdtempSync(join(tmpdir(), "capstan-ref2-")), extraRoutes: routes, verifiers: { owner_sig: trustedOwner, api_key: trustedOwner }, edge: () => async (c, next) => { (c as unknown as { set(k: string, v: unknown): void }).set("eligibilityDecisionId", "elig-allowed"); await next(); } });
       const intent = (marketId = "hyperliquid:-:BTC") => ({ marketId, side: "buy", size: "0.001", type: "market", tif: "ioc", reduceOnly: false, maxSlippageBps: 50 });
       const post = (path: string, body: unknown, a = app) => a.request(`/v1${path}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
       const refusal = async (r: Response, code: ErrorCode) => {

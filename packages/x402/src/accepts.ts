@@ -6,7 +6,17 @@ import type { PaymentRequirements } from "@x402/core/types";
 import { RAIL_IDS, railDefs, type RailId, type X402Env } from "./networks";
 import type { TokenInfo } from "./tokens";
 
-export type PricedRoute = { usd: string; perRows?: 1000; description: string };
+export type PricedRoute = {
+  usd: string;
+  perRows?: 1000;
+  description: string;
+  /**
+   * perRows routes: price THIS request from the rows the handler will deliver (security review r1 F2). The gate calls
+   * it before the payment middleware on the same Request the handler then serves, charges ceil(rows / perRows) units,
+   * and refuses the request (400) on an error. A perRows route without it is priced from the rowsParam query value.
+   */
+  priceRequest?: (c: import("hono").Context) => Promise<{ usd: string; rows: number } | { error: string }>;
+};
 
 export interface X402State {
   usdgEip3009: Record<"4663" | "46630", boolean>;

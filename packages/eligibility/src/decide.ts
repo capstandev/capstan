@@ -21,6 +21,10 @@ export interface EligibilityInput {
   marketId?: string;
   isEquityMarket?: boolean;
   action: EligibilityAction;
+  /** false: evaluate with the owner but write the decision row with owner null (the owner was not authenticated). */
+  recordOwner?: boolean;
+  /** false: compute only, write no decision row (the public eligibility probe, r1 ELIG-2). */
+  persist?: boolean;
 }
 
 export type EligibilityDecision = {
@@ -165,10 +169,12 @@ export async function decide(input: EligibilityInput, deps: DecideDeps): Promise
   const decision: EligibilityDecision = { id: `eld_${ulid(now.getTime())}`, allowed: code === undefined, rulesVersion, ipCountry, declarationId };
   if (code) decision.code = code;
   if (readOnly) decision.readOnly = true;
+  if (input.persist === false) return decision;
+  const recorded = input.recordOwner === false ? null : owner;
   await deps.db.insert(schema.eligibilityDecisions).values({
     id: decision.id,
-    owner,
-    agentRef: input.agentRef ?? null,
+    owner: recorded,
+    agentRef: recorded === null && input.recordOwner === false ? null : (input.agentRef ?? null),
     ipCountry,
     declarationId,
     venue: input.venue,

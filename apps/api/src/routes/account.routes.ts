@@ -5,6 +5,7 @@ import { createDb, createRedis, memoryNonceStore, redisNonceStore, type Db, type
 import { ApiKeyError, createApiKey, creditsOf, dbWalletActivity, lockReaderFromEnv, NO_LOCK as NO_LOCK_READER, PERK_COPY, tierOf, verifyApiKey, type LockReader, type WalletActivity } from "@capstan/plans";
 import { errorBody, type Hex } from "@capstan/schema";
 import type { Context } from "hono";
+import { presentedKey } from "../auth";
 
 export interface PlansDeps {
   db: Db;
@@ -34,13 +35,19 @@ export function envPlansDeps(): Promise<PlansDeps> {
   })());
 }
 
-/** The presented API key: `x-api-key` header or `Authorization: Bearer <key>`. */
-export function presentedKey(c: Context): string | null {
-  const h = c.req.header("x-api-key");
-  if (h) return h.trim();
-  const a = c.req.header("authorization");
-  const m = a ? /^Bearer\s+(\S+)$/i.exec(a) : null;
-  return m ? m[1]! : null;
+/** The presented API key: the gate's one helper (`Authorization: Bearer <key>` or `x-api-key`, r1 F14). */
+export { presentedKey };
+
+/**
+ * The account the gate already verified (apiKeyId and apiKeyOwner on the context), so a handler never runs a second
+ * key verify (r1 F1). Only a route mounted without the gate falls back to one verify.
+ */
+export async function gateAccount(c: Context, d: PlansDeps): Promise<{ id: string; ownerWallet: string | null } | null> {
+  const get = (k: string) => (c as unknown as { get(k: string): unknown }).get(k);
+  const id = get("apiKeyId");
+  if (typeof id === "string" && get("authKind") === "api_key") return { id, ownerWallet: (get("apiKeyOwner") as string | null) ?? null };
+  const key = presentedKey(c);
+  return key ? verifyApiKey(d.db, key) : null;
 }
 
 export const LOCK_CACHE_TTL_MS = 60_000;
@@ -79,8 +86,7 @@ export function createAccountRoutes(getDeps: () => Promise<PlansDeps> | PlansDep
       description: "Your plan, limits and credits",
       async handler(c) {
         const d = await getDeps();
-        const key = presentedKey(c);
-        const acct = key ? await verifyApiKey(d.db, key) : null;
+        const acct = await gateAccount(c, d);
         if (!acct) return c.json(errorBody("UNAUTHORIZED"), 401);
         const t = await tierOf({ apiKeyId: acct.id }, { db: d.db, lock: d.lock, cacheTtlMs: LOCK_CACHE_TTL_MS, activity: d.activity, now: d.now });
         const credits = await creditsOf(d.db, acct.id, 0);

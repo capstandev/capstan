@@ -136,3 +136,68 @@ export function rateLimiter(deps: LimiterDeps): (spec: RouteSpec) => MiddlewareH
     };
   };
 }
+
+/** Failed auth answers (401) per IP bucket per minute before that IP is refused without running a verifier (r1 F1). */
+export const AUTH_FAIL_PER_IP = 10;
+/** The pre-auth IP cap: never tighter than the post-auth IP bucket of the highest tier (x5, x4), so it only stops floods. */
+export const preAuthLimit = (cls: RouteClass, limits?: Partial<Record<RouteClass, number>>) => (limits?.[cls] ?? BASE_LIMITS[cls]) * 5 * 4;
+
+export interface PreAuthDeps {
+  store: WindowStore;
+  fallback?: WindowStore;
+  ipOf(c: Context): string;
+  limits?: Partial<Record<RouteClass, number>>;
+  now?: () => number;
+}
+
+/**
+ * The cheap IP limiter that runs BEFORE authGate (security review r1 F1): a request that never authenticates still
+ * spends an IP slot, and an IP whose requests failed auth AUTH_FAIL_PER_IP times in a minute gets 429 before any key
+ * lookup, signature recovery or database read. The failure bucket counts a slot only for answers that were 401.
+ */
+export function preAuthLimiter(deps: PreAuthDeps): (spec: RouteSpec) => MiddlewareHandler {
+  const fallback = deps.fallback ?? memoryWindowStore();
+  const now = deps.now ?? Date.now;
+  return (spec) => {
+    const cls = classOf(spec);
+    return async (c, next) => {
+      const ip = ipBucket(deps.ipOf(c));
+      const keys = [
+        { key: `rl:pre:${cls}:ip:${ip}`, limit: preAuthLimit(cls, deps.limits) },
+        // a zero-cost probe of the failure bucket: one slot more than it holds, taken only on a 401 below
+        { key: `rl:authfail:ip:${ip}`, limit: AUTH_FAIL_PER_IP },
+      ];
+      // the failure bucket only refuses requests that carry credentials (a shared IP's anonymous reads keep working),
+      // and never the kill route, whose own signature is the only authority (an owner must always be able to stop)
+      const credentialed = !!(c.req.header("authorization") || c.req.header("x-api-key") || c.req.header("x-capstan-signature"));
+      const checkFails = credentialed && !(spec.method === "POST" && spec.path === "/agents/:agentRef/kill");
+      const r = await peekOrTake(deps.store, fallback, checkFails ? keys : [keys[0]!], now(), cls).catch(() => null);
+      if (!r) return c.json(errorBody("INTERNAL_ERROR", "Rate limits cannot be checked right now; writes are paused."), 503);
+      if (!r.ok) {
+        c.header("Retry-After", String(Math.ceil(r.retryAfterMs / 1000)));
+        return c.json(errorBody("VENUE_RATE_LIMITED", "Too many requests. Slow down and try again."), 429);
+      }
+      await next();
+      if (c.res.status === 401) await deps.store.take([{ key: `rl:authfail:ip:${ip}`, limit: Number.MAX_SAFE_INTEGER }], now()).catch(() => fallback.take([{ key: `rl:authfail:ip:${ip}`, limit: Number.MAX_SAFE_INTEGER }], now()));
+    };
+  };
+}
+
+/** Take the pre-auth slot and check (without taking) the failure bucket. */
+async function peekOrTake(store: WindowStore, fallback: WindowStore, keys: { key: string; limit: number }[], at: number, cls: RouteClass): Promise<Awaited<ReturnType<WindowStore["take"]>> | null> {
+  const run = async (s: WindowStore) => {
+    // the failure bucket is checked first with a probe key that is never written (limit 0 is always full, and take
+    // writes nothing when any window is full): index 0 full means refuse
+    if (keys[1]) {
+      const probe = await s.take([{ key: keys[1].key, limit: keys[1].limit }, { key: `${keys[1].key}:never`, limit: 0 }], at);
+      if (!probe.ok && probe.index === 0) return probe;
+    }
+    return s.take([keys[0]!], at);
+  };
+  try {
+    return await run(store);
+  } catch {
+    if (cls !== "read") return null;
+    return run(fallback);
+  }
+}

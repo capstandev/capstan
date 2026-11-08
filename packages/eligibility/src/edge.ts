@@ -40,12 +40,22 @@ export function clientIp(c: Context, trustForwardedFor = false): string | null {
   }
 }
 
+/**
+ * The body exactly as the handler will read it. Handlers call c.req.json(), which Hono parses whatever the
+ * content type says, so the edge parses the raw text the same way: a text/plain body can no longer hide the market,
+ * the venue or the agent from the decision while the handler still builds on them (security review r1 ELIG-1).
+ */
 async function bodyOf(c: Context): Promise<unknown> {
-  if (c.req.method === "GET") return null;
-  const type = c.req.header("content-type") ?? "";
-  if (!type.includes("application/json")) return null;
+  if (c.req.method === "GET" || c.req.method === "HEAD") return null;
+  let text: string;
   try {
-    return await c.req.json(); // Hono caches the parsed body, so the handler reads it again for free
+    text = await c.req.text(); // Hono caches the body, so the handler reads it again for free
+  } catch {
+    return null;
+  }
+  if (!text) return null;
+  try {
+    return JSON.parse(text) as unknown;
   } catch {
     return null;
   }
@@ -67,13 +77,26 @@ export function edgeMiddleware(deps: EdgeDeps & { write: RouteWrite }): Middlewa
   const w = deps.write;
   return async (c, next) => {
     const body = await bodyOf(c);
-    const rawMarket = w.marketId ? await w.marketId(c, body) : (c.req.query("marketId") ?? field(body, "marketId"));
+    // r1 ELIG-1: the decision is made on the venue and market the handler will use. A write route never reads them
+    // from the query string (the handler never does): the route's own hook, else the body, else the market's prefix,
+    // and a venue that disagrees with the market's prefix is refused
+    const rawMarket = w.marketId ? await w.marketId(c, body) : field(body, "marketId");
     const marketId = typeof rawMarket === "string" && rawMarket.length > 0 && rawMarket.length < 128 ? rawMarket : null;
-    const venue = asVenue(w.venue ? await w.venue(c, body) : (c.req.query("venue") ?? field(body, "venue") ?? marketId?.split(":")[0]));
+    const marketVenue = marketId ? asVenue(marketId.split(":")[0]) : null;
+    const named = w.venue ? await w.venue(c, body) : field(body, "venue");
+    const venue = named === undefined || named === null ? marketVenue : asVenue(named);
     if (!venue) return c.json(errorBody("INVALID_INPUT", "venue is required"), 400);
+    if (marketId && marketVenue !== venue) return c.json(errorBody("INVALID_INPUT", "The market is not on this venue."), 400);
     const authOwner = ctxGet(c, "owner");
-    const rawOwner = typeof authOwner === "string" ? authOwner : (field(body, "owner") ?? (w.owner ? await w.owner(c, body) : undefined));
+    const hookOwner = w.owner ? await w.owner(c, body) : undefined;
+    // the write acts for a stored record's owner (a build, a bundle): an authenticated caller who is not that owner
+    // is refused before any decision or receipt is written (r1 R1-04)
+    if (typeof authOwner === "string" && typeof hookOwner === "string" && hookOwner.toLowerCase() !== authOwner.toLowerCase()) return c.json(errorBody("UNAUTHORIZED", "The signature does not belong to this record's owner."), 401);
+    const rawOwner = typeof authOwner === "string" ? authOwner : (hookOwner ?? field(body, "owner"));
     const owner = typeof rawOwner === "string" && ADDR.test(rawOwner) ? (rawOwner as Hex) : undefined;
+    // r1 ELIG-2 / F2: only an authenticated owner (owner_sig, or an API key made for that wallet) is written into
+    // the decision log and a refusal receipt; an owner named only in the body is used to evaluate, never recorded
+    const ownerAuthed = ctxGet(c, "ownerAuthed") === true && typeof authOwner === "string";
     const authAgent = ctxGet(c, "agentRef");
     const rawAgent = typeof authAgent === "string" ? authAgent : field(body, "agentRef");
     const agentRef = typeof rawAgent === "string" && rawAgent.length > 0 && rawAgent.length < 128 ? rawAgent : undefined;
@@ -81,18 +104,20 @@ export function edgeMiddleware(deps: EdgeDeps & { write: RouteWrite }): Middlewa
     const ip = (deps.ipOf ?? ((x: Context) => clientIp(x, deps.trustForwardedFor)))(c) ?? "";
 
     const decision: EligibilityDecision = await decide(
-      { ip, venue, action: w.action, isEquityMarket, ...(owner ? { owner } : {}), ...(agentRef ? { agentRef } : {}), ...(marketId ? { marketId } : {}) },
+      { ip, venue, action: w.action, isEquityMarket, ...(owner ? { owner } : {}), ...(agentRef ? { agentRef } : {}), ...(marketId ? { marketId } : {}), ...(ownerAuthed ? {} : { recordOwner: false }) },
       { geo: deps.geo, db: deps.db, now: deps.now, ...(deps.rules ? { rules: deps.rules } : {}) },
     );
     if (decision.allowed) {
       ctxSet(c, "eligibilityDecisionId", decision.id);
       ctxSet(c, "eligibility", decision);
+      // what the decision was made on, so a handler can check it builds on the same venue and market
+      ctxSet(c, "eligibilityScope", { venue, marketId });
       await next();
       return;
     }
     let receiptId: string | undefined;
     try {
-      const r = await refusalReceipt(decision, { method: c.req.method, path: c.req.path, body }, deps.issue, { owner: owner ?? null, agentRef: agentRef ?? null, venue, marketId });
+      const r = await refusalReceipt(decision, { method: c.req.method, path: c.req.path, body }, deps.issue, { owner: ownerAuthed ? (owner ?? null) : null, agentRef: ownerAuthed ? (agentRef ?? null) : null, venue, marketId });
       receiptId = r.receiptId;
     } catch (e) {
       deps.onError?.(e as Error);
@@ -107,4 +132,15 @@ export function edgeFor(deps: EdgeDeps): (spec: RouteSpec) => MiddlewareHandler 
     if (!spec.write) throw new Error(`edgeFor: ${spec.method} ${spec.path} is not a write route`);
     return edgeMiddleware({ ...deps, write: spec.write });
   };
+}
+
+/**
+ * False when the edge decided on another venue or market than the one the handler is about to use (r1 ELIG-1).
+ * A route mounted without the real edge (a unit test's stand-in) records no scope and is not checked here.
+ */
+export function edgeScopeMatches(c: Context, venue: string, marketId: string | null): boolean {
+  const s = ctxGet(c, "eligibilityScope") as { venue: string; marketId: string | null } | undefined;
+  if (!s) return true;
+  if (s.venue !== venue) return false;
+  return s.marketId === null || marketId === null || s.marketId === marketId;
 }

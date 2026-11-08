@@ -60,7 +60,8 @@ describe("x402 wiring", () => {
     expect(priced["GET /v1/history/funding"]!.perRows).toBe(1000);
 
     // the five, mounted with the real gate in front of stub handlers (the handlers have their own tests)
-    const five: RouteSpec[] = specs.filter((s) => s.auth === "x402" && !s.path.startsWith("/credits/")).map((s) => ({ ...s, handler: (c) => c.json({ served: `${s.method} ${s.path}` }) }));
+    // the history route keeps its own pricing hook, stubbed to one 1,000-row page (r1 F2: the gate charges its quote)
+    const five: RouteSpec[] = specs.filter((s) => s.auth === "x402" && !s.path.startsWith("/credits/")).map((s) => ({ ...s, ...("priceRequest" in s ? { priceRequest: async () => ({ usd: "0.05", rows: 1000 }) } : {}), handler: (c) => c.json({ served: `${s.method} ${s.path}` }) }));
     expect(five.length).toBe(5);
     const rs = createResourceServer(facilitator());
     const spent: string[] = [];

@@ -11,7 +11,7 @@ import { drafts, type ReceiptDraft } from "@capstan/receipts";
 import { sha256Jcs } from "@capstan/relay";
 import { CapstanError, errorBody, OnboardingBuildZ, OnboardingPreflightQueryZ, OnboardingSubmitZ, type Hex, type OnboardingBundle, type OnboardingRequest, type VenueId } from "@capstan/schema";
 import { recordOnboardingPrompt } from "@capstan/telemetry";
-import { storeDeclaration } from "@capstan/eligibility";
+import { edgeScopeMatches, storeDeclaration } from "@capstan/eligibility";
 import { and, eq, ne } from "drizzle-orm";
 import type { Context } from "hono";
 import { bundleOfRow, type BuildAdapter } from "../adapters";
@@ -97,10 +97,11 @@ export function createOnboardingRoutes(getDeps: () => Promise<OnboardingRouteDep
         const authed = ctxGet(c, "owner");
         if (typeof authed === "string" && authed.toLowerCase() !== p.data.owner.toLowerCase()) return c.json(errorBody("UNAUTHORIZED", "The signature does not belong to this owner."), 401);
         const venue = p.data.venue as VenueId;
+        if (!edgeScopeMatches(c, venue, null)) return c.json(errorBody("INVALID_INPUT", "Eligibility was decided for another venue."), 400);
         const a = deps.adapters.get(venue);
         if (!a) return c.json(errorBody("UNSUPPORTED_VENUE"), 400);
         if (!a.caps.execution) {
-          const r = await deps.issue(drafts.refusal({ requestHash: sha256Jcs({ route: "/onboarding/build", body: body ?? null, code: "VENUE_DATA_ONLY" }), eligibilityDecisionId: String(ctxGet(c, "eligibilityDecisionId") ?? "onboarding:VENUE_DATA_ONLY"), owner: p.data.owner.toLowerCase() as Hex, venue })).catch(() => null);
+          const r = await deps.issue(drafts.refusal({ requestHash: sha256Jcs({ route: "/onboarding/build", body: body ?? null, code: "VENUE_DATA_ONLY" }), eligibilityDecisionId: String(ctxGet(c, "eligibilityDecisionId") ?? "onboarding:VENUE_DATA_ONLY"), owner: ctxGet(c, "ownerAuthed") === true ? (p.data.owner.toLowerCase() as Hex) : null, venue })).catch(() => null);
           return c.json(errorBody("VENUE_DATA_ONLY", undefined, r?.receiptId), 403);
         }
         const req: OnboardingRequest & Record<string, unknown> = {

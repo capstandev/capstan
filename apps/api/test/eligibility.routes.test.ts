@@ -23,8 +23,9 @@ describe.skipIf(!PG)("eligibility route", () => {
     const cases: [string, string, Record<string, unknown>][] = [
       [IP.US!, "venue=hyperliquid", { allowed: false, code: "GEO_REFUSED", rulesVersion: 1 }],
       [IP.DE!, "venue=hyperliquid", { allowed: false, code: "DECLARATION_MISSING", rulesVersion: 1 }],
-      [IP.DE!, `venue=hyperliquid&owner=${owner.address}`, { allowed: true, code: null, rulesVersion: 1 }],
-      [IP.DE6!, `venue=hyperliquid&owner=${owner.address}`, { allowed: true, code: null, rulesVersion: 1 }],
+      // an unsigned ?owner= never reveals whether that wallet holds a declaration (r1 ELIG-2): the answer is the region's
+      [IP.DE!, `venue=hyperliquid&owner=${owner.address}`, { allowed: false, code: "DECLARATION_MISSING", rulesVersion: 1 }],
+      [IP.DE6!, `venue=hyperliquid&owner=${owner.address}`, { allowed: false, code: "DECLARATION_MISSING", rulesVersion: 1 }],
       [IP.DE!, "venue=arcus", { allowed: false, code: "VENUE_DATA_ONLY", rulesVersion: 1 }],
       [IP.AE!, "venue=lighter-rh", { allowed: false, code: "GEO_REFUSED", rulesVersion: 1 }],
       ["192.168.1.20", "venue=aster", { allowed: false, code: "GEO_REFUSED", rulesVersion: 1 }],

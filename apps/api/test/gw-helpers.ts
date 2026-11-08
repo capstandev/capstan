@@ -33,3 +33,26 @@ export async function smallApp(routes: RouteSpec[], o: Omit<CreateAppOptions, "r
 }
 
 export { memoryNonceStore };
+
+/**
+ * A stand-in verifier for route tests that are not about auth: it treats the owner the request names (the
+ * x-test-owner header, else the JSON body's owner) as authenticated, the way a valid owner signature would.
+ */
+export const trustedOwner = async (c: import("hono").Context): Promise<null> => {
+  let o = c.req.header("x-test-owner") ?? null;
+  if (!o && c.req.method !== "GET") {
+    try {
+      const b = JSON.parse(await c.req.text()) as { owner?: unknown };
+      if (typeof b?.owner === "string") o = b.owner;
+    } catch {
+      /* no JSON body */
+    }
+  }
+  if (o) {
+    const set = (k: string, v: unknown) => (c as unknown as { set(k: string, v: unknown): void }).set(k, v);
+    set("owner", o.toLowerCase());
+    set("ownerAuthed", true);
+    set("authKind", "owner_sig");
+  }
+  return null;
+};
