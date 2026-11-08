@@ -9,3 +9,6 @@
   container tests (`bash ops/server/test/run-all.sh`).
 - `usage/`: daily usage, the go/no-go thresholds report and the monthly fee split (`bun ops/usage/report.ts`,
   `bun ops/usage/fee-split.ts`).
+- `release/`: the release runner for the hourly update queue (gate, deploy with auto-rollback, public copy, GitHub
+  Release, team post; arming guards, preflight), npm package metadata for `capstan-sdk` and `capstan-mcp`, and their
+  sandboxed tests (`bash ops/release/test/run-all.sh`).

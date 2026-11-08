@@ -1,0 +1,19 @@
+# One release-runner pass. Started by capstan-release.timer; installed with the timer DISABLED (arm.sh enables it).
+[Unit]
+Description=Capstan release runner (one pass)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=capstan-release
+Group=capstan-release
+Environment=RR_CONF=/etc/capstan-release/release.conf
+# The real-deploy guard needs this AND the flag file /etc/capstan-release/ALLOW_REAL_DEPLOY (made only by arm.sh).
+Environment=CAPSTAN_RELEASE_RUNNER=1
+UMask=0022
+Nice=10
+IOSchedulingClass=idle
+MemoryMax=3G
+TimeoutStartSec=3h
+ExecStart=/opt/capstan-release/bin/release-pass.sh

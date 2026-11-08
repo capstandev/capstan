@@ -1,0 +1,38 @@
+# /etc/capstan-release/release.conf (root-owned, 0644; no secrets here: tokens live in their own 0600 env files).
+# KEY=VALUE, read as text (never sourced). Command values are split on spaces: no quotes or spaces inside paths.
+RR_HOME=/var/lib/capstan-release
+# Owner commands run as root hand the runner home back to this user.
+RUNNER_USER=capstan-release
+WORK_DIR=/var/lib/capstan-release/backend
+QUEUE_REF=queue/tu-queue
+FLAG_FILE=/etc/capstan-release/ALLOW_REAL_DEPLOY
+OWNER_TZ=America/Toronto
+CADENCE_MINUTES=60
+EXPECTED_COUNT=72
+MIN_GAP_MINUTES=2
+# The timer runs every minute: 30 passes = a 30-minute retry window for transient failures.
+TRANSIENT_MAX=30
+PUBLIC_CI_EVERY_S=300
+ARM_MIN_LEAD_MINUTES=10
+SIGN_CHERRY_PICKS=1
+STRESS_REPORT=/var/lib/capstan-release/release-stress.md
+RELEASE_TOKEN_PROOF=/var/lib/capstan-release/release-token.proof
+NOTIFY_PROOF=/var/lib/capstan-release/notify.proof
+TELEGRAM_ENV=/etc/capstan-release/telegram.env
+GITHUB_RELEASE_ENV=/etc/capstan-release/github-release.env
+# Light gate on the server: typecheck plus the tests of what the update touched (the full gate ran before launch).
+GATE_CMD=/opt/capstan-release/bin/gate-light.sh
+PRIVATE_PUSH_CMD=/opt/capstan-release/bin/push-private.sh
+# ops/server/deploy.sh installed as capstan-deploy: health checks and its own auto-rollback. A runner rollback is a
+# deploy of the previous sha through the same path.
+DEPLOY_CMD=sudo -n /usr/local/sbin/capstan-deploy
+ROLLBACK_CMD=sudo -n /usr/local/sbin/capstan-deploy
+# Content checks per update (each one FAILS on production before the release and passes after).
+CHECK_CMD=/opt/capstan-release/bin/check-update.sh
+PUBLISH_CMD=/opt/capstan-release/bin/publish-public.sh
+GHREL_CMD=sudo -n /usr/local/sbin/capstan-release-ghrelease
+NOTIFY_CMD=sudo -n /usr/local/sbin/capstan-release-notify
+PUBLIC_CI_CHECK_CMD=/opt/capstan-release/bin/public-ci-green.sh
+HEALTHCHECK_CMD=
+SYSTEMCTL=sudo -n /bin/systemctl
+TIMER_UNIT=capstan-release.timer

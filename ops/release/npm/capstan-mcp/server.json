@@ -1,0 +1,18 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-09-29/server.schema.json",
+  "name": "io.github.capstan-xyz/capstan",
+  "title": "Capstan",
+  "description": "Multi-venue perps quotes, funding, risk and unsigned order builds (Hyperliquid, Lighter, Aster). Holds no key.",
+  "version": "0.1.0",
+  "websiteUrl": "https://capstan.finance/docs",
+  "repository": { "url": "https://github.com/capstan-xyz/capstan", "source": "github", "subfolder": "ops/release/npm/capstan-mcp" },
+  "remotes": [{ "type": "streamable-http", "url": "https://api.capstan.finance/mcp" }],
+  "packages": [{
+    "registryType": "npm", "registryBaseUrl": "https://registry.npmjs.org",
+    "identifier": "capstan-mcp", "version": "0.1.0", "runtimeHint": "npx", "transport": { "type": "stdio" },
+    "environmentVariables": [
+      { "name": "CAPSTAN_MCP_URL", "description": "The hosted MCP endpoint.", "isRequired": false, "default": "https://api.capstan.finance/mcp" },
+      { "name": "CAPSTAN_API_KEY", "description": "Optional Capstan API key (cpst_...) for credits and higher limits. Never a wallet key.", "isRequired": false, "isSecret": true }
+    ]
+  }]
+}

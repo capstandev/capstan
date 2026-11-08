@@ -1,0 +1,21 @@
+{
+  "name": "capstan-sdk",
+  "version": "0.1.0",
+  "description": "Capstan TypeScript SDK: makes and holds your trade-only venue keys on your device, checks every payload against your intent, signs locally, verifies receipts.",
+  "license": "MIT",
+  "type": "module",
+  "main": "dist/capstan-sdk.js",
+  "exports": { ".": "./dist/capstan-sdk.js" },
+  "files": ["dist/capstan-sdk.js", "dist/worker.mjs", "artifacts/lighter-signer.wasm", "artifacts/wasm_exec.js", "artifacts/SHA256SUMS"],
+  "engines": { "node": ">=20" },
+  "homepage": "https://capstan.finance/docs",
+  "repository": { "type": "git", "url": "git+https://github.com/capstan-xyz/capstan.git", "directory": "ops/release/npm/capstan-sdk" },
+  "bugs": { "url": "https://github.com/capstan-xyz/capstan/security/advisories/new" },
+  "keywords": ["perps", "hyperliquid", "lighter", "aster", "non-custodial", "sdk", "robinhood-chain", "receipts"],
+  "sideEffects": false,
+  "scripts": {
+    "build": "bun build.ts",
+    "prepack": "bun build.ts",
+    "test": "node smoke.mjs"
+  }
+}

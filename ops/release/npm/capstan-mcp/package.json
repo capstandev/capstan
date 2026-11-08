@@ -1,0 +1,18 @@
+{
+  "name": "capstan-mcp",
+  "version": "0.1.0",
+  "description": "Stdio bridge to the hosted Capstan MCP server: multi-venue perps quotes, funding, risk and unsigned order builds for AI agents. Holds no key. Run it with npx.",
+  "mcpName": "io.github.capstan-xyz/capstan",
+  "license": "MIT",
+  "type": "module",
+  "bin": { "capstan-mcp": "capstan-mcp.mjs" },
+  "files": ["capstan-mcp.mjs"],
+  "engines": { "node": ">=20" },
+  "homepage": "https://capstan.finance/docs",
+  "repository": { "type": "git", "url": "git+https://github.com/capstan-xyz/capstan.git", "directory": "ops/release/npm/capstan-mcp" },
+  "keywords": ["mcp", "model-context-protocol", "ai-agents", "perps", "hyperliquid", "lighter", "aster", "robinhood-chain"],
+  "scripts": {
+    "prepack": "node -e \"require('fs').copyFileSync('../../../../LICENSE','LICENSE')\"",
+    "test": "node smoke.mjs"
+  }
+}

@@ -1,0 +1,69 @@
+name: npm publish
+
+# Publishes one package (capstan-sdk or capstan-mcp) from ops/release/npm/<package>/ to npm with provenance, so the npm
+# page links this exact commit and run. Manual only (Actions, "npm publish", Run workflow, branch main) and only in the
+# PUBLIC repository. First publish: the NPM_TOKEN secret (a short granular token the owner made). Once trusted
+# publishing is set on npmjs.com, delete the secret: the same step then publishes through OIDC with no token.
+on:
+  workflow_dispatch:
+    inputs:
+      package:
+        description: "Package to publish"
+        required: true
+        type: choice
+        options: [capstan-sdk, capstan-mcp]
+
+permissions:
+  contents: read
+  id-token: write # provenance, and trusted publishing (OIDC)
+
+concurrency:
+  group: npm-publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: ${{ !github.event.repository.private && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24" # trusted publishing needs Node >= 22.14
+          registry-url: "https://registry.npmjs.org"
+      - name: npm new enough for trusted publishing (>= 11.5.1)
+        run: npm install -g "npm@11.6.2" && npm --version
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with: { bun-version: 1.4.4 }
+      - name: Install dependencies (frozen lockfile)
+        run: bun install --frozen-lockfile
+      - name: Pins and typecheck
+        run: bun ops/ci/check-pins.ts && bunx tsc --noEmit
+      - name: SDK tests (the code the package carries)
+        if: ${{ inputs.package == 'capstan-sdk' }}
+        run: bun test --timeout 30000 packages/sdk packages/receipts
+      - name: Build, pack and run under Node (no network)
+        working-directory: ops/release/npm/${{ inputs.package }}
+        run: |
+          if [ -f build.ts ]; then bun build.ts; fi
+          node smoke.mjs
+      - name: This version is not on npm yet
+        working-directory: ops/release/npm/${{ inputs.package }}
+        run: |
+          name=$(node -p "require('./package.json').name"); version=$(node -p "require('./package.json').version")
+          if npm view "$name@$version" version >/dev/null 2>&1; then
+            echo "$name@$version is already on npm: bump package.json (and server.json), then run this again." >&2; exit 1
+          fi
+      - name: Publish with provenance
+        working-directory: ops/release/npm/${{ inputs.package }}
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        # With the secret set, npm uses the token; with no secret and a trusted publisher configured, npm uses OIDC.
+        # The value is never echoed. --ignore-scripts: the build above already ran from this commit's source.
+        run: |
+          if [ -n "$NODE_AUTH_TOKEN" ]; then echo "Publishing with the NPM_TOKEN secret (first publish)."
+          else echo "No NPM_TOKEN secret: publishing through trusted publishing (OIDC)."; fi
+          npm publish --provenance --access public --ignore-scripts

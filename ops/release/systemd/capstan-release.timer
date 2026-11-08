@@ -1,0 +1,12 @@
+# Every minute after the previous pass ends (pass-counted limits in release.conf assume 1 minute: TRANSIENT_MAX=30
+# is a 30-minute window). Installed disabled; arm.sh runs "systemctl enable --now capstan-release.timer".
+[Unit]
+Description=Capstan release runner timer
+
+[Timer]
+OnBootSec=2min
+OnUnitInactiveSec=1min
+AccuracySec=10s
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,4 @@
+# Build output and the LICENSE copy the build places next to each package.json
+*/dist/
+*/LICENSE
+*/artifacts/

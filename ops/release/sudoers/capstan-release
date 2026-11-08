@@ -1,0 +1,6 @@
+# Narrow sudo for the release runner and the people on call. Install with:
+#   visudo -cf ./capstan-release && install -m 0440 ./capstan-release /etc/sudoers.d/capstan-release && visudo -c
+# Keep a root session open while installing. sudo-rs (Ubuntu 26.04) refuses regex arguments and some Defaults: test
+# every rule on the real server. Wrapper paths are root-owned copies; nothing here allows a shell.
+capstan-release ALL=(root) NOPASSWD: /usr/local/sbin/capstan-deploy, /usr/local/sbin/capstan-release-notify, /usr/local/sbin/capstan-release-ghrelease
+%capstan-ops ALL=(root) NOPASSWD: /usr/local/sbin/capstan-release-status, /usr/local/sbin/capstan-release-pause, /usr/local/sbin/capstan-release-resume, /usr/local/sbin/capstan-release-retry, /usr/local/sbin/capstan-release-preflight
