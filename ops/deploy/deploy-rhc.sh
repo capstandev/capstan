@@ -4,7 +4,8 @@
 #   local   : anvil on 127.0.0.1:21445 (RPC_URL to override), chain 31337, a fresh throwaway keystore made here,
 #             record in contracts/deployments/local/31337.json (never committed); with no BRAND_SAFE a code-only
 #             stand-in holds the local supply
-#   testnet : chain 46630, keystore account "capstan-deployer" (Foundry's own hidden password prompt), POSTER_ADDRESS,
+#   testnet : chain 46630, keystore account "capstan-deployer" (Foundry's own hidden password prompt), or for the agent-run
+#             testnet run DEPLOYER_KEYSTORE + DEPLOYER_PASSWORD_FILE (testnet only), POSTER_ADDRESS,
 #             BRAND_SAFE (must pass the real Safe check: Safe 1.4.1, threshold >= 2, no modules, no guard)
 #   mainnet : chain 4663, same, plus CAPSTAN_MAINNET_GO=go-<today's UTC date> set by the owner
 # macOS bash 3.2 safe. One line per stage. Every stage checks the chain first and skips what is already done, so a
@@ -59,8 +60,15 @@ if [ "$net" = "local" ]; then
 else
   if [ -z "${POSTER_ADDRESS:-}" ]; then echo "stage 1: refuse: POSTER_ADDRESS is not set"; exit 1; fi
   if [ -z "${BRAND_SAFE:-}" ]; then echo "stage 1: refuse: BRAND_SAFE is not set"; exit 1; fi
-  deployer="$("$CAST" wallet address --account capstan-deployer)"
-  wallet_args="--account capstan-deployer"
+  if [ "$net" = "testnet" ] && [ -n "${DEPLOYER_KEYSTORE:-}" ] && [ -n "${DEPLOYER_PASSWORD_FILE:-}" ]; then
+    # agent-run testnet deploy (ops/testnet/run-all.ts): the testnet deployer keystore with its password file.
+    # Testnet only: mainnet always uses the owner's keystore and Foundry's hidden password prompt.
+    deployer="$("$CAST" wallet address --keystore "$DEPLOYER_KEYSTORE" --password-file "$DEPLOYER_PASSWORD_FILE")"
+    wallet_args="--keystore $DEPLOYER_KEYSTORE --password-file $DEPLOYER_PASSWORD_FILE"
+  else
+    deployer="$("$CAST" wallet address --account capstan-deployer)"
+    wallet_args="--account capstan-deployer"
+  fi
 fi
 
 # stage 2: deployer balance against the dry-run gas

@@ -63,6 +63,16 @@ Severity: info
 Means: a builder balance read failed (venue API error). Nothing changed on our side.
 Do: nothing if the next read works; check the venue status if it repeats.
 
+## canary.read_failed
+Severity: act
+Means: the 15-minute read canary could not read a venue's health, book or funding on its network.
+Do: check the venue's status page and our egress; quotes refuse stale data on their own. Two failures in a row: tell the team.
+
+## canary.signed_failed
+Severity: act
+Means: the hourly signed canary could not place or cancel its tiny testnet order (testnets only).
+Do: read the error; check the testnet wallet balance with ops/testnet/doctor.sh; a signing change means the venue-signing-change runbook.
+
 ## catalog.new_dexes
 Severity: info
 Means: the nightly catalog sync found new venue dexes. They start non-executable.

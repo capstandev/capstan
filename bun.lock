@@ -200,6 +200,13 @@
         "viem": "2.57.14",
       },
     },
+    "ops/testnet": {
+      "name": "@capstan/ops-testnet",
+      "version": "0.0.0",
+      "dependencies": {
+        "@capstan/x402": "workspace:*",
+      },
+    },
     "ops/usage": {
       "name": "@capstan/ops-usage",
       "version": "0.0.0",
@@ -536,6 +543,8 @@
     "@capstan/ops-fork": ["@capstan/ops-fork@workspace:ops/fork"],
 
     "@capstan/ops-mainnet": ["@capstan/ops-mainnet@workspace:ops/mainnet"],
+
+    "@capstan/ops-testnet": ["@capstan/ops-testnet@workspace:ops/testnet"],
 
     "@capstan/ops-usage": ["@capstan/ops-usage@workspace:ops/usage"],
 

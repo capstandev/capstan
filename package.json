@@ -16,7 +16,8 @@
     "packages/signers/*",
     "ops/usage",
     "ops/fork",
-    "ops/mainnet"
+    "ops/mainnet",
+    "ops/testnet"
   ],
   "scripts": {
     "typecheck": "tsc --noEmit",

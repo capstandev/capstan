@@ -1,0 +1,10 @@
+{
+  "name": "@capstan/ops-testnet",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Testnet wallets, doctor and the run-all runner (RHC 46630, HL testnet, Lighter 300, Base Sepolia, Solana devnet)",
+  "dependencies": {
+    "@capstan/x402": "workspace:*"
+  }
+}

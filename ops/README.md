@@ -12,3 +12,6 @@
 - `release/`: the release runner for the hourly update queue (gate, deploy with auto-rollback, public copy, GitHub
   Release, team post; arming guards, preflight), npm package metadata for `capstan-sdk` and `capstan-mcp`, and their
   sandboxed tests (`bash ops/release/test/run-all.sh`).
+- `testnet/`: testnet wallets (`make-wallets.sh`, `make-wallets-vps.sh` for Aster on the VPS), the read-only
+  `doctor.sh`, the testnet brand Safe (`make-safe.sh`) and `run-all.sh`, which runs every testnet-gated suite whose
+  wallets are funded. Testnets only; every sender asserts its network first (`bun test ops/testnet`).
