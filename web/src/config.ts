@@ -66,7 +66,7 @@ export function configFromEnv(env: Env): AppConfig {
       explorerBase: str("VITE_EXPLORER") ?? RHC_TESTNET.explorer,
       writeChainAllowlist: FORK_WRITE_CHAINS,
       writeChainDenylist: [RHC_MAINNET.chainId],
-      reownProjectId: str("VITE_REOWN_PROJECT_ID") ?? null,
+      reownProjectId: str("VITE_WALLETCONNECT_PROJECT_ID") ?? str("VITE_REOWN_PROJECT_ID") ?? null,
       ...(json<PinsOverride>(env.VITE_PINS, "VITE_PINS") ? { pinned: json<PinsOverride>(env.VITE_PINS, "VITE_PINS") } : {}),
       ...(json<Record<string, string>>(env.VITE_VENUE_HOSTS, "VITE_VENUE_HOSTS") ? { venueHosts: json<Record<string, string>>(env.VITE_VENUE_HOSTS, "VITE_VENUE_HOSTS") } : {}),
       ...(json<Hex[]>(env.VITE_RECEIPT_SIGNERS, "VITE_RECEIPT_SIGNERS") ? { receiptSigners: json<Hex[]>(env.VITE_RECEIPT_SIGNERS, "VITE_RECEIPT_SIGNERS") } : {}),
@@ -84,7 +84,7 @@ export function configFromEnv(env: Env): AppConfig {
     explorerBase: chain.explorer,
     writeChainAllowlist: [],
     writeChainDenylist: [],
-    reownProjectId: str("VITE_REOWN_PROJECT_ID") ?? null,
+    reownProjectId: str("VITE_WALLETCONNECT_PROJECT_ID") ?? str("VITE_REOWN_PROJECT_ID") ?? null,
   };
 }
 

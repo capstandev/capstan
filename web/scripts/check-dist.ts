@@ -53,15 +53,27 @@ const SERVER_PATH = /(\/Users\/[A-Za-z0-9._-]+|\/home\/[A-Za-z0-9._-]+|\/private
 const THIRD_PARTY = /<script[^>]+src=["']https?:\/\/|fonts\.googleapis\.com|fonts\.gstatic\.com|googletagmanager|google-analytics|plausible\.io|segment\.(io|com)|hotjar|mixpanel/i;
 const HEX64 = /0x[0-9a-fA-F]{64}(?![0-9a-fA-F])/g;
 
+/** Size caps kept well under the static host's limits (DECISIONS 222; VERIFY against Vercel's current limits at B10). */
+export const MAX_FILE_BYTES = 20 * 1024 * 1024;
+export const MAX_TOTAL_BYTES = 100 * 1024 * 1024;
+/** Cached assets live under these folders and must carry a content hash in their name (served immutable). */
+const HASHED_DIRS = /^(assets|_app)\//;
+const HASHED_NAME = /-[A-Za-z0-9_-]{8,}\.[a-z0-9]+$/;
+
 export function checkDist(dist = join(WEB, "dist"), o: { env?: string[]; deny?: RegExp[]; allowHex?: Set<string> } = {}): DistProblem[] {
   if (!existsSync(dist)) return [{ file: dist, what: "no build output (run vite build first)" }];
   const env = o.env ?? envValues();
   const deny = o.deny ?? denylist();
   const out: DistProblem[] = [];
+  let total = 0;
   for (const f of files(dist)) {
     const rel = relative(dist, f);
+    const size = statSync(f).size;
+    total += size;
+    if (size > MAX_FILE_BYTES) out.push({ file: rel, what: `file over ${MAX_FILE_BYTES} bytes (${size})` });
+    if (HASHED_DIRS.test(rel) && !HASHED_NAME.test(rel)) out.push({ file: rel, what: "cached asset without a content hash in its name" });
     if (rel.endsWith(".map")) out.push({ file: rel, what: "source map file" });
-    if (/\.(png|jpe?g|webp|gif|ico|woff2?|wasm)$/i.test(rel)) continue;
+    if (/\.(png|jpe?g|webp|gif|ico|woff2?|wasm|mp4|webm)$/i.test(rel)) continue;
     const text = readFileSync(f, "utf8");
     if (/[#@]\s*sourceMappingURL=/.test(text)) out.push({ file: rel, what: "sourceMappingURL comment" });
     const sp = SERVER_PATH.exec(text);
@@ -73,6 +85,7 @@ export function checkDist(dist = join(WEB, "dist"), o: { env?: string[]; deny?: 
     if (tp) out.push({ file: rel, what: `third-party script or font: ${tp[0]}` });
     for (const m of text.matchAll(HEX64)) if (!o.allowHex?.has(m[0].toLowerCase())) out.push({ file: rel, what: `64-hex value ${m[0].slice(0, 12)}...` });
   }
+  if (total > MAX_TOTAL_BYTES) out.push({ file: ".", what: `build output over ${MAX_TOTAL_BYTES} bytes (${total})` });
   return out;
 }
 

@@ -3,3 +3,8 @@
 # words still fails. Keep this list as short as possible.
 # Spec risk banner (RiskView.banner), required on every risk view:
 Each venue liquidates independently. Nothing here is shared margin.
+# The website owner's copy (web/public, DECISIONS 222): negations that say the same thing as the risk banner.
+No shared margin
+Nothing here is shared margin.
+Nothing in the proposed view is shared margin.
+Each venue keeps its own margin and liquidation rules; nothing is shared margin.

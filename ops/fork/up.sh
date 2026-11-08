@@ -6,7 +6,7 @@
 #        /bin/bash ops/fork/up.sh apps       (re)start the six apps and the web (after every-tx.ts deploys contracts)
 #        /bin/bash ops/fork/up.sh web        restart the web dev server only (after every-tx.ts writes the fork pins)
 #        /bin/bash ops/fork/up.sh status     one line per process
-# Ports (lane e2e-launch): api 22410, ws 22411, relay 22412, mcp 22413, facilitator 22414, fake HL 22420, fake
+# Default ports (lane e2e-launch; FORK_P_* moves them): api 22410, ws 22411, relay 22412, mcp 22413, facilitator 22414, fake HL 22420, fake
 # Lighter-RH 22421, fake Lighter 22422, Postgres 22432, RHC fork RPC 22445 (fee-shim, anvil itself on 22449),
 # rpc-cache RHC 22446, Base fork RPC 22447 (fee-shim, anvil on 22450), rpc-cache Base 22448, web 22473, Redis 22479. PIDs go to ops/fork/.pids (down.sh stops only those).
 # macOS bash 3.2 safe. Keys: fresh throwaway keystores under ops/fork/.state/keys (random password files, chmod 600),
@@ -27,13 +27,15 @@ logs="$state/logs"
 mkdir -p "$state" "$logs" "$state/keys" "$state/armed" "$state/geo"
 chmod 700 "$state/keys"
 touch "$pids"
-COMPOSE_PROJECT="capstan-e2e-launch"
+COMPOSE_PROJECT="${FORK_COMPOSE_PROJECT:-capstan-e2e-launch}"
 RHC_UPSTREAM="${RHC_UPSTREAM:-https://rpc.mainnet.chain.robinhood.com}"
 BASE_UPSTREAM="${BASE_UPSTREAM:-https://mainnet.base.org}"
-P_API=22410; P_WS=22411; P_RELAY=22412; P_MCP=22413; P_FAC=22414
-P_HL=22420; P_RH=22421; P_LM=22422; P_PG=22432; P_ANVIL=22445; P_CACHE=22446; P_BASE=22447; P_BCACHE=22448
-P_ANVIL_IN=22449; P_BASE_IN=22450 # anvil itself; 22445 and 22447 are fee-shim front doors with the real chains' tips
-P_WEB=22473; P_REDIS=22479
+# Every port and the compose project can be moved with FORK_P_<NAME> / FORK_COMPOSE_PROJECT, so a second lane runs its
+# own stack beside this one (the defaults are lane e2e-launch's). ops/fork/lib.ts reads the same variables.
+P_API=${FORK_P_API:-22410}; P_WS=${FORK_P_WS:-22411}; P_RELAY=${FORK_P_RELAY:-22412}; P_MCP=${FORK_P_MCP:-22413}; P_FAC=${FORK_P_FAC:-22414}
+P_HL=${FORK_P_HL:-22420}; P_RH=${FORK_P_RH:-22421}; P_LM=${FORK_P_LM:-22422}; P_PG=${FORK_P_PG:-22432}; P_ANVIL=${FORK_P_ANVIL:-22445}; P_CACHE=${FORK_P_CACHE:-22446}; P_BASE=${FORK_P_BASE:-22447}; P_BCACHE=${FORK_P_BCACHE:-22448}
+P_ANVIL_IN=${FORK_P_ANVIL_IN:-22449}; P_BASE_IN=${FORK_P_BASE_IN:-22450} # anvil itself; P_ANVIL and P_BASE are fee-shim front doors with the real chains' tips
+P_WEB=${FORK_P_WEB:-22473}; P_REDIS=${FORK_P_REDIS:-22479}
 
 listening() { /usr/sbin/lsof -nP -iTCP:"$1" -sTCP:LISTEN >/dev/null 2>&1; }
 alive() { [ -n "$1" ] && kill -0 "$1" 2>/dev/null; }
@@ -196,8 +198,9 @@ apps() {
   start mcp "$P_MCP" "$ENVRUN" "$BUN" apps/mcp/src/index.ts
   start facilitator "$P_FAC" "$ENVRUN" "$BUN" apps/facilitator/src/index.ts
   # workers: receipts (the relay holds no key), the RootPosted indexer and the USDG detection; merkle-anchor is run
-  # by every-tx.ts with the hour closed on the fork clock (S3), so it is not scheduled here
-  nohup "$ENVRUN" /usr/bin/env WORKER_JOBS=receipt-sign,receipt-sign-refusal,root-indexer,x402-detect RECEIPT_SIGNER=keystore \
+  # by every-tx.ts with the hour closed on the fork clock (S3), so it is not scheduled here. FORK_EXTRA_JOBS adds read
+  # jobs (the site pass uses ingest-hl, so funding and marks come from the Hyperliquid stand-in)
+  nohup "$ENVRUN" /usr/bin/env WORKER_JOBS=receipt-sign,receipt-sign-refusal,root-indexer,x402-detect${FORK_EXTRA_JOBS:+,$FORK_EXTRA_JOBS} RECEIPT_SIGNER=keystore \
     RECEIPT_KEYSTORE_PATH="$state/keys/receipt" RECEIPT_KEYSTORE_PASSWORD_FILE="$state/keys/receipt.password" \
     "$BUN" apps/workers/src/index.ts >"$logs/workers.log" 2>&1 </dev/null &
   record workers "$!" 0
@@ -215,13 +218,21 @@ web() {
   pins=""; [ -f "$state/web-pins.json" ] && pins="$(cat "$state/web-pins.json")"
   # the generated OpenAPI and MCP tool files the docs pages import (what `bun run dev` does first)
   (cd "$root/web" && "$BUN" scripts/sync-openapi.ts >"$logs/web-sync.log" 2>&1) || { echo "fail: web sync-openapi (log: $logs/web-sync.log)"; exit 1; }
-  (cd "$root/web" && exec /usr/bin/env VITE_PROFILE=fork VITE_NETWORK=mainnet VITE_API_BASE="http://127.0.0.1:$P_API/v1" \
-    VITE_RPC_URL="http://127.0.0.1:$P_ANVIL" VITE_TOKEN_CHAIN_ID=4663 VITE_RECEIPT_SIGNERS="[\"$signer\"]" \
-    VITE_VENUE_HOSTS="{\"hyperliquid\":\"http://127.0.0.1:$P_HL\"}" ${anchor:+VITE_ANCHOR=$anchor VITE_ANCHOR_CHAIN_ID=4663} VITE_PINS="$pins" \
-    "$root/web/node_modules/.bin/vite" --host 127.0.0.1 --port "$P_WEB" --strictPort) >"$logs/web.log" 2>&1 </dev/null &
+  # the build's VITE_* variables, as positional parameters (macOS bash 3.2 has no arrays worth trusting here)
+  set -- VITE_PROFILE=fork VITE_NETWORK=mainnet VITE_API_BASE="http://127.0.0.1:$P_API/v1" VITE_RPC_URL="http://127.0.0.1:$P_ANVIL" \
+    VITE_TOKEN_CHAIN_ID=4663 VITE_RECEIPT_SIGNERS="[\"$signer\"]" VITE_VENUE_HOSTS="{\"hyperliquid\":\"http://127.0.0.1:$P_HL\"}" \
+    ${anchor:+VITE_ANCHOR=$anchor} ${anchor:+VITE_ANCHOR_CHAIN_ID=4663} VITE_PINS="$pins"
+  if [ "${FORK_WEB:-dev}" = "dist" ]; then
+    # the built site (hashed names, clean URLs) served the way the static host serves it: web/scripts/serve-dist.ts
+    (cd "$root/web" && /usr/bin/env "$@" "$root/web/node_modules/.bin/vite" build --outDir "$state/web-dist" --emptyOutDir >"$logs/web-build.log" 2>&1 \
+      && "$BUN" scripts/hash-public.ts "$state/web-dist" >>"$logs/web-build.log" 2>&1) || { echo "fail: web build (log: $logs/web-build.log)"; tail -5 "$logs/web-build.log"; exit 1; }
+    (cd "$root/web" && exec "$BUN" scripts/serve-dist.ts --dir "$state/web-dist" --port "$P_WEB") >"$logs/web.log" 2>&1 </dev/null &
+  else
+    (cd "$root/web" && exec /usr/bin/env "$@" "$root/web/node_modules/.bin/vite" --host 127.0.0.1 --port "$P_WEB" --strictPort) >"$logs/web.log" 2>&1 </dev/null &
+  fi
   record web "$!" "$P_WEB"
-  wait_port "$P_WEB" web 60
-  echo "up: web http://127.0.0.1:$P_WEB (fork profile)"
+  wait_port "$P_WEB" web 120
+  echo "up: web http://127.0.0.1:$P_WEB (fork profile, ${FORK_WEB:-dev})"
 }
 
 status() {

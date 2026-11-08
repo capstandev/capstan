@@ -1,0 +1,196 @@
+/* ==========================================================================
+   FanCarousel — cards dealt out like a hand, the focused one picked up out
+   of the spread. Drag, swipe, scroll or click to change the pick; the fan
+   resettles on a sampled spring. No dependencies.
+
+   Prefixed `fan-`, not `fc-`: FluidCursor already owns `.fc`, and its
+   `pointer-events: none` would apply here too once both are bundled onto one
+   page — laying out perfectly and swallowing every click.
+   ========================================================================== */
+
+.fan {
+  --fan-bg: #000000;
+  --fan-scrim: linear-gradient(180deg, rgba(6, 8, 14, 0.62) 0%, rgba(6, 8, 14, 0) 58%);
+  --fan-title: #ffffff;
+  --fan-subtitle: rgba(255, 255, 255, 0.7);
+  --fan-pill: rgba(255, 255, 255, 0.18);
+  --fan-pill-text: #ffffff;
+  --fan-dot: rgba(255, 255, 255, 0.4);
+  --fan-dot-active: #ffffff;
+  --fan-shadow-color: rgba(0, 0, 0, 0.55);
+  --fan-aspect: 2.4;
+  --fan-card-w: 27cqw;
+  --fan-ratio: 1.25;
+  --fan-corner: 2.7cqw;
+  --fan-zoom: 1.05;
+  --fan-speed: 0.62s;
+  --fan-ease: ease;
+
+  container-type: inline-size;
+  position: relative;
+  width: 100%;
+  aspect-ratio: var(--fan-aspect);
+  overflow: hidden;
+  background: var(--fan-bg);
+  cursor: grab;
+  /* Vertical scrolling still belongs to the page. */
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.fan:active {
+  cursor: grabbing;
+}
+
+.fan:focus-visible {
+  outline: 2px solid var(--fan-dot-active);
+  outline-offset: -3px;
+}
+
+.fan-stage {
+  position: absolute;
+  inset: 0;
+}
+
+.fan-card {
+  position: absolute;
+  /* The fan pivots about the middle of the frame; each card's own transform
+     carries the -50% that centres it there. */
+  top: 50%;
+  left: 50%;
+  width: var(--fan-card-w);
+  height: calc(var(--fan-card-w) * var(--fan-ratio));
+  border-radius: var(--fan-corner);
+  text-decoration: none;
+  /* The whole motion of this component: React writes the resting transform,
+     and a spring sampled into linear() does the travelling. Nothing runs per
+     frame in script. */
+  transition: transform var(--fan-speed) var(--fan-ease),
+    opacity 0.4s ease;
+  will-change: transform;
+}
+
+/* Under a finger the fan tracks the pointer, so the spring stands down. */
+.fan--dragging .fan-card {
+  transition: none;
+}
+
+.fan-frame {
+  position: absolute;
+  inset: 0;
+  display: block;
+  /* Clips the image's zoom, and is what actually shows the corner radius. */
+  overflow: hidden;
+  border-radius: inherit;
+  background: #0b0d12;
+  box-shadow: 0 2.4cqw 5cqw -1.6cqw var(--fan-shadow-color);
+}
+
+.fan-image {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scale(1);
+  transition: transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+  -webkit-user-drag: none;
+}
+
+/* Only the picked-up card answers the pointer, and only when the fan is
+   still — a zoom chasing a drag reads as a wobble. */
+.fan:not(.fan--dragging) .fan-card.is-focused:hover .fan-image {
+  transform: scale(var(--fan-zoom));
+}
+
+.fan-scrim {
+  position: absolute;
+  inset: 0;
+  background: var(--fan-scrim);
+  pointer-events: none;
+}
+
+.fan-text {
+  position: absolute;
+  top: 6.5%;
+  left: 7%;
+  right: 28%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35em;
+  font-family: Inter, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  pointer-events: none;
+}
+
+.fan-title {
+  font-size: clamp(13px, 1.6cqw, 26px);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  color: var(--fan-title);
+}
+
+.fan-subtitle {
+  font-size: clamp(9px, 0.95cqw, 15px);
+  font-weight: 500;
+  line-height: 1.3;
+  color: var(--fan-subtitle);
+}
+
+.fan-tag {
+  position: absolute;
+  top: 6.5%;
+  right: 7%;
+  padding: 0.45em 0.9em;
+  border-radius: 999px;
+  background: var(--fan-pill);
+  color: var(--fan-pill-text);
+  font-family: Inter, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-size: clamp(8px, 0.75cqw, 12px);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  backdrop-filter: blur(8px);
+  pointer-events: none;
+}
+
+.fan-dots {
+  position: absolute;
+  left: 50%;
+  bottom: clamp(10px, 2.2cqw, 30px);
+  z-index: 200;
+  display: flex;
+  gap: 8px;
+  transform: translateX(-50%);
+}
+
+.fan-dot {
+  width: 12px;
+  height: 8px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: var(--fan-dot);
+  cursor: pointer;
+  /* The active indicator widens rather than merely lighting up. */
+  transition: width 0.35s var(--fan-ease), background-color 0.35s ease;
+}
+
+.fan-dot.is-on {
+  width: 24px;
+  background: var(--fan-dot-active);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fan-card,
+  .fan-image,
+  .fan-dot {
+    transition: none;
+  }
+
+  .fan-card {
+    will-change: auto;
+  }
+}

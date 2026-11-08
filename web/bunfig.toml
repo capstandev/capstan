@@ -1,3 +1,9 @@
+# web/ is its own package (not a root workspace), so it repeats the root install rules: exact versions and the
+# 3-day supply-chain delay (minimumReleaseAge, seconds).
+[install]
+exact = true
+minimumReleaseAge = 259200
+
 # Web tests run in happy-dom (test/setup.ts registers it and keeps Bun's own fetch and WebCrypto).
 [test]
 preload = ["./test/setup.ts"]

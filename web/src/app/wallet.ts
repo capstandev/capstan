@@ -34,13 +34,31 @@ export function discoverWallets(win: Window = window, waitMs = 300): Promise<Dis
   });
 }
 
-/**
- * WalletConnect through Reown AppKit is offered only when the build has a project id (BACKLOG B8).
- * TODO(owner): B8. Once the Reown project id exists, pin @reown/appkit and wagmi (exact versions, 3 days old) and add
- * their EIP-1193 provider to the list below as one more DiscoveredWallet; the guard and the SDK bridge stay the same.
- */
+/** WalletConnect through the Reown AppKit picker is offered only when the build has a project id (BACKLOG B8). */
 export function reownEnabled(cfg: Pick<AppConfig, "reownProjectId">): boolean {
   return typeof cfg.reownProjectId === "string" && cfg.reownProjectId.length > 0;
+}
+
+export const REOWN_WALLET_ID = "reown-appkit";
+
+/**
+ * One entry that stands for the official Reown AppKit picker. AppKit loads only when the user asks to connect (its
+ * code is a separate chunk); the picker lists WalletConnect and the wallets injected in this browser, and the
+ * provider it hands back goes through the same chain guard and SDK bridge as an EIP-6963 wallet.
+ */
+export function reownWallet(cfg: Pick<AppConfig, "reownProjectId" | "profile">, open: (projectId: string) => Promise<Eip1193Provider> = async (id) => (await import("./reown")).openReown(id, cfg)): DiscoveredWallet {
+  let real: Promise<Eip1193Provider> | null = null;
+  const provider: Eip1193Provider = {
+    async request(a) {
+      if (!cfg.reownProjectId) throw new Error("No WalletConnect project id in this build.");
+      real ??= open(cfg.reownProjectId).catch((e) => {
+        real = null;
+        throw e;
+      });
+      return (await real).request(a);
+    },
+  };
+  return { info: { uuid: REOWN_WALLET_ID, name: "a wallet (WalletConnect or browser)", icon: "", rdns: "com.reown.appkit" }, provider };
 }
 
 export class WriteRefused extends Error {

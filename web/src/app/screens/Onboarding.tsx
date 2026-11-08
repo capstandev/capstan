@@ -3,6 +3,8 @@
 // screen before the wallet is asked for anything. Declining the builder step leaves the venue fee_free_unavailable.
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router";
+import { ConnectLink } from "../nav";
+import { VerifyLink } from "../../components/VerifyLink";
 import { SdkError, type Hex, type VenueId } from "../../lib/capstan";
 import { useSession } from "../session";
 import { BUILDER_VENUES, EXECUTION_VENUES, FEE_FREE_UNAVAILABLE, venueName } from "../venues";
@@ -64,7 +66,7 @@ export function Onboarding() {
       <section aria-labelledby="onb-title">
         <h2 id="onb-title">Onboard {venueName(venue)}</h2>
         <p>
-          <Link to="/app">Connect your wallet</Link> to use this screen.
+          <ConnectLink /> to use this screen.
         </p>
       </section>
     );
@@ -255,7 +257,7 @@ export function Onboarding() {
           </dl>
           {state.receiptId ? (
             <p>
-              Receipt <Link to={`/verify?id=${encodeURIComponent(state.receiptId)}`}>{state.receiptId}</Link>
+              Receipt <VerifyLink id={state.receiptId}>{state.receiptId}</VerifyLink>
             </p>
           ) : null}
         </div>

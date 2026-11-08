@@ -6,7 +6,7 @@ import { describe, expect, test } from "bun:test";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { chromiumPath, WEB } from "../browser";
-import { connectAndOnboard, withDashboard } from "../app/browser-stack";
+import { connectAndOnboard, tradeNav, withDashboard } from "../app/browser-stack";
 
 const RUN = process.env.CAPSTAN_WEB_E2E === "1";
 const OUT = resolve(process.env.CAPSTAN_WEB_PASS_DIR ?? join(WEB, "../../docs/reviews", `web-pass-${new Date().toISOString().slice(0, 10)}`));
@@ -32,14 +32,14 @@ describe("browser pass", () => {
       expect(d.wallet.signs().length).toBeGreaterThanOrEqual(2);
 
       // quote
-      await p.getByRole("navigation", { name: "Dashboard" }).getByRole("link", { name: "Quote", exact: true }).click();
+      await tradeNav(p, "Quote");
       await p.getByRole("button", { name: "Get quote" }).click();
       await p.locator("[data-quote-table]").waitFor();
       expect(await p.locator("tr.data-only [data-col=status]").textContent()).toBe("data only");
       await shot("quote");
 
       // order: the SDK checks the build, then the local key signs and the relay sends it
-      await p.getByRole("navigation", { name: "Dashboard" }).getByRole("link", { name: "Order", exact: true }).click();
+      await tradeNav(p, "Order");
       await p.getByRole("button", { name: "Check the order" }).click();
       await p.locator("[data-order-preview], [data-screen=order] [role=alert]").first().waitFor({ timeout: 20_000 });
       if (await p.locator("[data-screen=order] [role=alert]").count()) throw new Error(`order check failed: ${await p.locator("[data-screen=order] [role=alert]").textContent()}`);
@@ -51,7 +51,7 @@ describe("browser pass", () => {
       await shot("order-sent");
 
       // risk: one card per venue under the banner
-      await p.getByRole("navigation", { name: "Dashboard" }).getByRole("link", { name: "Risk", exact: true }).click();
+      await tradeNav(p, "Risk");
       await p.getByRole("button", { name: /Read my venue accounts/ }).click();
       await p.locator("[data-risk-view]").waitFor();
       expect(await p.locator("[data-venue-card]").count()).toBe(2);
@@ -65,10 +65,9 @@ describe("browser pass", () => {
       await shot("receipt-verified");
 
       // kill: the relay refuses the key, the key is wiped, the revocation steps are shown
-      await p.goto(`${d.site}/app`, { waitUntil: "networkidle" });
       // a page load starts a new session: the key is still in IndexedDB but not loaded, so onboard again to kill
       await connectAndOnboard(d);
-      await p.getByRole("navigation", { name: "Dashboard" }).getByRole("link", { name: "Policy and kill", exact: true }).click();
+      await tradeNav(p, "Policy and kill");
       await p.getByRole("button", { name: "Kill this key" }).click();
       await p.locator("[data-kill-result]").waitFor({ timeout: 20_000 });
       expect(await p.locator("[data-kill-result]").textContent()).toContain("Only your wallet can revoke the venue key.");

@@ -8,8 +8,14 @@ import type { Browser } from "playwright-core";
 
 export const WEB = resolve(import.meta.dir, "..");
 
-/** The public pages the browser checks visit. */
-export const SITE_PATHS = ["/", "/docs", "/pricing", "/status", "/verify", "/legal"];
+/** Every page of the site (web/*.html), as the host serves it with clean URLs. */
+export const SITE_PAGES = readdirSync(WEB)
+  .filter((f) => f.endsWith(".html"))
+  .map((f) => f.replace(/\.html$/, ""))
+  .sort();
+export const SITE_PATHS = SITE_PAGES.filter((p) => p !== "404").map((p) => (p === "index" ? "/" : `/${p}`));
+/** The pages whose whole body is this repo's own React (the owner's design around them): docs, status, verify, legal. */
+export const LIVE_PAGE_PATHS = ["/docs", "/status", "/verify", "/legal"];
 
 export function chromiumPath(): string | null {
   const env = process.env.CAPSTAN_CHROMIUM;
@@ -56,6 +62,8 @@ export function buildOnce(env: Record<string, string> = {}): Promise<string> {
       }
       try {
         await build({ root: WEB, mode: "production", configFile: join(WEB, "vite.config.ts"), logLevel: "error", build: { outDir, emptyOutDir: true } });
+        const { hashPublic } = await import("../scripts/hash-public");
+        hashPublic(outDir);
       } finally {
         for (const [k, v] of Object.entries(saved)) {
           if (v === undefined) delete process.env[k];
@@ -69,18 +77,24 @@ export function buildOnce(env: Record<string, string> = {}): Promise<string> {
   return p;
 }
 
-const TYPES: Record<string, string> = { ".html": "text/html", ".js": "text/javascript", ".mjs": "text/javascript", ".css": "text/css", ".json": "application/json", ".svg": "image/svg+xml", ".wasm": "application/wasm" };
+const TYPES: Record<string, string> = { ".mp4": "video/mp4", ".webp": "image/webp", ".png": "image/png", ".jpg": "image/jpeg", ".ico": "image/x-icon", ".woff2": "font/woff2", ".html": "text/html", ".js": "text/javascript", ".mjs": "text/javascript", ".css": "text/css", ".json": "application/json", ".svg": "image/svg+xml", ".wasm": "application/wasm" };
 
-/** Serve a build folder with the single-page fallback, on a free port. */
+/** Serve a build folder the way vercel.json does: clean URLs (/docs is docs.html) and 404.html for anything else. */
 export function serveDist(dir: string): { url: string; stop(): void } {
   const server = Bun.serve({
     port: 0,
     hostname: "127.0.0.1",
     fetch(req) {
       const u = new URL(req.url);
-      let p = join(dir, decodeURIComponent(u.pathname));
-      if (!p.startsWith(dir) || !existsSync(p) || statSync(p).isDirectory()) p = join(dir, "index.html");
-      return new Response(readFileSync(p), { headers: { "content-type": TYPES[extname(p)] ?? "application/octet-stream" } });
+      const path = decodeURIComponent(u.pathname);
+      let p = join(dir, path === "/" ? "index.html" : path);
+      if (p.startsWith(dir) && !extname(p) && existsSync(`${p}.html`)) p = `${p}.html`;
+      let status = 200;
+      if (!p.startsWith(dir) || !existsSync(p) || statSync(p).isDirectory()) {
+        p = join(dir, "404.html");
+        status = 404;
+      }
+      return new Response(readFileSync(p), { status, headers: { "content-type": TYPES[extname(p)] ?? "application/octet-stream" } });
     },
   });
   return { url: `http://127.0.0.1:${server.port}`, stop: () => server.stop(true) };
@@ -105,6 +119,9 @@ export function withBrowser<T>(fn: (b: Browser) => Promise<T>): Promise<T> {
   return run;
 }
 
+/** Like MEASURE, but small text is only counted inside the elements matching `scope` (this repo's live views). */
+export const measureIn = (scope: string) => MEASURE.replace("document.createTreeWalker(document.body,", `document.createTreeWalker(document.querySelector(${JSON.stringify(scope)}) || document.createElement("div"),`);
+
 /** Runs in the page: the widest overflow and every text node's font size. */
 export const MEASURE = `(() => {
   const vw = document.documentElement.clientWidth;
@@ -124,3 +141,14 @@ export const MEASURE = `(() => {
   }
   return { vw, sw, small };
 })()`;
+
+/** The owner's preloader covers the page until it has loaded (at most about 4 s). Waits for it; with a frozen test
+ *  clock it never times out on its own, so after the wait it is removed. */
+export async function waitForPreloader(page: import("playwright-core").Page, timeout = 7000): Promise<void> {
+  await page.waitForFunction(() => !document.querySelector("#cap-preloader"), undefined, { timeout }).catch(() => page.evaluate(() => {
+    document.querySelector("#cap-preloader")?.remove();
+    document.documentElement.classList.remove("cap-preloading");
+    document.body.classList.remove("cap-preloading");
+    document.querySelectorAll("[inert]").forEach((e) => e.removeAttribute("inert"));
+  }));
+}

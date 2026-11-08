@@ -3,7 +3,6 @@ import { act, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { MemoryRouter } from "react-router";
 import { ConfigContext, configFromEnv, type AppConfig } from "../src/config";
-import { Layout } from "../src/components/Layout";
 
 export interface Mounted {
   host: HTMLElement;
@@ -19,7 +18,7 @@ export async function mount(el: ReactNode, o: { path?: string; config?: Partial<
   await act(async () => {
     root.render(
       <ConfigContext.Provider value={cfg}>
-        <MemoryRouter initialEntries={[o.path ?? "/"]}>{o.layout === false ? el : <Layout>{el}</Layout>}</MemoryRouter>
+        <MemoryRouter initialEntries={[o.path ?? "/"]}>{el}</MemoryRouter>
       </ConfigContext.Provider>,
     );
   });

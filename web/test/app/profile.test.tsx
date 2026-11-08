@@ -1,7 +1,7 @@
 // R9: with VITE_PROFILE=fork the app points at the local stack (API 22210) and the anvil fork (22245), shows a plain
 // "Local test network" banner, and refuses every write from chain 4663. The chain is never switched for the user.
 import { describe, expect, test } from "bun:test";
-import { Layout } from "../../src/components/Layout";
+import { decorate } from "../../src/site/decorate";
 import { configFromEnv } from "../../src/config";
 import { byText, click, mount, waitFor } from "../helpers";
 import { connect, onboard, startDash, testWallet, toConfirm } from "./harness";
@@ -19,16 +19,17 @@ describe("profile", () => {
     expect(live.profile).toBe("live");
     expect(live.writeChainDenylist).toEqual([]);
 
-    // the banner: plain text, no animation or badge class
-    const m = await mount(<p>page</p>, { config: fork, layout: true });
-    const banner = m.host.querySelector("[data-fork-banner]")!;
+    // the banner (src/site/decorate.ts, on every page): plain text, no animation or badge class
+    document.body.innerHTML = "<main class=\"bl-page\"></main>";
+    decorate(fork, "about");
+    const banner = document.querySelector("[data-fork-banner]")!;
     expect(banner.textContent).toBe("Local test network");
-    expect(banner.className).toBe("fork-banner");
+    expect(banner.className).toBe("cap-fork-banner");
     expect(banner.children.length).toBe(0);
-    await m.unmount();
-    const m2 = await mount(<p>page</p>, { config: live });
-    expect(m2.host.querySelector("[data-fork-banner]")).toBeNull();
-    await m2.unmount();
+    document.body.innerHTML = "<main class=\"bl-page\"></main>";
+    decorate(live, "about");
+    expect(document.querySelector("[data-fork-banner]")).toBeNull();
+    document.body.innerHTML = "";
 
     // fork profile, wallet on chain 4663: connect warns, onboarding is refused before any prompt, no key kept
     const w = testWallet({ chainId: 4663 });

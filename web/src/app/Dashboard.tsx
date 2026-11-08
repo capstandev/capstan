@@ -24,7 +24,7 @@ export const DASH_NAV = [
   { to: "/app/spreads", label: "Spreads" },
 ] as const;
 
-function Screens({ spreads }: { spreads?: SpreadsDeps }) {
+export function DashboardScreens({ spreads }: { spreads?: SpreadsDeps }) {
   const s = useSession();
   if (s.eligibility && !s.eligibility.allowed && s.eligibility.code === "GEO_REFUSED") {
     return (
@@ -65,7 +65,7 @@ export function Dashboard({ deps, spreads }: { deps?: SessionDeps; spreads?: Spr
     <article className="page" data-dashboard="">
       <h1>Dashboard</h1>
       <SessionProvider {...(deps ? { deps } : {})}>
-        <Screens {...(spreads ? { spreads } : {})} />
+        <DashboardScreens {...(spreads ? { spreads } : {})} />
       </SessionProvider>
       <Disclaimer />
     </article>

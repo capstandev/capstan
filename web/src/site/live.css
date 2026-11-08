@@ -1,0 +1,115 @@
+/* Live views inside the owner's design. Only classes this site adds (cap-*) and the React screens under .cap-live are
+   styled here, with the owner's palette (style.css :root: --ink, --blue, --sky, --pale, --muted, --line) and fonts.
+   No animation, no status dots, no badges: values and plain state lines only. */
+
+.cap-visually-hidden,
+.cap-live .visually-hidden { position: absolute !important; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+.cap-fork-banner { margin: 0; padding: 6px 16px; background: #fff3c4; color: var(--ink, #17385f); font: 700 12px/1.4 Nunito, system-ui, sans-serif; text-align: center; border-bottom: 2px solid #f1d98a; position: relative; z-index: 50; }
+
+.cap-live-section .cap-live-panel,
+.cap-live-panel { margin-top: 16px; text-align: left; overflow: hidden; }
+.cap-live-section .bl-heading { text-align: left; }
+
+.cap-state { margin: 10px 0; padding: 12px 14px; border-radius: 14px; background: #fff; border: 1px solid var(--line, #cde3f2); color: var(--muted, #69809a); font-size: 14px; }
+.cap-state-error, .cap-state-offline { color: #8a3b22; background: #fff6f1; border-color: #f4c9b6; }
+
+.cap-mono, .cap-live .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .92em; }
+.cap-live .mono, .cap-live code, .cap-live pre { font-size: 14px; }
+.cap-break, .cap-live .break { overflow-wrap: anywhere; word-break: break-word; }
+.cap-row, .cap-live .row { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center; }
+.cap-row a:not(.dash-button) { color: var(--blue, #2e91e9); font-weight: 700; }
+
+.cap-chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+.cap-chip { min-height: 44px; min-width: 44px; border: 2px solid #fff; border-radius: 100px; background: var(--sky, #d9efff); color: var(--ink, #17385f); font: 800 12px Nunito, system-ui, sans-serif; padding: 7px 14px; cursor: pointer; box-shadow: 0 3px 0 #b8d9ec; }
+.cap-chip.active, .cap-chip[aria-pressed="true"] { background: var(--ink, #17385f); color: #fff; box-shadow: 0 3px 0 #0d2340; }
+.cap-chip:focus-visible, .cap-link-button:focus-visible, .cap-market-button:focus-visible { outline: 3px solid var(--blue, #2e91e9); outline-offset: 2px; }
+
+.cap-table-wrap, .cap-live .table-wrap { max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; border-radius: 14px; background: #fff; border: 1px solid var(--line, #cde3f2); }
+.cap-table, .cap-live table { width: 100%; min-width: 620px; border-collapse: collapse; font-size: 13px; color: var(--ink, #17385f); }
+.cap-table th, .cap-table td, .cap-live th, .cap-live td { padding: 9px 10px; text-align: left; border-bottom: 1px solid #e4f0f4; vertical-align: top; }
+.cap-table th, .cap-live th { font: 900 10px Nunito, system-ui, sans-serif; letter-spacing: .12em; text-transform: uppercase; color: #2b5f86; background: var(--pale, #f4fbff); }
+.cap-table tr:last-child td, .cap-live tr:last-child td { border-bottom: 0; }
+.cap-data-only td, .cap-live tr.data-only td { color: var(--muted, #69809a); }
+.cap-link-button, .cap-live .link-button { display: inline-flex; align-items: center; min-height: 44px; min-width: 44px; background: none; border: 0; padding: 0; color: var(--blue, #2e91e9); font: inherit; font-weight: 800; cursor: pointer; text-decoration: underline; }
+
+.cap-market-button { width: 100%; background: none; border: 0; border-bottom: 1px solid #e4f0f4; text-align: left; font: inherit; color: inherit; cursor: pointer; }
+.cap-market-button:hover { background: #eef8ff; }
+
+.cap-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin: 12px 0; }
+.cap-facts div { background: #fff; border: 1px solid var(--line, #cde3f2); border-radius: 14px; padding: 10px 12px; min-width: 0; }
+.cap-facts dt { font: 900 10px Nunito, system-ui, sans-serif; letter-spacing: .12em; text-transform: uppercase; color: #2b5f86; }
+.cap-facts dd { margin: 4px 0 0; font-weight: 800; color: var(--ink, #17385f); overflow-wrap: anywhere; }
+
+.cap-book { margin-top: 16px; }
+.cap-book h3 small { font-weight: 600; color: var(--muted, #69809a); }
+.cap-book-sides { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.cap-book-sides > div { background: #fff; border-radius: 14px; border: 1px solid var(--line, #cde3f2); padding: 8px 10px; min-width: 0; }
+.cap-book-sides small { font: 900 10px Nunito, system-ui, sans-serif; letter-spacing: .12em; color: #2b5f86; }
+.cap-bid, .cap-ask { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; padding: 3px 0; }
+.cap-bid span { color: #1f7a4d; font-weight: 800; }
+.cap-ask span { color: #b24a2b; font-weight: 800; }
+
+.cap-quote-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; margin: 12px 0; }
+.cap-quote-card.bl-receipt { max-width: none; margin: 0; padding: 20px; }
+.cap-quote-card h3 small { display: block; font-weight: 600; color: var(--muted, #69809a); }
+.cap-quote-card > div { display: flex; justify-content: space-between; gap: 10px; }
+
+.cap-disclaimer { margin: 18px 0 0; padding: 14px 16px; border-radius: 16px; background: #fff; border: 1px solid var(--line, #cde3f2); color: var(--ink, #17385f); font-size: 14px; line-height: 1.5; text-align: left; }
+.cap-disclaimer-section { padding-top: 0 !important; }
+.dash-main > .cap-disclaimer { margin: 16px 0; }
+
+.cap-token-box { text-align: left; }
+.cap-token-box h3 { margin-top: 0; }
+
+/* ---- the React screens (dashboard trade, risk, activity; quote and risk widgets; docs, verify, status, legal) ---- */
+.cap-live { color: var(--ink, #17385f); font-family: "DM Sans", Nunito, system-ui, sans-serif; text-align: left; min-width: 0; }
+.cap-live h1 { margin-top: 0; }
+.cap-live h2 { font-family: Nunito, system-ui, sans-serif; font-weight: 900; font-size: 22px; margin: 8px 0 12px; }
+.cap-live h3 { font-family: Nunito, system-ui, sans-serif; font-weight: 800; font-size: 16px; margin: 16px 0 8px; }
+.cap-live p, .cap-live li, .cap-live dd, .cap-live dt, .cap-live label, .cap-live td, .cap-live code { font-size: 14px; line-height: 1.55; color: var(--ink, #17385f); }
+.cap-live th { font-size: 14px; letter-spacing: .02em; text-transform: none; }
+.cap-live a { color: #1d63a6; font-weight: 700; }
+.cap-live .page { max-width: 980px; margin: 0 auto; }
+.cap-live .stack { display: grid; gap: 10px; list-style: none; padding: 0; }
+.cap-live ul.subnav { list-style: none; padding: 0; margin: 0 0 14px; }
+.cap-live .subnav a { display: inline-block; padding: 7px 14px; border-radius: 100px; background: var(--sky, #d9efff); color: var(--ink, #17385f); text-decoration: none; font: 800 14px Nunito, system-ui, sans-serif; border: 2px solid #fff; box-shadow: 0 3px 0 #b8d9ec; }
+.cap-live .subnav a.active, .cap-live .subnav a[aria-current="page"] { background: var(--ink, #17385f); color: #fff; box-shadow: 0 3px 0 #0d2340; }
+.cap-live .button { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; min-width: 44px; padding: 9px 18px; gap: 8px; border: 0; border-radius: 100px; background: #f8a789; color: var(--ink, #17385f); font: 800 14px Nunito, system-ui, sans-serif; box-shadow: 0 4px 0 #d4866d; cursor: pointer; }
+.cap-live .button:disabled { opacity: .55; cursor: not-allowed; }
+.cap-live .button-secondary { background: #fff; color: var(--ink, #17385f); box-shadow: 0 4px 0 #c8dce5; border: 1px solid var(--line, #cde3f2); }
+.cap-live .button-small { min-height: 44px; padding: 5px 14px; font-size: 14px; }
+.cap-live .button:focus-visible, .cap-live input:focus-visible, .cap-live select:focus-visible, .cap-live textarea:focus-visible, .cap-live a:focus-visible { outline: 3px solid var(--blue, #2e91e9); outline-offset: 2px; }
+.cap-live input, .cap-live select, .cap-live textarea { font: inherit; color: inherit; border: 2px solid var(--line, #cde3f2); border-radius: 12px; padding: 7px 10px; background: #fff; max-width: 100%; min-height: 44px; }
+.cap-live form.row label { display: inline-flex; flex-direction: column; gap: 4px; font-weight: 700; font-size: 14px; }
+.cap-live .card { background: #fff; border: 2px solid #fff; border-radius: 18px; padding: 14px 16px; box-shadow: 0 4px 0 #d3e4ea, 0 6px 10px #9ab7c544; margin: 10px 0; min-width: 0; }
+.cap-live .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+.cap-live .checks { display: grid; gap: 6px; margin: 8px 0; }
+.cap-live .checks > div { display: grid; grid-template-columns: minmax(110px, 30%) 1fr; gap: 8px; min-width: 0; }
+.cap-live .checks dt { font-weight: 800; }
+.cap-live .checks dd { margin: 0; overflow-wrap: anywhere; }
+.cap-live .callout, .cap-live .banner { padding: 10px 14px; border-radius: 14px; background: #d6effb; border: 2px solid #fff; font-weight: 700; }
+.cap-live .risk-label { color: #8a3b22; }
+.cap-live .error { color: #8a3b22; font-weight: 700; }
+.cap-live .ok { color: #1f7a4d; font-weight: 700; }
+.cap-live pre { white-space: pre-wrap; overflow-wrap: anywhere; background: #fff; border-radius: 12px; padding: 10px; font-size: 12px; max-height: 360px; overflow: auto; }
+.cap-live .disclaimer { margin-top: 16px; padding: 12px 14px; border-radius: 14px; background: #fff; border: 1px solid var(--line, #cde3f2); font-size: 14px; }
+.cap-live .disclaimer * { font-size: 14px; }
+.cap-live .disclaimer h2 { font-size: 16px; margin: 0 0 6px; }
+.cap-live .cap-connected { font-weight: 700; }
+.cap-live-page .bl-wrap { text-align: left; }
+.cap-live-page .cap-live .page > h1 { text-align: left; }
+
+@media (max-width: 640px) {
+  /* the funding table becomes one card per venue market: no table wider than the phone */
+  .cap-table { min-width: 0; }
+  .cap-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .cap-table tr { display: block; padding: 8px 10px; border-bottom: 1px solid #e4f0f4; }
+  .cap-table td { display: flex; justify-content: space-between; gap: 12px; padding: 3px 0; border: 0; overflow-wrap: anywhere; text-align: right; }
+  .cap-table td::before { content: attr(data-label); font-weight: 800; color: #2b5f86; text-align: left; }
+  .cap-table td:not([data-label]) { justify-content: flex-end; }
+  .cap-book-sides { grid-template-columns: 1fr; }
+  .cap-live .checks > div { grid-template-columns: 1fr; gap: 2px; }
+  .cap-live form.row label, .cap-live form.row input, .cap-live form.row select { width: 100%; }
+  .cap-quote-cards { grid-template-columns: 1fr; }
+}

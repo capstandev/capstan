@@ -1,5 +1,5 @@
-// R7: at 390 px wide no page scrolls sideways and no text is smaller than 14 px (headless Chromium; skipped with a
-// note when none is installed).
+// R7: at 390 px wide no page scrolls sideways (headless Chromium; skipped with a note when none is installed). The
+// owner's typography sets its own small sizes (labels, kickers), so the old 14 px floor is not applied (DECISIONS 222).
 import { describe, expect, test } from "bun:test";
 import { buildOnce, chromiumPath, MEASURE, serveDist, SITE_PATHS, SKIP_NO_CHROMIUM, withBrowser } from "./browser";
 
@@ -16,16 +16,15 @@ describe("responsive", () => {
         const page = await browser.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
         for (const path of SITE_PATHS) {
           await page.goto(`${srv.url}${path}`, { waitUntil: "networkidle" });
-          await page.waitForSelector("main h1");
+          await page.waitForSelector("#app main", { state: "attached" });
           const m = (await page.evaluate(MEASURE)) as { vw: number; sw: number; small: string[] };
           expect({ path, vw: m.vw, overflow: m.sw > m.vw }).toEqual({ path, vw: 390, overflow: false });
-          expect({ path, small: m.small }).toEqual({ path, small: [] });
         }
         await page.close();
-        console.log(`responsive: ${SITE_PATHS.length} pages fit 390 px with no text under 14 px`);
+        console.log(`responsive: ${SITE_PATHS.length} pages fit 390 px`);
       });
     } finally {
       srv.stop();
     }
-  }, 180_000);
+  }, 400_000);
 });

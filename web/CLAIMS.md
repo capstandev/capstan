@@ -1,9 +1,10 @@
-# Landing page claims
+# Product claims
 
-Every claim the landing page makes has a row here: the claim id (the `data-claim` attribute on the page), what it
-says, and how someone outside the team can check it today. A claim whose check is not possible yet is marked
-`not live` and the page does not show it (`src/live.ts` holds the switches). `test/claims.test.ts` keeps this table
-and the page in step.
+The website's copy is the owner's (`public/`, `*.html`). This table is the list of product claims the site and the
+API docs may make, each with how someone outside the team can check it today (`src/copy.ts` holds the same sentences
+and `test/claims.test.ts` keeps the two in step). A claim whose check is not possible yet is marked `not live`
+(`src/live.ts` holds the switches). Owner lines that go further than this table are listed for the owner in the
+private copy notes, not changed on the site.
 
 | Id | Claim | How to check it today | Status |
 | --- | --- | --- | --- |

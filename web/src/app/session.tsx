@@ -5,7 +5,7 @@ import { createContext, useCallback, useContext, useMemo, useRef, useState, type
 import { useConfig, type AppConfig } from "../config";
 import { browserKeyStore, createClient, PINS, mergePins, type AgentPolicy, type CapstanClient, type Eip1193Provider, type Hex, type KeyStore, type VenueId, type WalletSigner } from "../lib/capstan";
 import { createDashApi, type DashApi } from "./api";
-import { discoverWallets, guardedWallet, requestOwner, walletChainId, type DiscoveredWallet, type WalletInfo } from "./wallet";
+import { discoverWallets, guardedWallet, reownEnabled, reownWallet, requestOwner, walletChainId, type DiscoveredWallet, type WalletInfo } from "./wallet";
 
 export type VenueStatus = "none" | "onboarding" | "active" | "fee_free_unavailable" | "error";
 
@@ -162,8 +162,11 @@ export function SessionProvider({ children, deps = {} }: { children: ReactNode; 
   const api = useMemo(() => createDashApi({ apiBase: cfg.apiBase, fetch: apiFetch, wallet: walletSigner, owner: connected?.owner ?? null, chainId: chainForMessages, now }), [cfg, apiFetch, walletSigner, connected, chainForMessages, now]);
 
   const findWallets = useCallback(async () => {
-    setWallets(await (deps.discover ?? (() => discoverWallets()))());
-  }, [deps.discover]);
+    // with a WalletConnect project id the official Reown AppKit picker is the one way in (it lists injected wallets
+    // too); without one, EIP-6963 discovery of the wallets injected in this browser
+    const discover = deps.discover ?? (reownEnabled(cfg) ? async () => [reownWallet(cfg)] : () => discoverWallets());
+    setWallets(await discover());
+  }, [deps.discover, cfg]);
 
   const connect = useCallback(
     async (w: DiscoveredWallet) => {
@@ -173,7 +176,8 @@ export function SessionProvider({ children, deps = {} }: { children: ReactNode; 
         const chainId = await walletChainId(w.provider);
         setConnected({ info: w.info, provider: w.provider, owner, chainId });
         try {
-          const r = await apiFetch(`${cfg.apiBase.replace(/\/$/, "")}/eligibility`, { headers: { accept: "application/json" } });
+          // the route answers per venue (a bare call is a 400); the region rule is the same for every venue
+          const r = await apiFetch(`${cfg.apiBase.replace(/\/$/, "")}/eligibility?venue=hyperliquid`, { headers: { accept: "application/json" } });
           if (r.ok) {
             const j = (await r.json()) as { allowed?: boolean; code?: string | null };
             setEligibility({ allowed: j.allowed !== false, code: j.code ?? null });

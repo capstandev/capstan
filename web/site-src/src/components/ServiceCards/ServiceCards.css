@@ -1,0 +1,211 @@
+/*
+ * Service Cards.
+ *
+ * All motion is CSS on :hover / :focus-visible. Each card carries its own
+ * `--sc-accent`, so the dot, the filled button and any hover tint follow the
+ * card without a class per colour.
+ */
+
+.sc {
+  background: var(--sc-bg);
+  padding: clamp(16px, 4vw, 48px);
+}
+
+.sc__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--sc-min)), 1fr));
+  gap: var(--sc-gap);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sc__item {
+  display: flex;
+}
+
+.sc__card {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: var(--sc-radius);
+  background: var(--sc-card);
+  color: var(--sc-text);
+  text-decoration: none;
+  outline: none;
+  box-shadow: 0 1px 2px rgb(0 0 0 / calc(0.04 * var(--sc-shadow-k)));
+  transition:
+    translate var(--sc-speed) cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow var(--sc-speed) ease;
+}
+
+.sc__card:hover,
+.sc__card:focus-visible {
+  translate: 0 var(--sc-lift);
+  box-shadow:
+    0 2px 4px rgb(0 0 0 / calc(0.04 * var(--sc-shadow-k))),
+    0 18px 36px -12px rgb(0 0 0 / calc(0.18 * var(--sc-shadow-k)));
+}
+
+.sc__card:focus-visible {
+  box-shadow: 0 0 0 2px var(--sc-accent), 0 18px 36px -12px rgb(0 0 0 / 0.18);
+}
+
+.sc__media {
+  position: relative;
+  aspect-ratio: 1 / var(--sc-ratio);
+  overflow: hidden;
+  background: color-mix(in srgb, var(--sc-accent) 30%, var(--sc-card));
+}
+
+.sc__media img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: scale calc(var(--sc-speed) * 1.6) cubic-bezier(0.22, 1, 0.36, 1), opacity var(--sc-speed) ease;
+}
+
+.sc__card:hover .sc__media img,
+.sc__card:focus-visible .sc__media img {
+  scale: var(--sc-zoom);
+}
+
+/* Optional second picture, crossfaded in on hover. */
+.sc__alt {
+  opacity: 0;
+}
+
+.sc__card:hover .sc__alt,
+.sc__card:focus-visible .sc__alt {
+  opacity: 1;
+}
+
+.sc__badge {
+  position: absolute;
+  left: 10px;
+  top: 10px;
+  min-width: 22px;
+  padding: 3px 5px;
+  border-radius: 2px;
+  background: var(--sc-badge);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1;
+  text-align: center;
+  color: var(--sc-title);
+}
+
+.sc__body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  padding: var(--sc-pad);
+}
+
+.sc__category {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 10px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--sc-muted);
+}
+
+.sc__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--sc-accent);
+}
+
+.sc__title {
+  margin: 0 0 8px;
+  font-size: clamp(20px, 1.6vw, 26px);
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  color: var(--sc-title);
+}
+
+.sc__text {
+  margin: 0 0 14px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.sc__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin: 0 0 18px;
+  padding: 0;
+  list-style: none;
+}
+
+.sc__tags li {
+  padding: 4px 7px;
+  border-radius: 2px;
+  background: var(--sc-tag);
+  font-size: 10.5px;
+  line-height: 1;
+}
+
+.sc__foot {
+  margin-top: auto;
+}
+
+.sc__detail {
+  margin: 0 0 8px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--sc-muted);
+}
+
+.sc__cta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 11px 12px;
+  border-radius: 2px;
+  background: var(--sc-tag);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--sc-title);
+  transition: background var(--sc-speed) ease, color var(--sc-speed) ease;
+}
+
+.sc__cta svg {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: rotate var(--sc-speed) cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.sc__card:hover .sc__cta,
+.sc__card:focus-visible .sc__cta {
+  background: var(--sc-accent);
+  color: var(--sc-cta-text);
+}
+
+.sc__card:hover .sc__cta svg,
+.sc__card:focus-visible .sc__cta svg {
+  rotate: -45deg;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sc__card,
+  .sc__media img,
+  .sc__cta svg {
+    transition: none;
+  }
+}

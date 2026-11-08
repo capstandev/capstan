@@ -6,8 +6,7 @@
 //   - the ticker only as "$CPST on Robinhood Chain"
 //   - every hedge word with "Legging risk is yours" on the same line
 // Usage: bun scripts/check-copy.ts
-import { readFileSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { resolve } from "node:path";
 import { createElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { MemoryRouter } from "react-router";
@@ -99,7 +98,6 @@ export async function renderAll(): Promise<{ where: string; html: string }[]> {
   for (const live of flags) {
     for (const r of siteRenderables(live)) out.push({ where: `${r.name} (live flags ${live.npmPublished ? "on" : "off"})`, html: renderPage(r.element, r.path, r.config) });
   }
-  out.push({ where: "index.html", html: readFileSync(join(WEB, "index.html"), "utf8") });
   return out;
 }
 

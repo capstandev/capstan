@@ -49,6 +49,8 @@ for i, k in ipairs(KEYS) do
   redis.call('ZREMRANGEBYSCORE', k, '-inf', now - win)
   if redis.call('ZCARD', k) >= tonumber(ARGV[3 + i]) then
     local first = redis.call('ZRANGE', k, 0, 0, 'WITHSCORES')
+    -- an empty window can be full (limit 0, the pre-auth probe key): retry after a whole window
+    if first[2] == nil then return {i, win} end
     return {i, tonumber(first[2]) + win - now}
   end
 end

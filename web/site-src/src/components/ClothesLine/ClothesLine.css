@@ -1,0 +1,164 @@
+/*
+ * Clothes Line.
+ *
+ * Each `.cl__card` is a zero-size pin the loop moves along the rope and
+ * rotates about (a zero-size box rotates about its own point). The photo
+ * hangs from it, centred, `--cl-drop` below; the clip sits on the pin.
+ */
+
+.cl {
+  position: relative;
+  width: 100%;
+  aspect-ratio: var(--cl-aspect);
+  container-type: inline-size;
+  overflow: hidden;
+  background: var(--cl-bg);
+  cursor: grab;
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.cl.is-dragging {
+  cursor: grabbing;
+}
+
+.cl__rope {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.cl__rope-shadow {
+  fill: none;
+  stroke: var(--cl-shadow);
+  stroke-width: calc(var(--cl-rope-width) * 2);
+  translate: 0 6px;
+  filter: blur(3px);
+}
+
+/* A twisted cord: a solid core with a dashed lighter twist laid over it. */
+.cl__rope-line {
+  fill: none;
+  stroke: var(--cl-rope);
+  stroke-width: var(--cl-rope-width);
+  stroke-linecap: round;
+}
+
+.cl__rope-twist {
+  fill: none;
+  stroke: var(--cl-rope-light);
+  stroke-width: calc(var(--cl-rope-width) * 0.6);
+  stroke-dasharray: 3 4;
+  stroke-linecap: round;
+}
+
+.cl__line {
+  position: absolute;
+  inset: 0;
+}
+
+.cl__card {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  display: block;
+  width: 0;
+  height: 0;
+  color: inherit;
+  text-decoration: none;
+  will-change: transform;
+  visibility: hidden;
+}
+
+.cl__photo {
+  position: absolute;
+  left: calc(var(--cl-card) / -2);
+  top: var(--cl-drop);
+  display: block;
+  width: var(--cl-card);
+  aspect-ratio: 1 / var(--cl-ratio);
+  overflow: hidden;
+  border-radius: var(--cl-radius);
+  background: var(--cl-card-bg);
+  box-shadow: 0 1.8cqw 3cqw -1cqw var(--cl-shadow);
+}
+
+.cl__photo img,
+.cl__photo video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: none;
+}
+
+.cl__text {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 3cqw 1.5cqw 1.5cqw;
+  background: linear-gradient(transparent, rgb(14 12 10 / 0.62));
+  color: #fff;
+  opacity: 0;
+  transition: opacity 0.35s ease;
+}
+
+.cl__card:hover .cl__text,
+.cl__card:focus-visible .cl__text {
+  opacity: 1;
+}
+
+.cl__title {
+  overflow: hidden;
+  font-size: max(15px, 1.7cqw);
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.cl__caption {
+  font-size: max(12px, 1.1cqw);
+  opacity: 0.84;
+}
+
+.cl__clip {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: block;
+  translate: -50% -50%;
+  filter: drop-shadow(0 2px 2px rgb(0 0 0 / 0.25));
+}
+
+.cl__clip--peg {
+  width: calc(var(--cl-card) * 0.064);
+  margin-top: calc(var(--cl-drop) * 0.6);
+}
+
+.cl__clip--binder {
+  width: calc(var(--cl-card) * 0.13);
+  margin-top: calc(var(--cl-drop) * 0.9);
+}
+
+.cl__tape {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: calc(var(--cl-card) * 0.28);
+  height: calc(var(--cl-card) * 0.09);
+  margin-top: calc(var(--cl-drop) * 1.1);
+  background: var(--cl-tape);
+  translate: -50% -50%;
+  rotate: -3deg;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 4%, #000 96%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 4%, #000 96%, transparent);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.08);
+}

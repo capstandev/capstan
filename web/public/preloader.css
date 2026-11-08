@@ -1,0 +1,45 @@
+/* A loader is inserted by JavaScript only, so the page stays available without it. */
+.cap-preloader{position:fixed;inset:0;z-index:10000;display:grid;place-items:center;overflow:hidden;isolation:isolate;opacity:1;visibility:visible;transition:opacity .32s ease-out,visibility 0s linear .32s;pointer-events:auto}
+.cap-preloader-exit{opacity:0;visibility:hidden;pointer-events:none}
+.cap-preloader-mascot{background:#17385f;color:#fff}
+.cap-preloader-gradient{position:absolute;inset:0;z-index:-1;background:radial-gradient(125% 125% at 50% 20%,#17385f 0%,#17385f 35%,#318edc 50%,#a8dcfb 60%,#efbf86 70%,#edb0c2 80%,#ccecff 90%,#eaf8ff 100%);animation:cap-gradient-enter 2s cubic-bezier(.25,.1,.25,1) both,cap-gradient-breathe 5.5s ease-in-out 2s infinite alternate;transform-origin:50% 20%}
+.cap-preloader-center,.cap-liquid-content{display:flex;flex-direction:column;align-items:center;justify-content:center;width:100%;padding:24px;position:relative}
+.cap-preloader p{margin:12px 0 0;font:600 clamp(14px,1.35vw,18px)/1.4 'Wix Madefor Display','DM Sans',sans-serif;letter-spacing:-.01em;text-align:center}
+.cap-loading-ellipsis{display:inline-block;animation:cap-ellipsis 1.5s steps(4,end) infinite;overflow:hidden;vertical-align:bottom;width:1em;text-align:left}
+.cap-preloader-liquid{background:#f3faff;color:#17385f}
+.cap-liquid-bars{display:flex;align-items:end;gap:clamp(6px,2.8vw,16px);padding:20px 0 0}
+.cap-liquid-column{position:relative;width:clamp(20px,7vw,40px);height:118px;display:flex;align-items:end;justify-content:center;--liquid-delay:calc(var(--liquid-index) * -.8s)}
+.cap-liquid-bar{display:block;position:absolute;bottom:17px;width:100%;height:80px;border-radius:999px;overflow:hidden;transform-origin:50% 100%;background:linear-gradient(0deg,var(--liquid-deep),var(--liquid-light));box-shadow:0 5px 18px #3f9fd72b,inset 0 2px 7px #fff5;animation:cap-liquid-wave 3.14s ease-in-out var(--liquid-delay) infinite}
+.cap-liquid-bar:before{content:'';position:absolute;inset:0;background:linear-gradient(90deg,transparent,#ffffff70,transparent);transform:translateX(-18%)}.cap-liquid-bar i{position:absolute;top:2px;left:8%;right:8%;height:13px;border-radius:50%;background:linear-gradient(#ffffff9c,transparent)}
+.cap-liquid-column:nth-child(1){--liquid-deep:#2467b6;--liquid-light:#7bc8f7}.cap-liquid-column:nth-child(2){--liquid-deep:#2c8ddd;--liquid-light:#b3e7ff}.cap-liquid-column:nth-child(3){--liquid-deep:#429fcd;--liquid-light:#b5e9ef}.cap-liquid-column:nth-child(4){--liquid-deep:#5cbbba;--liquid-light:#c7eee5}.cap-liquid-column:nth-child(5){--liquid-deep:#5f9ed1;--liquid-light:#d0e8fa}.cap-liquid-column:nth-child(6){--liquid-deep:#c99154;--liquid-light:#f7d3a4}.cap-liquid-column:nth-child(7){--liquid-deep:#d486a4;--liquid-light:#f9cfda}
+.cap-liquid-drop,.cap-liquid-base{position:absolute;width:14px;height:14px;border-radius:50%;background:linear-gradient(135deg,var(--liquid-light),var(--liquid-deep));box-shadow:0 3px 10px #5aa7d433}.cap-liquid-drop{bottom:101px;opacity:0;animation:cap-liquid-drop 3.14s ease-in-out var(--liquid-delay) infinite}.cap-liquid-base{bottom:0;width:10px;height:10px;animation:cap-liquid-base 3.14s ease-in-out var(--liquid-delay) infinite}
+html.cap-preloading #app .bl-page *,html.cap-preloading #app .dash-shell *{animation-play-state:paused!important}
+@keyframes cap-gradient-enter{from{opacity:0;transform:scale(1.5)}to{opacity:1;transform:scale(1)}}@keyframes cap-gradient-breathe{from{transform:scale(1)}to{transform:scale(1.04)}}@keyframes cap-ellipsis{from{clip-path:inset(0 100% 0 0)}to{clip-path:inset(0 0 0 0)}}@keyframes cap-liquid-wave{0%,100%{transform:scaleY(.12)}50%{transform:scaleY(1)}}@keyframes cap-liquid-drop{0%,35%,65%,100%{opacity:0;transform:translateY(12px) scale(.6)}48%{opacity:1;transform:translateY(-5px) scale(1)}55%{opacity:.8;transform:translateY(0) scale(.85)}}@keyframes cap-liquid-base{0%,100%{transform:scale(.7);opacity:.55}50%{transform:scale(1);opacity:1}}
+/* Cartoon button: the user's supplied pill, outline, lift, shadow and shine. */
+.site-header .cartoon-dashboard{position:relative;display:inline-flex;align-items:center;justify-content:center;min-height:48px;height:48px;padding:0 24px;border:2px solid #17385f;border-radius:999px;overflow:hidden;background:#8ed3fc;color:#17385f;box-shadow:none;font:800 20px/1 Nunito,sans-serif;transition:transform .15s ease,box-shadow .15s ease,background-color .15s ease;white-space:nowrap}
+.site-header .cartoon-dashboard .cartoon-dashboard-label{position:relative;z-index:1;margin:0;color:inherit;font:inherit}
+.site-header .cartoon-dashboard .cartoon-dashboard-shine{position:absolute;z-index:0;top:50%;left:-100%;width:64px;height:96px;margin:0;background:#ffffff80;transform:translateY(-50%) rotate(12deg);transition:left .5s ease-in-out;pointer-events:none}
+@media(hover:hover) and (pointer:fine){.site-header .cartoon-dashboard:hover{transform:translateY(-4px);box-shadow:0 4px 0 #17385f}.site-header .cartoon-dashboard:hover .cartoon-dashboard-shine{left:200%}}
+.site-header .cartoon-dashboard:active{transform:translateY(0);box-shadow:none}
+.site-header .mobile-nav .mobile-dashboard{justify-self:start;margin:8px 14px 10px;min-height:48px;padding:0 24px;border:2px solid #17385f;font-size:18px}
+@media(prefers-reduced-motion:reduce){.cap-preloader,.cap-preloader *{animation:none!important;transition:none!important}.site-header .cartoon-dashboard,.site-header .cartoon-dashboard-shine{transition:none!important}}
+@media(max-width:420px){.cap-waving-stage{width:220px}.cap-liquid-content{padding:20px}.cap-liquid-bars{gap:clamp(5px,2vw,9px)}.cap-liquid-column{width:clamp(20px,7vw,28px)}}
+
+/* A friendly sticker-style wave; the whole mascot rocks while its hand waves. */
+.cap-waving-stage{position:relative;width:clamp(230px,27vw,330px);aspect-ratio:1;display:grid;place-items:center}
+.cap-waving-stage>svg{display:block;width:100%;height:100%;overflow:visible;transform-origin:50% 82%;animation:cap-wave-rock 1.15s ease-in-out infinite alternate}
+.cap-wave-hand{transform-box:view-box;transform-origin:149px 106px;animation:cap-wave-hello .56s ease-in-out infinite alternate}
+@keyframes cap-wave-rock{from{transform:rotate(-2deg)}to{transform:rotate(2deg)}}
+@keyframes cap-wave-hello{from{transform:rotate(-22deg)}to{transform:rotate(22deg)}}
+@media(max-width:420px){.cap-waving-stage{width:220px}}
+@media(prefers-reduced-motion:reduce){.cap-waving-stage>svg,.cap-wave-hand{animation:none!important}}
+
+/* The jump film uses a matching blue field; its feathered border avoids a visible video box. */
+.cap-preloader-mascot{background:#1c4871}
+.cap-preloader-mascot .cap-preloader-gradient{display:none}
+.cap-preloader-video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;opacity:0;pointer-events:none;mask-image:radial-gradient(ellipse 50% 50% at 50% 50%,#000 98%,transparent 100%);-webkit-mask-image:radial-gradient(ellipse 50% 50% at 50% 50%,#000 98%,transparent 100%);transition:opacity .18s ease}
+.cap-waving-stage.has-jump-video .cap-preloader-video{opacity:1}
+.cap-waving-stage.has-jump-video>svg{opacity:0}
+@media(prefers-reduced-motion:reduce){.cap-preloader-video{display:none!important}}
+/* Sampled from the jumping clip's actual encoded pixels, rather than display-space values. */
+.cap-preloader-mascot{background:#15375e}

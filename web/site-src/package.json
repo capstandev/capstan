@@ -1,0 +1,26 @@
+{
+  "name": "capstan-frontend",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build:motion": "esbuild src/halo-entry.jsx --bundle --format=iife --jsx=automatic --minify --outfile=assets/halo.js --loader:.css=css && esbuild src/mascot-object.js --bundle --format=iife --minify --loader:.svg=text --outfile=assets/mascot-object.js",
+    "build:eye": "esbuild src/eye-entry.jsx --bundle --format=iife --jsx=automatic --minify --outfile=assets/eye-button.js --loader:.css=css",
+    "build:media-folder": "esbuild src/media-folder-entry.jsx --bundle --format=iife --jsx=automatic --minify --outfile=assets/media-folder.js --loader:.css=css",
+    "build:step-path": "esbuild src/step-path-entry.jsx --bundle --format=iife --jsx=automatic --minify --outfile=assets/step-path.js --loader:.css=css",
+    "build:capstan-sections": "esbuild src/capstan-sections-entry.jsx --bundle --format=iife --minify --jsx=automatic --outfile=assets/capstan-sections.js --loader:.css=css",
+    "build:supplied": "esbuild src/supplied/rack-entry.jsx src/supplied/icon-entry.jsx src/supplied/ink-entry.jsx src/supplied/ticket-entry.jsx src/supplied/reveal-entry.jsx --bundle --format=iife --minify --jsx=automatic --define:process.env.NODE_ENV=\"\\\"production\\\"\" --outdir=assets/supplied --loader:.css=css",
+    "build:footer-reveal": "esbuild src/footer-reveal-entry.jsx --bundle --format=iife --minify --jsx=automatic --define:process.env.NODE_ENV=\"\\\"production\\\"\" --outfile=assets/footer-reveal.js --loader:.css=css",
+    "build:clothes-line": "esbuild src/clothes-line-entry.jsx --bundle --format=iife --minify --jsx=automatic --define:process.env.NODE_ENV=\"\\\"production\\\"\" --outfile=assets/clothes-line.js --loader:.css=css"
+  },
+  "dependencies": {
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "three": "0.158.0",
+    "react-isokit": "0.5.0",
+    "framer-motion": "12.26.2"
+  },
+  "devDependencies": {
+    "esbuild": "0.25.12"
+  }
+}

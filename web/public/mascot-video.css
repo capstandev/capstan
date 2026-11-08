@@ -1,0 +1,74 @@
+/* Videos appear only after playback starts, preserving the original illustrated fallback. */
+.cap-video-layer{position:absolute;display:block;overflow:hidden;pointer-events:none;opacity:0;transition:opacity .3s ease;z-index:1}
+.cap-video-ready>.cap-video-layer{opacity:1}
+.cap-mascot-video{width:100%;height:100%;display:block;object-fit:contain;mix-blend-mode:multiply}
+.cap-video-landing{inset:14% -2% 0 -2%;mask-image:radial-gradient(ellipse 72% 66% at 50% 52%,#000 52%,transparent 100%);-webkit-mask-image:radial-gradient(ellipse 72% 66% at 50% 52%,#000 52%,transparent 100%)}
+.bl-hero-art.cap-video-ready>.bl-hero-character{opacity:0;pointer-events:none}
+.bl-hero-art.cap-video-ready .bl-floating,.bl-hero-art.cap-video-ready .bl-chat{z-index:3}
+.cap-video-interior{inset:5% 0 0;z-index:2;mask-image:radial-gradient(ellipse 73% 70% at 52% 50%,#000 48%,transparent 100%);-webkit-mask-image:radial-gradient(ellipse 73% 70% at 52% 50%,#000 48%,transparent 100%)}
+.cap-page-scene.cap-video-ready .cap-page-character{opacity:0}.cap-page-scene.cap-video-ready .cap-page-scene-card{z-index:3}
+.cap-video-dashboard{inset:-12% -20% -12% -22%;z-index:2;mask-image:radial-gradient(ellipse 70% 70% at 50% 50%,#000 50%,transparent 100%);-webkit-mask-image:radial-gradient(ellipse 70% 70% at 50% 50%,#000 50%,transparent 100%)}
+.dash-mascot-action.cap-video-ready>.cap-rig{opacity:0}.dash-mascot-action .dash-mascot-speech{z-index:3}
+@media(max-width:650px){.cap-video-landing{inset:10% -5% 0}.cap-video-interior{inset:5% -5% 0}.cap-video-dashboard{inset:-8% -40% -8% -35%}}
+@media(prefers-reduced-motion:reduce){.cap-video-layer{display:none!important}.cap-video-ready>.bl-hero-character,.cap-page-scene.cap-video-ready .cap-page-character,.dash-mascot-action.cap-video-ready>.cap-rig{opacity:1!important}}
+body.reduced .cap-video-layer{display:none!important}body.reduced .dash-mascot-action.cap-video-ready>.cap-rig{opacity:1!important}
+@media(min-width:1200px){.bl-hero.cap-has-video .bl-hero-grid{grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);gap:clamp(20px,2.5vw,42px)}.bl-hero.cap-has-video .bl-hero-copy{max-width:560px}.bl-hero.cap-has-video .bl-hero-art{min-width:0}}
+/* Keep the superhero loop visible through the edges of its circular flight. */
+.cap-video-dashboard{mask-image:radial-gradient(ellipse 100% 88% at 50% 50%,#000 62%,transparent 100%);-webkit-mask-image:radial-gradient(ellipse 100% 88% at 50% 50%,#000 62%,transparent 100%)}
+.dash-mascot-action{isolation:isolate}
+/* Match the pale blue welcome card and fade the video edge before it reaches the copy. */
+.cap-video-dashboard{mask-image:radial-gradient(ellipse 48% 60% at 50% 50%,#000 45%,transparent 100%);-webkit-mask-image:radial-gradient(ellipse 48% 60% at 50% 50%,#000 45%,transparent 100%)}
+.cap-video-dashboard .cap-mascot-video{mix-blend-mode:normal}
+
+/* A full-width scene has its own row, so the copy never sits over the walking path. */
+.bl-page>.bl-hero{background:#d7f0ff;padding:0;overflow:hidden}
+.bl-page>.bl-hero .bl-hero-grid,.bl-page>.bl-hero.cap-has-video .bl-hero-grid{width:100%;max-width:none;min-height:0;display:flex;flex-direction:column;align-items:stretch;gap:0}
+.bl-page>.bl-hero .bl-hero-copy,.bl-page>.bl-hero.cap-has-video .bl-hero-copy{width:min(1248px,calc(100% - 9%));max-width:1248px;margin:0 auto;padding:clamp(38px,5vw,76px) 0 10px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,.8fr);gap:12px clamp(28px,5vw,75px);align-items:center}
+.bl-page>.bl-hero .bl-hero-copy h1{grid-column:1;grid-row:1 / span 2;max-width:650px;font-size:clamp(48px,4.9vw,72px);line-height:1.05}
+.bl-page>.bl-hero .bl-hero-copy p{grid-column:2;grid-row:1;margin:0;font-size:clamp(16px,1.45vw,21px);line-height:1.5}
+.bl-page>.bl-hero .bl-hero-copy .bl-actions{grid-column:2;grid-row:2}
+.bl-page>.bl-hero .bl-hero-art{width:100%;height:clamp(400px,54vw,820px);min-width:0;overflow:hidden}
+.bl-page>.bl-hero .bl-glow{display:none}
+.bl-page>.bl-hero .bl-floating,.bl-page>.bl-hero .bl-chat{display:none}
+.bl-page>.bl-hero .cap-video-landing{inset:0;mask-image:radial-gradient(ellipse 48% 48% at 50% 50%,#000 68%,transparent 100%);-webkit-mask-image:radial-gradient(ellipse 48% 48% at 50% 50%,#000 68%,transparent 100%)}
+.bl-page>.bl-hero .cap-video-landing .cap-mascot-video{object-fit:contain;object-position:center;mix-blend-mode:normal}
+.bl-page>.bl-hero .bl-hero-character{left:50%;top:50%;width:min(420px,70%);transform:translate(-50%,-50%)}
+@media(max-width:800px){
+ .bl-page>.bl-hero .bl-hero-copy,.bl-page>.bl-hero.cap-has-video .bl-hero-copy{width:calc(100% - 40px);padding:36px 0 8px;display:flex;flex-direction:column;align-items:flex-start;gap:16px}
+ .bl-page>.bl-hero .bl-hero-copy h1{font-size:clamp(42px,10vw,60px)}
+ .bl-page>.bl-hero .bl-hero-copy p{font-size:16px;line-height:1.5}
+ .bl-page>.bl-hero .bl-hero-art{height:clamp(250px,66vw,470px)}
+ .bl-page>.bl-hero .cap-video-landing{inset:0 -3%;mask-image:radial-gradient(ellipse 48% 48% at 50% 50%,#000 68%,transparent 100%);-webkit-mask-image:radial-gradient(ellipse 48% 48% at 50% 50%,#000 68%,transparent 100%)}
+}
+/* The pricing clip's sampled edge is RGB 221,238,246; use it directly as the scene field. */
+.cap-page-scene[data-scene="coin"]{background:#ddeef6}
+.cap-page-scene[data-scene="coin"] .cap-video-interior .cap-mascot-video{mix-blend-mode:normal}
+/* Keep both eyes open in the dashboard's static playback fallback. */
+.dash-mascot-action .cap-eye{animation:none!important;transform:none!important;opacity:1!important}
+.dash-mascot-action .cap-wink,.dash-mascot-action .cap-happy-eyes{opacity:0!important}
+
+/* Match the dashboard welcome card to the open-eyed clip’s sampled blue field. */
+.dash-welcome{background:#c6e6f5}
+
+/* Each video scene uses a field sampled from its own encoded image.
+   Feathering handles small gradients and frame-to-frame colour shifts. */
+.cap-page-scene.cap-scene-video-use-cases{background:#ddeef6}
+.cap-page-scene.cap-scene-video-about{background:#deebf3}
+.cap-page-scene.cap-scene-video-pricing{background:#ddeef6}
+.cap-page-scene.cap-scene-video-use-cases .cap-mascot-video,
+.cap-page-scene.cap-scene-video-about .cap-mascot-video,
+.cap-page-scene.cap-scene-video-pricing .cap-mascot-video{mix-blend-mode:normal}
+
+/* The three alternate attached clips play in context in closing panels.
+   The underlying mascot remains visible until playback succeeds. */
+.bl-end-art.cap-scene-video-developers,
+.bl-end-art.cap-scene-video-case-developers,
+.bl-end-art.cap-scene-video-case-agents{height:auto;min-height:0;aspect-ratio:16/9;overflow:hidden;border-radius:22px;isolation:isolate}
+.bl-end-art.cap-scene-video-developers{background:#cde1ef}
+.bl-end-art.cap-scene-video-case-developers{background:#bed6eb}
+.bl-end-art.cap-scene-video-case-agents{background:#b7d4ec}
+.cap-video-cta{inset:0;z-index:1}
+.cap-video-cta .cap-mascot-video{object-fit:cover;mix-blend-mode:normal}
+.bl-end-art.cap-video-ready>img{opacity:0}
+@media(prefers-reduced-motion:reduce){.bl-end-art.cap-video-ready>img{opacity:1!important}}
+body.reduced .bl-end-art.cap-video-ready>img{opacity:1!important}

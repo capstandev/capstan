@@ -1,0 +1,27 @@
+.cap-flow-shell,.cap-quote-shell{border-radius:30px;overflow:hidden;background:#e7f5fd;border:2px solid #fff;box-shadow:0 8px 0 #bedceb,0 14px 32px #6698b31c}
+.cap-flow-top{display:flex;justify-content:space-between;gap:20px;padding:24px 28px 0;color:#547b96;font-size:11px;font-weight:800;letter-spacing:.12em}
+.cap-flow-top span:last-child{letter-spacing:0;text-transform:none;font-weight:500;font-size:13px}
+.cap-flow-fan .fan-frame{background:linear-gradient(155deg,#fff4e6,#aeddf9);border:2px solid #fff}
+.cap-flow-fan .fan-card:nth-child(2) .fan-frame{background:linear-gradient(155deg,#f0fff9,#b4e6dd)}
+.cap-flow-fan .fan-card:nth-child(3) .fan-frame{background:linear-gradient(155deg,#fff2e8,#f6d3bc)}
+.cap-flow-fan .fan-card:nth-child(4) .fan-frame{background:linear-gradient(155deg,#f9f5ff,#d4dcfa)}
+.cap-flow-fan .fan-image{object-fit:contain;padding:13% 0 0}
+.cap-flow-fan .fan-text{right:25%}.cap-flow-fan .fan-dots{bottom:0;gap:0}.cap-flow-fan .fan-dot,.cap-flow-fan .fan-dot.is-on{display:grid;place-items:center;width:44px;height:44px;min-width:44px;min-height:44px;background:transparent;transition:none}.cap-flow-fan .fan-dot::after{content:"";display:block;width:12px;height:8px;border-radius:999px;background:var(--fan-dot);transition:width .35s var(--fan-ease),background-color .35s ease}.cap-flow-fan .fan-dot.is-on::after{width:24px;background:var(--fan-dot-active)}.cap-flow-fan .fan-dot:focus-visible{outline:2px solid #17385f;outline-offset:-5px}
+.cap-flow-detail,.cap-quote-detail{display:grid;grid-template-columns:minmax(100px,.38fr) 1fr;gap:24px;align-items:start;padding:30px clamp(24px,4vw,52px);background:#fff}
+.cap-flow-detail>span,.cap-quote-detail>span{font:700 11px/1.5 ui-monospace,monospace;letter-spacing:.08em;color:#6797b2}
+.cap-flow-detail h3,.cap-quote-detail h3{margin:0 0 9px;color:#17385f}.cap-flow-detail p,.cap-quote-detail p{margin:0;max-width:650px;color:#58778c;line-height:1.55}
+.cap-quote-shell{padding:clamp(18px,3vw,36px);background:#e0f1fb}
+.cap-quote-cards.sc{padding:0}
+.cap-quote-cards .sc__card{border:2px solid #fff;box-shadow:0 6px 0 #badbe9,0 10px 18px #42769520}
+.cap-quote-cards .sc__card[aria-current="true"]{outline:3px solid #4c9ad1;outline-offset:2px}
+.cap-quote-cards .sc__media{background:linear-gradient(145deg,#e9f8ff,#b7dff5)}
+.cap-quote-cards .sc__media img{object-fit:contain}
+.cap-quote-cards .sc__title{color:#17385f}
+.cap-quote-detail{margin-top:24px;border-radius:20px}
+@media(max-width:800px){.cap-flow-top{padding:18px 20px 0}.cap-flow-detail,.cap-quote-detail{grid-template-columns:1fr;gap:8px;padding:24px}.cap-flow-fan{min-height:260px}}
+@media(max-width:420px){.cap-flow-top span:last-child{font-size:11px}}
+@media(prefers-reduced-motion:reduce){.cap-flow-shell *,.cap-quote-shell *{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+
+.cap-component-fallback{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr));gap:14px}.cap-component-fallback article{padding:24px;border-radius:20px;background:#e6f4fc;border:2px solid white}.cap-component-fallback h3{font-size:20px;margin:0 0 12px}.cap-component-fallback p{font-size:15px;margin:0}
+@media(max-width:420px){.cap-quote-cards .sc__grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.cap-quote-cards .sc__body{padding:12px}.cap-quote-cards .sc__title{font-size:18px}.cap-quote-cards .sc__cta{font-size:12px}}
+@media(prefers-reduced-motion:reduce){.cap-flow-fan .fan-image{transform:none!important}.cap-quote-cards .sc__card{translate:none!important}.cap-quote-cards .sc__media img{scale:1!important}.cap-flow-fan .fan-dot::after{transition:none!important}}

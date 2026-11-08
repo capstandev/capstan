@@ -1,7 +1,7 @@
 // Risk panel (spec 5, 13.1 GET /risk): one card per venue, each with its own equity, positions and liquidation
 // prices, under the fixed banner. Nothing is added up across venues: there is no total margin or collateral figure.
 import { useState } from "react";
-import { Link } from "react-router";
+import { ConnectLink } from "../nav";
 import { RISK_BANNER, type RiskView } from "../../lib/capstan";
 import { useSession } from "../session";
 import { venueName } from "../venues";
@@ -60,7 +60,7 @@ export function RiskCards({ view }: { view: RiskView }) {
   );
 }
 
-export function RiskPanel({ initial }: { initial?: RiskView }) {
+export function RiskPanel({ initial, onLoaded }: { initial?: RiskView; onLoaded?: (v: RiskView) => void }) {
   const s = useSession();
   const [view, setView] = useState<RiskView | null>(initial ?? null);
   const [error, setError] = useState<string | null>(null);
@@ -70,7 +70,9 @@ export function RiskPanel({ initial }: { initial?: RiskView }) {
     if (!owner) return;
     setError(null);
     try {
-      setView(await s.api.readGet<RiskView>(`/risk?owner=${owner}`));
+      const v = await s.api.readGet<RiskView>(`/risk?owner=${owner}`);
+      setView(v);
+      onLoaded?.(v);
     } catch (e) {
       setError((e as Error).message);
     }
@@ -81,7 +83,7 @@ export function RiskPanel({ initial }: { initial?: RiskView }) {
       <h2 id="risk-title">Risk</h2>
       {!owner && !view ? (
         <p>
-          <Link to="/app">Connect your wallet</Link> to read your venue accounts.
+          <ConnectLink /> to read your venue accounts.
         </p>
       ) : (
         <p>

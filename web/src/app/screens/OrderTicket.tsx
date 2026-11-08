@@ -3,6 +3,8 @@
 // and the digest is the SDK's own. Venues without a builder approval (fee_free_unavailable) get no ticket.
 import { useState, type FormEvent } from "react";
 import { Link } from "react-router";
+import { ConnectLink } from "../nav";
+import { VerifyLink } from "../../components/VerifyLink";
 import type { CheckedBuild, OrderIntent, VenueId } from "../../lib/capstan";
 import { useSession } from "../session";
 import { EXECUTION_VENUES, FEE_FREE_UNAVAILABLE, venueName } from "../venues";
@@ -65,7 +67,7 @@ export function OrderTicket() {
       <section aria-labelledby="ticket-title">
         <h2 id="ticket-title">Order ticket</h2>
         <p>
-          <Link to="/app">Connect your wallet</Link> to use this screen.
+          <ConnectLink /> to use this screen.
         </p>
       </section>
     );
@@ -215,7 +217,7 @@ export function OrderTicket() {
           Order {result.status}.{" "}
           {result.receiptId ? (
             <>
-              Receipt <Link to={`/verify?id=${encodeURIComponent(result.receiptId)}`}>{result.receiptId}</Link>
+              Receipt <VerifyLink id={result.receiptId}>{result.receiptId}</VerifyLink>
             </>
           ) : (
             "The order was sent. Its receipt is still being issued; it appears in your receipts list shortly. Do not send the order again."

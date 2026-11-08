@@ -5,3 +5,38 @@
 0x79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798 secp256k1 generator x // not-a-key
 0x483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8 secp256k1 generator y // not-a-key
 0x7ae96a2b657c07106e64479eac3434e99cf0497512f58995c1396c28719501ee secp256k1 endomorphism beta // not-a-key
+# Reown AppKit, ethers and viem (the WalletConnect picker chunk, loaded only when a project id is set): public curve
+# parameters and protocol magic values. Never keys.
+0x0000000000000000000000000000000000000000000000000000000000000000 zero / one word (ethers, AppKit) // not-a-key
+0x0000000000000000000000000000000000000000000000000000000000000001 zero / one word (ethers, AppKit) // not-a-key
+0x1000000000000000000000000000000014def9dea2f79cd65812631a5cf5d3ed ed25519 curve parameter (noble, AppKit SIWX) // not-a-key
+0x216936d3cd6e53fec0a4e231fdd6dc5c692cc7609525a7b2c9562d608f25d51a ed25519 curve parameter (noble, AppKit SIWX) // not-a-key
+0x29a6194691f91a73715209ef6512e576722830a201be2018a765e85a9ecee931 secp256k1 hash-to-curve isogeny constant (noble, AppKit) // not-a-key
+0x2f684bda12f684bda12f684bda12f684bda12f684bda12f684bda12f38e38d84 secp256k1 hash-to-curve isogeny constant (noble, AppKit) // not-a-key
+0x3f8731abdd661adca08a5558f0f5d272e953d363cb6f0e5d405447c01a444533 secp256k1 hash-to-curve isogeny constant (noble, AppKit) // not-a-key
+0x4bda12f684bda12f684bda12f684bda12f684bda12f684bda12f684b8e38e23c secp256k1 hash-to-curve isogeny constant (noble, AppKit) // not-a-key
+0x4fe342e2fe1a7f9b8ee7eb4a7c0f9e162bce33576b315ececbb6406837bf51f5 P-256 curve parameter (noble, AppKit) // not-a-key
+0x52036cee2b6ffe738cc740797779e89800700a4d4141d8ab75eb4dca135978a3 ed25519 curve parameter (noble, AppKit SIWX) // not-a-key
+0x534c328d23f234e6e2a413deca25caece4506144037c40314ecbd0b53d9dd262 secp256k1 hash-to-curve isogeny constant (noble, AppKit) // not-a-key
+0x5792579257925792579257925792579257925792579257925792579257925792 ERC-5792 fallback magic identifier (AppKit) // not-a-key
+0x5ac635d8aa3a93e7b3ebbd55769886bc651d06b0cc53b0f63bce3c3e27d2604b P-256 curve parameter (noble, AppKit) // not-a-key
+0x6484aa716545ca2cf3a70c3fa8fe337e0a3d21162f0d6299a7bf8192bfd2a76f secp256k1 hash-to-curve isogeny constant (noble, AppKit) // not-a-key
+0x6492649264926492649264926492649264926492649264926492649264926492 ERC-6492 magic suffix (viem) // not-a-key
+0x6666666666666666666666666666666666666666666666666666666666666658 ed25519 curve parameter (noble, AppKit SIWX) // not-a-key
+0x6b17d1f2e12c4247f8bce6e563a440f277037d812deb33a0f4a13945d898c296 P-256 curve parameter (noble, AppKit) // not-a-key
+0x7a06534bb8bdb49fd5e9e6632722c2989467c1bfc8e8d978dfb425d2685c2573 secp256k1 hash-to-curve isogeny constant (noble, AppKit) // not-a-key
+0x7aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa placeholder signature value (viem bundler client) // not-a-key
+0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffec ed25519 curve parameter (noble, AppKit SIWX) // not-a-key
+0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffed ed25519 curve parameter (noble, AppKit SIWX) // not-a-key
+0x8010801080108010801080108010801080108010801080108010801080108010 ERC-8010 magic suffix (ox) // not-a-key
+0x8e38e38e38e38e38e38e38e38e38e38e38e38e38e38e38e38e38e38daaaaa88c secp256k1 hash-to-curve isogeny constant (noble, AppKit) // not-a-key
+0x8e38e38e38e38e38e38e38e38e38e38e38e38e38e38e38e38e38e38daaaaa8c7 secp256k1 hash-to-curve isogeny constant (noble, AppKit) // not-a-key
+0xc75e0c32d5cb7c0fa9d0a54b12a0a6d5647ab046d686da6fdffc90fc201d71a3 secp256k1 hash-to-curve isogeny constant (noble, AppKit) // not-a-key
+0xd35771193d94918a9ca34ccbb7b640dd86cd409542f8487d9fe6b745781eb49b secp256k1 hash-to-curve isogeny constant (noble, AppKit) // not-a-key
+0xedadc6f64383dc1df7c4b2d51b54225406d36b641f5e41bbc52a56612a8c6d14 secp256k1 hash-to-curve isogeny constant (noble, AppKit) // not-a-key
+0xffffffff00000000ffffffffffffffffbce6faada7179e84f3b9cac2fc632551 P-256 curve parameter (noble, AppKit) // not-a-key
+0xffffffff00000001000000000000000000000000fffffffffffffffffffffffc P-256 curve parameter (noble, AppKit) // not-a-key
+0xffffffff00000001000000000000000000000000ffffffffffffffffffffffff P-256 curve parameter (noble, AppKit) // not-a-key
+0xfffffffffffffffffffffffffffffff000000000000000000000000000000000 placeholder signature value (viem bundler client) // not-a-key
+0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffefffff93b secp256k1 hash-to-curve isogeny constant (noble, AppKit) // not-a-key
+0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff max uint256 (AppKit) // not-a-key

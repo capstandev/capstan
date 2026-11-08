@@ -1,0 +1,373 @@
+/*
+ * Media Folder.
+ *
+ * Every window is always mounted, parked inside the folder at 40% scale and
+ * invisible; opening only flips `.is-out`, so the spring is one CSS
+ * transition (a sampled `linear()` easing) per window, staggered by delay.
+ * Window positions are custom properties, so a drag writes two variables
+ * and the transform that reads them follows with no transition to fight.
+ */
+
+.mf {
+  position: relative;
+  width: 100%;
+  aspect-ratio: var(--mf-aspect);
+  container-type: inline-size;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background: var(--mf-bg);
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* --- folder ------------------------------------------------------------- */
+
+.mf__folder {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  border: 0;
+  background: none;
+  font: inherit;
+  cursor: pointer;
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.mf__glow {
+  position: absolute;
+  inset: 0;
+  border: 1px solid rgb(0 0 0 / 0.03);
+  border-radius: 10px;
+  background: var(--mf-highlight);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.mf__folder.is-hover .mf__glow,
+.mf__folder:focus-visible .mf__glow {
+  opacity: 1;
+}
+
+.mf__icon {
+  position: relative;
+  display: block;
+  width: var(--mf-folder);
+  aspect-ratio: 120 / 86;
+  transition: scale 0.25s cubic-bezier(0.3, 1.4, 0.5, 1);
+}
+
+.mf__folder:active .mf__icon {
+  scale: 0.96;
+}
+
+.mf__back,
+.mf__front {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.mf__front {
+  filter: drop-shadow(0 -1px 3px rgb(0 0 0 / 0.12));
+}
+
+/* Thumbnails tucked between back and front, fanned by their index. */
+.mf__peek {
+  position: absolute;
+  inset: 0;
+}
+
+.mf__thumb {
+  position: absolute;
+  left: calc(50% + var(--i) * 12%);
+  top: calc(20% + var(--i) * var(--i) * 6%);
+  width: 26%;
+  aspect-ratio: 1;
+  overflow: hidden;
+  border: 2px solid #fff;
+  border-radius: 18%;
+  box-shadow: 0 2px 6px rgb(0 0 0 / 0.25);
+  translate: -50% -50%;
+  rotate: calc(var(--i) * 11deg);
+  transition: top 0.25s ease, left 0.25s ease, rotate 0.25s ease;
+}
+
+.mf__peek.is-up .mf__thumb {
+  left: calc(50% + var(--i) * 16%);
+  top: calc(8% + var(--i) * var(--i) * 6%);
+  rotate: calc(var(--i) * 15deg);
+}
+
+.mf__thumb img,
+.mf__thumb video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.mf__label {
+  position: relative;
+  font-size: max(11px, calc(var(--mf-folder) * 0.085));
+  font-weight: 500;
+  line-height: 1.2;
+  color: var(--mf-label);
+}
+
+/* --- windows ------------------------------------------------------------ */
+
+.mf__windows {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.mf__window {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  overflow: hidden;
+  border-radius: var(--mf-radius);
+  background: var(--mf-window);
+  backdrop-filter: blur(var(--mf-blur));
+  -webkit-backdrop-filter: blur(var(--mf-blur));
+  box-shadow: 0 16px 32px var(--mf-shadow), 0 3px 8px var(--mf-shadow);
+  color: var(--mf-window-text);
+  opacity: 0;
+  visibility: hidden;
+  translate: -50% -50%;
+  transform: scale(0.4);
+  touch-action: none;
+  cursor: grab;
+  /* Closing: quick and straight back in, last out first in. */
+  transition:
+    transform 0.34s cubic-bezier(0.5, 0, 0.75, 0) var(--mf-delay),
+    opacity 0.2s ease calc(var(--mf-delay) + 0.14s),
+    visibility 0s linear calc(var(--mf-delay) + 0.34s);
+}
+
+.mf__window.is-out {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform:
+    translate(calc(var(--mf-x) + var(--mf-dx)), calc(var(--mf-y) + var(--mf-dy)))
+    rotate(var(--mf-r));
+  transition:
+    transform var(--mf-duration) var(--mf-ease) var(--mf-delay),
+    opacity 0.12s ease var(--mf-delay),
+    visibility 0s linear var(--mf-delay);
+}
+
+.mf__window.is-dragging {
+  cursor: grabbing;
+  transition: none;
+}
+
+.mf__bar-top {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 8px 10px;
+}
+
+.mf__dot {
+  flex-shrink: 0;
+  width: 11px;
+  height: 11px;
+  padding: 0;
+  border: 1px solid rgb(0 0 0 / 0.12);
+  border-radius: 50%;
+}
+
+.mf__dot--close {
+  background: #ff5f57;
+  cursor: pointer;
+}
+
+.mf__dot--min {
+  background: #febc2e;
+}
+
+.mf__dot--max {
+  background: #28c840;
+}
+
+.mf__dot--close:focus-visible,
+.mf__x:focus-visible {
+  outline: 2px solid var(--mf-accent);
+  outline-offset: 2px;
+}
+
+.mf__x {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: rgb(0 0 0 / 0.08);
+  color: inherit;
+  cursor: pointer;
+}
+
+.mf__x svg {
+  width: 10px;
+  height: 10px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+}
+
+.mf__title {
+  min-width: 0;
+  margin-left: 4px;
+  overflow: hidden;
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.mf__media {
+  position: relative;
+  width: 100%;
+}
+
+.mf__media.has-checker {
+  background: repeating-conic-gradient(var(--mf-checker) 0 25%, transparent 0 50%) 0 0 / 14px 14px;
+}
+
+.mf__media img,
+.mf__media video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: none;
+}
+
+/* --- audio -------------------------------------------------------------- */
+
+.mf__audio {
+  display: flex;
+  align-items: stretch;
+  min-height: 64px;
+}
+
+.mf__cover {
+  display: grid;
+  place-items: center;
+  flex: 0 0 24%;
+  aspect-ratio: 1;
+  overflow: hidden;
+  background: linear-gradient(135deg, var(--mf-accent), color-mix(in srgb, var(--mf-accent) 40%, #000));
+  color: #fff;
+}
+
+.mf__cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.mf__cover svg {
+  width: 40%;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.mf__track {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  justify-content: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 8px 12px;
+}
+
+.mf__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  font-size: 11px;
+}
+
+.mf__play {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: rgb(0 0 0 / 0.1);
+  color: inherit;
+  cursor: pointer;
+}
+
+.mf__play svg {
+  width: 12px;
+  height: 12px;
+  fill: currentColor;
+}
+
+.mf__song {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 500;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.mf__time {
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.6;
+}
+
+.mf__bar {
+  position: relative;
+  height: 3px;
+  border-radius: 2px;
+  background: rgb(0 0 0 / 0.12);
+}
+
+.mf__bar::after {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: calc(var(--p) * 100%);
+  border-radius: inherit;
+  background: var(--mf-accent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mf__window,
+  .mf__window.is-out {
+    transition-duration: 0s;
+    transition-delay: 0s;
+  }
+}

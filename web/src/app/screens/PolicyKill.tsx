@@ -3,7 +3,7 @@
 // wallet), the relay refuses the agent at once, the local key is wiped, and the venue revocation steps are shown:
 // only the main wallet can revoke a venue key.
 import { useState, type FormEvent } from "react";
-import { Link } from "react-router";
+import { ConnectLink } from "../nav";
 import type { AgentPolicy, KillResult, VenueId } from "../../lib/capstan";
 import { useSession } from "../session";
 import { EXECUTION_VENUES, venueName } from "../venues";
@@ -74,7 +74,7 @@ export function PolicyKill() {
       <h2 id="policy-title">Policy and kill switch</h2>
       {!owner ? (
         <p>
-          <Link to="/app">Connect your wallet</Link> to use this screen.
+          <ConnectLink /> to use this screen.
         </p>
       ) : null}
       <h3>Agent-safe policy</h3>

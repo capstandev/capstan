@@ -1,0 +1,164 @@
+/* Capstan's soft, tactile finish. Layout remains with the page components. */
+:root {
+  --cap-ink: #17385f;
+  --cap-ink-soft: #426782;
+  --cap-edge: rgba(75, 135, 172, .22);
+  --cap-edge-strong: rgba(45, 104, 146, .30);
+  --cap-lip: rgba(255, 255, 255, .83);
+  --cap-lift: rgba(72, 126, 161, .14);
+  --cap-press: cubic-bezier(.22, 1, .36, 1);
+}
+
+/* The existing font and heading proportions are retained from the site. */
+.bl-page h1, .bl-page h2, .bl-page h3, .bl-page h4 {
+  text-wrap: balance;
+}
+.bl-page p { text-wrap: pretty; }
+.bl-page a:focus-visible, .bl-page button:focus-visible,
+.bl-footer a:focus-visible, .bl-footer button:focus-visible {
+  outline: 3px solid #247ec0;
+  outline-offset: 4px;
+}
+
+/* Rounded buttons use the same raised lip and press as the dashboard entry. */
+.bl-page .bl-button, .bl-footer .bl-button {
+  position: relative;
+  border: 1.5px solid rgba(17, 54, 90, .85);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.28), 0 4px 0 #102c4d;
+  font-weight: 700;
+  transition: transform 180ms var(--cap-press), box-shadow 180ms var(--cap-press), background-color 180ms ease;
+}
+.bl-page .bl-button.light, .bl-footer .bl-button.light {
+  color: var(--cap-ink);
+  border-color: #b8d8e9;
+  background: #f5fbff;
+  box-shadow: inset 0 1px 0 white, 0 4px 0 #c2dfef;
+}
+.bl-page .bl-button:active, .bl-footer .bl-button:active {
+  transform: translateY(3px);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.18), 0 1px 0 #102c4d;
+}
+.bl-page .bl-button.light:active, .bl-footer .bl-button.light:active {
+  box-shadow: inset 0 1px 0 white, 0 1px 0 #c2dfef;
+}
+
+/* Broad illustrated surfaces get a quiet white highlight and a coloured edge. */
+.bl-feature, .bl-tool-image, .bl-detail-hero,
+.bl-story-art, .bl-motion-mascot, .cap-page-scene {
+  border: 1.5px solid var(--cap-lip);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.85), 0 6px 0 rgba(145,192,219,.35), 0 12px 24px rgba(82,139,171,.08);
+}
+.bl-feature.blue, .bl-tool-image.blue, .bl-detail-hero.blue {
+  background: linear-gradient(155deg, #e5f6ff 0%, #cbeaff 100%);
+}
+.bl-feature.mint, .bl-tool-image.mint, .bl-detail-hero.mint {
+  background: linear-gradient(155deg, #e5faf4 0%, #c9eee5 100%);
+}
+.bl-feature.peach, .bl-tool-image.peach, .bl-detail-hero.peach {
+  background: linear-gradient(155deg, #fff0e6 0%, #f9ded0 100%);
+}
+.bl-feature { transition: transform 220ms var(--cap-press), box-shadow 220ms var(--cap-press); }
+.bl-feature-mini, .bl-detail-message, .bl-window,
+.bl-step-sheet, .bl-detail-sheet, .bl-answer,
+.cap-page-scene-card {
+  border: 1px solid rgba(255,255,255,.9);
+  box-shadow: inset 0 1px 0 #fff, 0 4px 0 rgba(114,166,196,.17), 0 10px 25px rgba(64,114,146,.08);
+}
+.bl-card-link {
+  color: var(--cap-ink);
+  border: 1px solid rgba(255,255,255,.9);
+  box-shadow: 0 3px 0 rgba(82,139,171,.20);
+  font-weight: 700;
+  transition: transform 180ms var(--cap-press), box-shadow 180ms var(--cap-press);
+}
+.bl-feature:active .bl-card-link { transform: translateY(2px); box-shadow: 0 1px 0 rgba(82,139,171,.20); }
+
+/* Keep the walkthrough's measured rail and panel, adding depth to the selected state. */
+.bl-step-content, .bl-detail-pane, .bl-calc, .bl-receipt,
+.bl-contact, .bl-end-card, .cap-mark-object {
+  box-shadow: inset 0 1px 0 #fff, 0 6px 0 rgba(167,205,224,.35), 0 13px 28px rgba(90,142,169,.08);
+}
+.bl-step i { transition: transform 220ms var(--cap-press), box-shadow 220ms var(--cap-press), background-color 180ms ease; }
+.bl-step.active i { box-shadow: 0 0 0 7px #c4e8fa, inset 0 1px 0 #b6e4ff; }
+.bl-step:active i { transform: scale(.9); }
+.bl-detail-list button, .bl-faq-list button, .bl-replay-list button {
+  transition: transform 180ms var(--cap-press), background-color 180ms ease, box-shadow 180ms ease;
+}
+.bl-detail-list button.active, .bl-faq-list button.active {
+  box-shadow: inset 0 1px 0 white, 0 4px 0 rgba(126,179,207,.26);
+}
+.bl-detail-list button:active, .bl-faq-list button:active, .bl-replay-list button:active {
+  transform: translateY(2px);
+}
+
+/* Price, principle and use-case cards are clearly separate pieces of the same set. */
+.bl-plans article:not(.featured), .bl-use-grid a,
+.bl-principle-grid article, .bl-venue-grid article,
+.bl-history article {
+  border: 1.5px solid #d6eaf5;
+  box-shadow: inset 0 1px 0 white, 0 5px 0 rgba(178,211,229,.46), 0 12px 26px rgba(72,126,161,.07);
+}
+.bl-plans article.featured {
+  border: 1.5px solid #315b80;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.18), 0 5px 0 #102c4d, 0 12px 26px rgba(72,126,161,.14);
+}
+.bl-plans .featured .bl-button {
+  background: #d9f2ff;
+  border-color: #b6e0f5;
+  color: var(--cap-ink);
+  box-shadow: inset 0 1px 0 white, 0 4px 0 #8fc5e1;
+}
+.bl-use-grid a { transition: transform 220ms var(--cap-press), box-shadow 220ms var(--cap-press); }
+.bl-use-grid a:active { transform: translateY(2px); box-shadow: inset 0 1px 0 white, 0 2px 0 rgba(178,211,229,.46); }
+.bl-pill {
+  color: #365f7b;
+  box-shadow: inset 0 1px 0 white, 0 2px 0 rgba(117,170,199,.13);
+}
+.bl-page .bl-plans li:before { color: #247cb5; }
+
+/* The dark quote panel keeps its contrast, with simple physical feedback. */
+.bl-terminal, .bl-replay-list {
+  border: 1px solid rgba(178,220,242,.15);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.09), 0 5px 0 rgba(7,25,42,.24);
+}
+.bl-replay-list button.active { box-shadow: 0 3px 0 rgba(0,0,0,.16); }
+
+/* Footer links, menus and dashboard controls gain consistent touch feedback. */
+.bl-socials .social, .nav-toolkit-toggle, .mobile-nav a,
+.dash-nav, .dash-button, .dash-mascot-action {
+  transition: transform 180ms var(--cap-press), background-color 180ms ease, box-shadow 180ms ease;
+}
+.bl-socials .social:active, .nav-toolkit-toggle:active,
+.dash-nav:active, .dash-button:active { transform: translateY(2px); }
+
+@media (hover: hover) and (pointer: fine) {
+  .bl-page .bl-button:hover, .bl-footer .bl-button:hover { transform: translateY(-2px); }
+  .bl-feature:hover, .bl-use-grid a:hover { transform: translateY(-5px); }
+  .bl-feature:hover .bl-card-link { transform: translateY(-2px); box-shadow: 0 5px 0 rgba(82,139,171,.20); }
+  .bl-detail-list button:hover, .bl-faq-list button:hover, .bl-replay-list button:hover { transform: translateX(3px); }
+  .bl-socials .social:hover { transform: translateY(-3px) rotate(-5deg); }
+}
+@media (hover: none), (pointer: coarse) {
+  .bl-page .bl-button, .bl-footer .bl-button { min-height: 48px; }
+  .bl-detail-list button, .bl-faq-list button, .bl-replay-list button { min-height: 48px; }
+  .bl-feature:hover, .bl-use-grid a:hover { transform: none; }
+}
+@media (max-width: 650px) {
+  .bl-feature, .bl-tool-image, .bl-detail-hero, .bl-story-art,
+  .bl-motion-mascot, .cap-page-scene { box-shadow: inset 0 1px 0 rgba(255,255,255,.85), 0 4px 0 rgba(145,192,219,.30); }
+  .bl-plans article:not(.featured), .bl-use-grid a,
+  .bl-principle-grid article, .bl-venue-grid article,
+  .bl-history article { box-shadow: inset 0 1px 0 white, 0 4px 0 rgba(178,211,229,.42); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bl-page .bl-button, .bl-footer .bl-button, .bl-feature,
+  .bl-card-link, .bl-use-grid a, .bl-step i,
+  .bl-detail-list button, .bl-faq-list button, .bl-replay-list button,
+  .bl-socials .social, .nav-toolkit-toggle, .mobile-nav a,
+  .dash-nav, .dash-button, .dash-mascot-action { transition: none !important; }
+  .bl-page .bl-button:hover, .bl-footer .bl-button:hover,
+  .bl-feature:hover, .bl-use-grid a:hover, .bl-socials .social:hover,
+  .bl-detail-list button:hover, .bl-faq-list button:hover, .bl-replay-list button:hover { transform: none; }
+}
+body.reduced .bl-page .bl-button, body.reduced .dash-button,
+body.reduced .dash-nav, body.reduced .dash-mascot-action { transition: none !important; }

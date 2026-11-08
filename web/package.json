@@ -3,24 +3,31 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Capstan site and dashboard (Vite, React, TypeScript)",
+  "description": "Capstan website: the owner's static multi-page site wired to the Capstan API (Vite, TypeScript, React for the live screens)",
   "license": "MIT",
   "scripts": {
     "sync": "bun scripts/sync-openapi.ts",
     "dev": "bun scripts/sync-openapi.ts && vite --host 127.0.0.1 --port 22273 --strictPort",
-    "build": "bun scripts/sync-openapi.ts && tsc --noEmit -p . && vite build && bun scripts/check-dist.ts",
+    "build": "bun scripts/sync-openapi.ts && tsc --noEmit -p . && vite build && bun scripts/hash-public.ts && bun scripts/check-dist.ts",
     "preview": "vite preview --host 127.0.0.1 --port 22273 --strictPort",
     "test": "bun test --timeout 30000 test",
     "test:e2e": "CAPSTAN_WEB_E2E=1 bun test --timeout 300000 test/e2e",
     "check:copy": "bun scripts/check-copy.ts"
   },
   "dependencies": {
+    "@reown/appkit": "1.8.24",
+    "@reown/appkit-adapter-ethers": "1.8.24",
     "buffer": "6.0.3",
+    "ethers": "6.17.0",
     "react": "19.3.1",
     "react-dom": "19.3.1",
     "react-router": "8.5.1"
   },
   "devDependencies": {
+    "@fontsource-variable/dm-sans": "5.3.0",
+    "@fontsource-variable/nunito": "5.3.0",
+    "@fontsource-variable/wix-madefor-display": "5.3.0",
+    "@fontsource/instrument-serif": "5.3.0",
     "@happy-dom/global-registrator": "21.0.4",
     "@types/bun": "1.4.4",
     "@types/react": "19.3.0",

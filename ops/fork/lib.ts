@@ -10,7 +10,12 @@ import { generatePrivateKey, privateKeyToAccount, type PrivateKeyAccount } from 
 
 export const ROOT = resolve(import.meta.dir, "../..");
 export const STATE = join(import.meta.dir, ".state");
-export const PORTS = { api: 22410, ws: 22411, relay: 22412, mcp: 22413, facilitator: 22414, hl: 22420, lighterRh: 22421, lighter: 22422, pg: 22432, anvil: 22445, rpcCache: 22446, base: 22447, web: 22473, redis: 22479 } as const;
+const port = (name: string, dflt: number) => {
+  const v = Number(process.env[`FORK_P_${name}`]);
+  return Number.isInteger(v) && v > 0 ? v : dflt;
+};
+/** The stack's ports: lane e2e-launch's by default, moved with the same FORK_P_* variables ops/fork/up.sh reads. */
+export const PORTS = { api: port("API", 22410), ws: port("WS", 22411), relay: port("RELAY", 22412), mcp: port("MCP", 22413), facilitator: port("FAC", 22414), hl: port("HL", 22420), lighterRh: port("RH", 22421), lighter: port("LM", 22422), pg: port("PG", 22432), anvil: port("ANVIL", 22445), rpcCache: port("CACHE", 22446), base: port("BASE", 22447), web: port("WEB", 22473), redis: port("REDIS", 22479) } as const;
 export const RHC = `http://127.0.0.1:${PORTS.anvil}`;
 export const BASE = `http://127.0.0.1:${PORTS.base}`;
 export const API = `http://127.0.0.1:${PORTS.api}/v1`;
@@ -111,8 +116,11 @@ export async function makeSafe(sender: PrivateKeyAccount): Promise<ForkSafe> {
 }
 
 /** Run a command; returns stdout, throws with the tail of the output on a non-zero exit. */
+/** The FORK_* settings (ports, compose project, web mode) a child script such as up.sh must see; nothing else leaks. */
+const forkVars = () => Object.fromEntries(Object.entries(process.env).filter((e): e is [string, string] => e[0].startsWith("FORK_") && typeof e[1] === "string"));
+
 export function run(cmd: string[], o: { cwd?: string; env?: Record<string, string> } = {}): string {
-  const p = Bun.spawnSync(cmd, { cwd: o.cwd ?? ROOT, env: { PATH: `${homedir()}/.foundry/bin:${homedir()}/.bun/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin`, HOME: homedir(), ...(o.env ?? {}) }, stdout: "pipe", stderr: "pipe" });
+  const p = Bun.spawnSync(cmd, { cwd: o.cwd ?? ROOT, env: { PATH: `${homedir()}/.foundry/bin:${homedir()}/.bun/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin`, HOME: homedir(), ...forkVars(), ...(o.env ?? {}) }, stdout: "pipe", stderr: "pipe" });
   const out = `${p.stdout.toString()}${p.stderr.toString()}`;
   if (p.exitCode !== 0) {
     const log = join(STATE, "logs", `failed-${Date.now()}.log`);

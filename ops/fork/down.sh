@@ -26,5 +26,6 @@ if [ -f "$pids" ]; then
   : > "$pids"
 fi
 wipe=""; [ "${1:-}" = "--wipe" ] && wipe="-v"
-(cd "$root" && "$DOCKER" compose -p capstan-e2e-launch down $wipe >/dev/null 2>&1) && echo "stopped: docker compose project capstan-e2e-launch"
+project="${FORK_COMPOSE_PROJECT:-capstan-e2e-launch}"
+(cd "$root" && "$DOCKER" compose -p "$project" down $wipe >/dev/null 2>&1) && echo "stopped: docker compose project $project"
 echo "down: nothing from this stack is running"

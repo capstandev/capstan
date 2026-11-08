@@ -1,0 +1,18 @@
+.cap-rope-toolkit{overflow:hidden;border-radius:28px;background:#e3f5ff;border:2px solid #fff;box-shadow:0 7px 0 #beddea,0 14px 30px #6596b31c}
+.cap-rope-top{display:flex;justify-content:space-between;gap:16px;align-items:center;padding:24px 28px 0;color:#527d97;font:800 11px/1.4 Nunito,sans-serif;letter-spacing:.12em}
+.cap-rope-top span+span{font:600 13px/1.4 'DM Sans',sans-serif;letter-spacing:0}.cap-rope-top b{color:#318dd4;font-size:18px}
+.cap-rope-toolkit .cl{border-radius:0;background:#e3f5ff}
+.cap-rope-toolkit .cl__photo{border:2px solid #fff;box-shadow:0 4px 0 #a9d0e4,0 10px 22px #548ca829}
+.cap-rope-toolkit .cl__photo img{object-fit:contain;background:linear-gradient(145deg,#f7fdff,#cbeaff);padding:3% 2% 15%}
+.cap-rope-toolkit .cl__card:nth-child(4n+2) .cl__photo img{background:linear-gradient(145deg,#fbfffd,#c7efe5)}
+.cap-rope-toolkit .cl__card:nth-child(4n+3) .cl__photo img{background:linear-gradient(145deg,#fffbf3,#ffe0c6)}
+.cap-rope-toolkit .cl__card:nth-child(4n+4) .cl__photo img{background:linear-gradient(145deg,#fdfbff,#dfdffc)}
+.cap-rope-toolkit .cl__text{opacity:1;background:linear-gradient(transparent,#17385fcf);padding:3cqw 1.2cqw 1cqw}
+.cap-rope-toolkit .cl__title{font:800 max(12px,1.4cqw)/1.2 Nunito,sans-serif}.cap-rope-toolkit .cl__caption{font:600 max(10px,.9cqw)/1.3 'DM Sans',sans-serif}
+.cap-rope-links{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;padding:22px;background:#f9fdff}
+.cap-rope-links a{min-width:0;display:flex;align-items:flex-start;gap:10px;padding:14px;border:1px solid #cde8f5;border-radius:16px;background:#fff;color:#17385f;transition:transform .2s ease,box-shadow .2s ease;box-shadow:0 3px 0 #d3eaf5}
+.cap-rope-links a:focus-visible{outline:3px solid #ecae67;outline-offset:3px}.cap-rope-links a>span:nth-child(2){min-width:0;flex:1}.cap-rope-links strong,.cap-rope-links small{display:block}.cap-rope-links strong{font:800 14px/1.25 Nunito,sans-serif}.cap-rope-links small{font:500 11px/1.35 'DM Sans',sans-serif;color:#64869b;margin-top:5px}.cap-rope-links b{font-size:15px;color:#479ed3}.cap-rope-number{font:700 10px/1.5 monospace;color:#6aa7c7}
+@media(hover:hover) and (pointer:fine){.cap-rope-links a:hover{transform:translateY(-3px);box-shadow:0 6px 0 #c5e2f0}}
+@media(max-width:800px){.cap-rope-links{grid-template-columns:repeat(2,minmax(0,1fr));padding:15px}.cap-rope-top{padding:18px 20px 0}.cap-rope-toolkit .cl__text{padding:5cqw 2cqw 2cqw}.cap-rope-toolkit .cl__title{font-size:13px}.cap-rope-toolkit .cl__caption{font-size:10px}}
+@media(max-width:380px){.cap-rope-top{gap:8px;padding:15px 14px 0;font-size:10px}.cap-rope-top span+span{font-size:11px}.cap-rope-links{gap:8px;padding:12px}.cap-rope-links a{padding:11px;gap:7px}.cap-rope-links strong{font-size:12px}.cap-rope-links small{font-size:10px}}
+@media(prefers-reduced-motion:reduce){.cap-rope-links a{transition:none}.cap-rope-toolkit .cl__text{transition:none}}

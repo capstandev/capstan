@@ -14,7 +14,7 @@ export { SPREAD_ACK_TEXT, spreadAckMessage } from "../../../packages/sdk/src/spr
 export { SdkError } from "../../../packages/sdk/src/errors";
 export { verifyFull, type VerifyChecks, type VerifyStatus } from "../../../packages/receipts/src/verify";
 export { RISK_BANNER } from "../../../packages/schema/src/core";
-export type { AccountSnapshot, FundingSnapshot, Position, QuoteRequest, RiskView, RouteQuote, VenueQuote, OrderIntent, Order } from "../../../packages/schema/src/core";
+export type { AccountSnapshot, FundingSnapshot, Market, OrderBook, Position, QuoteRequest, RiskView, RouteQuote, VenueQuote, OrderIntent, Order } from "../../../packages/schema/src/core";
 export type { DelegationState, Hex, OnboardingBundle, OnboardingStep, UnsignedVenuePayload, VenueCapabilities, VenueId } from "../../../packages/schema/src/adapter";
 export type { Receipt } from "../../../packages/schema/src/receipt";
 export type { SpreadPlan } from "../../../packages/schema/src/spread";

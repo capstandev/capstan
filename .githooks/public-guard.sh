@@ -39,6 +39,8 @@ files=$(git ls-files -co --exclude-standard)
 while IFS= read -r f; do
   [ -z "$f" ] && continue
   case "$f" in
+    # the website's own mascot clips (owner-supplied site media, served by web/; DECISIONS 222)
+    web/public/assets/*.mp4) ;;
     *.pdf|*.mp4|*.mov|*.docx|*.key|*.pem) flag "$f: private file type";;
     docs/*|*/docs/*|plans/*|*/plans/*|todos/*|*/todos/*|*RESUME*|*STATUS.md) flag "$f: private path";;
     .env.example) ;;

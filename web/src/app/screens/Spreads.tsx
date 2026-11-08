@@ -2,7 +2,7 @@
 // and the main wallet's signature of the exact ack text. "Execute" stays off until both are done and the server
 // answered acked. Execution runs here (where the keys are) through the SDK; each step goes to the log.
 import { useState, type FormEvent, type ReactNode } from "react";
-import { Link } from "react-router";
+import { ConnectLink } from "../nav";
 import { Disclaimer } from "../../components/Disclaimer";
 import { SPREAD_ACK_TEXT, SPREAD_RISK_LABEL, spreadAckMessage, type ExecutorEvent, type SpreadPlan } from "../../lib/capstan";
 import { useSession } from "../session";
@@ -120,7 +120,7 @@ export function Spreads({ deps = {} }: { deps?: SpreadsDeps }) {
       </p>
       {!owner ? (
         <p>
-          <Link to="/app">Connect your wallet</Link> to use this screen.
+          <ConnectLink /> to use this screen.
         </p>
       ) : null}
       <h3>Scan</h3>

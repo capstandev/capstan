@@ -4,7 +4,7 @@
 // The proxy also answers /v1/quote and /v1/risk from fixtures, because the stand-in API has no quote or risk route.
 import type { Browser, Page } from "playwright-core";
 import { startStack } from "../../../packages/sdk/test/stack";
-import { buildOnce, serveDist, withBrowser } from "../browser";
+import { buildOnce, serveDist, waitForPreloader, withBrowser } from "../browser";
 import { quote, VIEW } from "./fixtures";
 import { stackPins, T0, testWallet, type TestWallet } from "./harness";
 
@@ -86,10 +86,21 @@ export async function withDashboard<T>(viewport: { width: number; height: number
   }
 }
 
+/** The dashboard's Trade view (the owner's sidebar button), where the SDK flow screens live. */
+export async function openTrade(p: Page, site: string): Promise<void> {
+  await p.goto(`${site}/dashboard`, { waitUntil: "networkidle" });
+  await waitForPreloader(p);
+  await p.locator('.dash-nav[data-view="trade"]').click();
+  await p.locator('[data-live="trade"] [data-screen="connect"]').waitFor();
+}
+
+/** A sub-screen of the Trade view (the SDK screens' own navigation). */
+export const tradeNav = (p: Page, name: string) => p.getByRole("navigation", { name: "Dashboard", exact: true }).getByRole("link", { name, exact: true }).click();
+
 /** Connect the test wallet and onboard Hyperliquid through the real screens. */
 export async function connectAndOnboard(d: BrowserDash, shot?: (name: string) => Promise<void>): Promise<void> {
   const p = d.page;
-  await p.goto(`${d.site}/app`, { waitUntil: "networkidle" });
+  await openTrade(p, d.site);
   await p.getByRole("button", { name: "Connect Test Wallet" }).click();
   await p.locator("[data-connected]").waitFor();
   await shot?.("connected");

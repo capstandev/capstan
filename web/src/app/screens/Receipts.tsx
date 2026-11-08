@@ -1,7 +1,7 @@
 // Receipts: the ones made in this session, and the owner-signed listing (GET /receipts?owner=, api_request
 // signature). Each links to /verify, where the check runs in the browser.
 import { useState } from "react";
-import { Link } from "react-router";
+import { VerifyLink } from "../../components/VerifyLink";
 import type { Receipt } from "../../lib/capstan";
 import { useSession } from "../session";
 import { venueName } from "../venues";
@@ -32,7 +32,7 @@ export function Receipts() {
           {s.receipts.map((r) => (
             <li key={r.receiptId}>
               {r.what}
-              {r.venue ? ` (${venueName(r.venue)})` : ""}: <Link to={`/verify?id=${encodeURIComponent(r.receiptId)}`}>verify {r.receiptId}</Link>
+              {r.venue ? ` (${venueName(r.venue)})` : ""}: <VerifyLink id={r.receiptId}>verify {r.receiptId}</VerifyLink>
             </li>
           ))}
         </ul>
@@ -56,7 +56,7 @@ export function Receipts() {
             {listed.map((r) => (
               <li key={r.receiptId}>
                 {r.ts} {r.action}
-                {r.venue ? ` on ${venueName(r.venue)}` : ""}: <Link to={`/verify?id=${encodeURIComponent(r.receiptId)}`}>verify {r.receiptId}</Link>
+                {r.venue ? ` on ${venueName(r.venue)}` : ""}: <VerifyLink id={r.receiptId}>verify {r.receiptId}</VerifyLink>
               </li>
             ))}
           </ul>

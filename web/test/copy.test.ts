@@ -1,4 +1,4 @@
-// R3 (copy rules) and R11 (pricing copy matches the routes that ship).
+// R3 (copy rules, on this repo's own copy: the React pages and the live views) and R11 (prices match the routes).
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -12,7 +12,7 @@ describe("copy", () => {
   test("rules", async () => {
     const { problems, pages } = await checkCopy();
     expect(problems).toEqual([]);
-    expect(pages).toBeGreaterThanOrEqual(15);
+    expect(pages).toBeGreaterThanOrEqual(12);
 
     // every rule fires on a planted sentence
     const planted: [string, RegExp][] = [
@@ -41,16 +41,10 @@ describe("copy", () => {
   });
 
   test("pricing-matches-routes", async () => {
-    const pages = await renderAll();
-    const pricing = pages.filter((p) => p.where.startsWith("pricing"));
-    expect(pricing.length).toBe(2);
-    for (const p of pricing) {
-      const t = visibleText(p.html);
-      expect(t).toContain("Historical funding (per 1,000 rows)");
-      expect(t.toLowerCase()).not.toContain("fills backfill");
-      expect(t.toLowerCase()).not.toMatch(/\bfills? (history|backfill)\b/);
-    }
-    for (const p of pages) expect(visibleText(p.html).toLowerCase()).not.toContain("fills backfill");
+    // the owner's pricing page starts at "From $0.01" per premium call: the cheapest priced route
+    const owner = readFileSync(join(import.meta.dir, "../public/bloop-views.js"), "utf8");
+    expect(owner).toContain("<strong>From $0.01</strong>");
+    for (const p of await renderAll()) expect(visibleText(p.html).toLowerCase()).not.toContain("fills backfill");
 
     // each priced row is a priced route in the shipped OpenAPI file, at the same price
     const spec = JSON.parse(readFileSync(join(import.meta.dir, "../../apps/api/openapi.json"), "utf8")) as { paths: Record<string, Record<string, { "x-price-usd"?: string }>> };

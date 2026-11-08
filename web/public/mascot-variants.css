@@ -1,0 +1,44 @@
+/* Reattach the item and hand as one articulated part of the character. */
+.cap-has-grip .cap-arm-right{opacity:0;animation:none!important}
+.cap-has-grip .cap-prop{transform-origin:70px 59px;transform-box:view-box}
+.cap-variant-chart .cap-prop,.cap-variant-code .cap-prop{animation:cap-held-nod 4.8s ease-in-out infinite}
+@keyframes cap-held-nod{0%,100%{transform:rotate(0)}50%{transform:rotate(-4deg)}}
+
+/* A code screen for builders, a market chart for trading teams. */
+.bl-audience-grid .cap-audience-developer,.bl-audience-grid .cap-audience-trader{display:grid;place-items:center;position:relative}
+.bl-audience-grid .cap-audience-developer .cap-rig,.bl-audience-grid .cap-audience-trader .cap-rig{width:100%;height:100%;max-width:240px}
+.cap-audience-developer .cap-breathe{animation:cap-role-code 4.8s ease-in-out infinite}
+.cap-audience-trader .cap-breathe{animation:cap-role-trade 5.5s ease-in-out infinite}
+.cap-audience-trader .cap-brows{opacity:1}.cap-audience-trader .cap-mouth-open{opacity:0}.cap-audience-trader .cap-mouth-smile{opacity:1}
+@keyframes cap-role-code{50%{transform:rotate(-3deg)}}
+@keyframes cap-role-trade{50%{transform:rotate(3deg)}}
+
+/* Story characters stay grounded; clicking performs a small contextual action. */
+.bl-story-art .cap-story-action{position:relative;display:block;width:100%;height:100%;border:0;padding:0;background:transparent;color:#17385f;cursor:pointer;text-align:left;overflow:hidden}
+.bl-story-art .cap-story-action:focus-visible{outline:3px solid #258bd0;outline-offset:-6px;border-radius:22px}
+.bl-story-art .cap-story-figure{position:absolute;inset:4% 6% 7%;display:grid;place-items:center;pointer-events:none}
+.bl-story-art .cap-story-figure .cap-rig{width:100%;height:100%;max-width:360px;transition:transform .45s cubic-bezier(.25,.1,.25,1)}
+.bl-story-art .cap-story-action .cap-breathe,.bl-story-art .cap-story-action .cap-arm,.bl-story-art .cap-story-action .cap-eye,.bl-story-art .cap-story-action .cap-prop{animation:none!important}
+.bl-story-art .cap-story-action .cap-prop{transition:transform .45s cubic-bezier(.25,.1,.25,1)}
+.bl-story-art .cap-story-action.is-active .cap-rig{transform:rotate(-4deg)}
+.bl-story-art .cap-story-gather.is-active .cap-prop{transform:rotate(-17deg)}
+.bl-story-art .cap-story-compare.is-active .cap-prop{transform:translate(-2px,2px) rotate(-10deg)}
+.bl-story-art .cap-story-action.is-active .cap-mouth-open{opacity:0}.bl-story-art .cap-story-action.is-active .cap-mouth-smile{opacity:1}
+.bl-story-art .cap-story-chips{position:absolute;inset:0;pointer-events:none}
+.bl-story-art .cap-story-chips span{position:absolute;left:auto;bottom:auto;padding:7px 10px;background:#fff;border:1px solid #d3eaf5;border-radius:999px;box-shadow:0 3px 0 #96c8e4;color:#315c78;font-size:10px;line-height:1.1;font-weight:700;transition:transform .5s cubic-bezier(.25,.1,.25,1),opacity .3s ease}
+.bl-story-art .cap-story-chips span:nth-child(1){top:11%;left:6%}.bl-story-art .cap-story-chips span:nth-child(2){top:24%;right:5%}.bl-story-art .cap-story-chips span:nth-child(3){bottom:22%;left:7%}
+.bl-story-art .cap-story-gather.is-active .cap-story-chips span:nth-child(1){transform:translate(25px,32px)}
+.bl-story-art .cap-story-gather.is-active .cap-story-chips span:nth-child(2){transform:translate(-25px,6px)}
+.bl-story-art .cap-story-gather.is-active .cap-story-chips span:nth-child(3){transform:translate(25px,-35px)}
+.bl-story-art .cap-story-compare .cap-story-chips span:nth-child(1){top:12%;left:5%}.bl-story-art .cap-story-compare .cap-story-chips span:nth-child(2){top:auto;bottom:24%;right:6%}
+.bl-story-art .cap-story-compare.is-active .cap-story-chips span:nth-child(1){transform:translate(14px,28px)}.bl-story-art .cap-story-compare.is-active .cap-story-chips span:nth-child(2){transform:translate(-12px,-28px)}
+.bl-story-art .cap-story-hint{position:absolute;bottom:12px;left:12px;max-width:calc(100% - 24px);padding:9px 12px;background:#fff;border-radius:12px;color:#315c78;font-size:11px;font-weight:700;line-height:1.2;box-shadow:0 3px 0 #a8d1e4}
+@media(hover:hover) and (pointer:fine){.cap-story-action:hover .cap-story-hint{background:#eaf7ff}}
+@media(max-width:650px){.bl-story-art .cap-story-figure{inset:2% 2% 9%}.bl-story-art .cap-story-chips span{font-size:9px;padding:6px}.bl-story-art .cap-story-hint{font-size:10px;bottom:8px;left:8px}}
+@media(prefers-reduced-motion:reduce){.cap-has-grip .cap-prop,.cap-audience-developer .cap-breathe,.cap-audience-trader .cap-breathe{animation:none!important}.bl-story-art .cap-story-figure .cap-rig,.bl-story-art .cap-story-action .cap-prop,.bl-story-art .cap-story-chips span{transition:none!important}}
+/* Neutralise the original story caption rule on structural wrapper spans. */
+.bl-story-art .cap-story-figure,.bl-story-art .cap-story-chips{background:transparent;border:0;border-radius:0;padding:0;box-shadow:none}
+.cap-await-visibility:not(.is-visible) .cap-breathe,.cap-await-visibility:not(.is-visible) .cap-prop{animation-play-state:paused}
+
+/* The loupe and gripping hand stay fixed together; the parent character carries them as a single pose. */
+.cap-variant-loupe .cap-prop{animation:none!important;transform:none!important}

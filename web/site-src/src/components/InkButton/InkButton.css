@@ -1,0 +1,93 @@
+.ib {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  min-height: 440px;
+  overflow: hidden;
+  background: var(--ib-bg);
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.ib.has-cursor,
+.ib.has-cursor .ib__btn {
+  cursor: none;
+}
+
+.ib__canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  pointer-events: none;
+}
+
+/* The real button: transparent, the canvas draws its body. */
+.ib__btn {
+  position: relative;
+  z-index: 1;
+  display: inline-grid;
+  place-items: center;
+  height: 66px;
+  padding: 0 42px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ib-label);
+  font: inherit;
+  text-decoration: none;
+  cursor: pointer;
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Without WebGL the button still has a body. */
+.ib[data-gl='off'] .ib__btn {
+  background: linear-gradient(180deg, #2a2a2c, #000);
+}
+
+.ib__btn:focus-visible {
+  box-shadow: 0 0 0 3px var(--ib-bg), 0 0 0 5px var(--ib-muted);
+}
+
+.ib__label {
+  display: block;
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  white-space: nowrap;
+  text-shadow: 0 1px 0 rgb(0 0 0 / 0.5);
+  will-change: transform;
+}
+
+/* A fine ring; the bead of ink it carries is drawn by the canvas. */
+.ib__cursor {
+  position: absolute;
+  left: -9px;
+  top: -9px;
+  z-index: 2;
+  width: 18px;
+  height: 18px;
+  border: 1.5px solid var(--ib-muted);
+  border-radius: 50%;
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    opacity 0.15s ease,
+    width 0.25s ease,
+    height 0.25s ease,
+    left 0.25s ease,
+    top 0.25s ease,
+    border-color 0.25s ease;
+}
+
+.ib__cursor[data-inked='true'] {
+  left: -13px;
+  top: -13px;
+  width: 26px;
+  height: 26px;
+  border-color: rgb(0 0 0 / 0.25);
+}
