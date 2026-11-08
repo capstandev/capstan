@@ -125,7 +125,9 @@ export async function s3(ctx: Ctx): Promise<Row[]> {
   const ob = u.onboardReceipt ? await receiptOf(u.onboardReceipt) : null;
   rows.push({ id: "S3", scenario: "onboard Hyperliquid (agent + builder fee approval signed by the test wallet)", ref: "POST /v1/onboarding/submit", gas: "-", result: ob ? "pass" : "fail", receipt: u.onboardReceipt ?? "-", check: ob ? `${ob.action}, agent ${u.agentRef.slice(0, 18)}...` : "no onboarding receipt" });
   const cb = await u.client.buildOrder(intentOf(), "hyperliquid", "relay");
-  const sub = await u.client.signAndSubmit(cb);
+  const sent = await u.client.signAndSubmit(cb);
+  if (!sent.receiptId) throw new Error("S3: the order went out but its receipt is pending (receipt-sign did not answer)");
+  const sub = { ...sent, receiptId: sent.receiptId };
   const rc = await receiptOf(sub.receiptId);
   const fee = rc.builder as { feeBps?: number; rawUnit?: string; address?: string } | undefined;
   const okFee = fee?.feeBps === 2 && fee.address?.toLowerCase() === stateAddr("builder").toLowerCase();
@@ -167,7 +169,9 @@ export async function s4(ctx: Ctx): Promise<Row[]> {
   const client = createClient({ apiBase: API, network: "mainnet", keystore: ks, walletSigner: accountWallet(wallet), pinned, presentSteps: false, venueHosts: { hyperliquid: HL }, anchor: { rpcUrl: RHC, address: ctx.deployed.anchor }, fetch: userFetch() });
   await client.onboard("hyperliquid", { mode: "direct" });
   const cb = await client.buildOrder(intentOf({ limitPx: "74000" }), "hyperliquid", "direct");
-  const sub = await client.signAndSubmit(cb);
+  const sent = await client.signAndSubmit(cb);
+  if (!sent.receiptId) throw new Error("S4: the claim gave no receipt");
+  const sub = { ...sent, receiptId: sent.receiptId };
   const rc = await receiptOf(sub.receiptId);
   const rows: Row[] = [{ id: "S4", scenario: "direct mode: SDK posts to the venue itself, then claims", ref: "POST /v1/receipts/claim", gas: "-", result: rc.action === "order.claim" && sub.order.status === "open" ? "pass" : "fail", receipt: sub.receiptId, check: `${rc.action}, order ${sub.order.status} ${sub.order.venueOrderId}` }];
   // a tampered claim: another order's venue answer presented for this build -> refused with a refusal receipt

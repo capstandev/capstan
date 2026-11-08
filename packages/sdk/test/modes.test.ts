@@ -35,7 +35,7 @@ describe("modes", () => {
     expect((claims[0]!.body as { venueResponse: { status: string } }).venueResponse.status).toBe("ok");
     expect(orderPosts(s).length).toBe(1);
     expect(r.order.venueOrderId).toBe("1000");
-    const rec = await s.receipts.get(r.receiptId);
+    const rec = await s.receipts.get(r.receiptId!);
     expect(rec?.action).toBe("order.claim");
 
     // agent-safe policy: a direct request is forced to relay, and the local policy refuses a breach before signing

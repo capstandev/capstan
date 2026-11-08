@@ -1,13 +1,19 @@
 // Relay lanes (spec 9, 14): the free lane takes at most RELAY_FREE_ORDERS_PER_MIN orders per minute per wallet AND per
 // client IP bucket (IPv4 /32, IPv6 /64); the pro lane takes its tier's per-wallet rate. Any wallet above BOT_CAP orders
-// per minute is pushed to direct mode, whatever its lane (spec 4.1 shared relay IP gotcha). Cancels and reduce-only
-// close-alls are safety traffic: never counted, never refused here. One sliding 60 s window, atomic in Redis.
-// Redis down: the free lane refuses (fail closed); the pro lane falls back to an in-process window.
+// per minute is pushed to direct mode, whatever its lane (spec 4.1 shared relay IP gotcha). Cancels, closes and
+// reduce-only orders are exit traffic: they skip the open lanes and the bot cap, but are still counted by their own
+// exit lane, EXIT_PER_MIN_WALLET per wallet and EXIT_PER_MIN_IP per IP bucket (security r1 R1-02: uncounted exits let
+// one actor fill every submit slot). One sliding 60 s window, atomic in Redis.
+// Redis down: the free lane refuses (fail closed); the pro lane and the exit lane fall back to an in-process window
+// (an exit is never refused only because Redis is down).
 import type { Redis } from "@capstan/core";
 import type { LaneDecision, LaneLimiter } from "./types";
 
 export const WINDOW_MS = 60_000;
 export const BOT_CAP_PER_MIN = 20;
+/** Exit traffic per minute: well above any honest close pattern (a kill closes one order per market). */
+export const EXIT_PER_MIN_WALLET = 60;
+export const EXIT_PER_MIN_IP = 120;
 export const DIRECT_MODE_HINT = "This wallet is over the relay limit. Use direct mode (the SDK posts to the venue itself) for automated trading.";
 
 interface Check {
@@ -18,6 +24,12 @@ interface Check {
 
 function checksFor(o: Parameters<LaneLimiter["take"]>[0]): Check[] {
   const w = o.wallet.toLowerCase();
+  if (o.kind !== "order") {
+    return [
+      { key: `relay:exit:w:${w}`, limit: EXIT_PER_MIN_WALLET, reason: "exit_wallet" },
+      { key: `relay:exit:ip:${o.ipBucket}`, limit: EXIT_PER_MIN_IP, reason: "exit_ip" },
+    ];
+  }
   const out: Check[] = [{ key: `relay:bot:${w}`, limit: BOT_CAP_PER_MIN, reason: "bot_cap" }];
   if (o.lane === "free") {
     out.push({ key: `relay:free:w:${w}`, limit: o.perMin, reason: "free_wallet" });
@@ -32,7 +44,6 @@ export function memoryLaneLimiter(): LaneLimiter & { reset(): void } {
   const hits = new Map<string, number[]>();
   return {
     async take(o) {
-      if (o.kind !== "order") return { ok: true, lane: o.lane };
       const checks = checksFor(o);
       const live = (k: string) => (hits.get(k) ?? []).filter((t) => t > o.nowMs - WINDOW_MS);
       for (const c of checks) if (live(c.key).length >= c.limit) return { ok: false, lane: o.lane, reason: c.reason };
@@ -64,7 +75,6 @@ export function redisLaneLimiter(redis: Redis): LaneLimiter {
   let n = 0;
   return {
     async take(o) {
-      if (o.kind !== "order") return { ok: true, lane: o.lane };
       const checks = checksFor(o);
       try {
         const member = `${o.nowMs}:${process.pid}:${++n}:${Math.random().toString(36).slice(2, 8)}`;
@@ -72,7 +82,7 @@ export function redisLaneLimiter(redis: Redis): LaneLimiter {
         if (r === 0) return { ok: true, lane: o.lane };
         return { ok: false, lane: o.lane, reason: checks[r - 1]!.reason };
       } catch {
-        if (o.lane === "free") return { ok: false, lane: o.lane, reason: "unavailable" };
+        if (o.lane === "free" && o.kind === "order") return { ok: false, lane: o.lane, reason: "unavailable" };
         return local.take(o);
       }
     },

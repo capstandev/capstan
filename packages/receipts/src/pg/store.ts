@@ -51,8 +51,9 @@ export function pgReceiptStore(db: DbLike): ReceiptStore & {
       }
     },
     async byHour(hourEpoch) {
-      const rows = await db.select({ id: t.id, leaf: t.leaf, body: t.body }).from(t).where(eq(t.hourEpoch, hourEpoch)).orderBy(asc(t.ts), asc(t.id));
-      return rows.map((x) => ({ id: x.id, leaf: x.leaf as Hex, ts: (x.body as Receipt).ts })).sort(byTsThenId);
+      // id, leaf and the ts column only (security r1 F3): never the bodies of the whole hour
+      const rows = await db.select({ id: t.id, leaf: t.leaf, ts: t.ts }).from(t).where(eq(t.hourEpoch, hourEpoch)).orderBy(asc(t.ts), asc(t.id));
+      return rows.map((x) => ({ id: x.id, leaf: x.leaf as Hex, ts: new Date(x.ts).toISOString() })).sort(byTsThenId);
     },
     async get(id) {
       const rows = await db.select({ body: t.body }).from(t).where(eq(t.id, id)).limit(1);

@@ -70,7 +70,7 @@ describe("receipts", () => {
     const signers = [{ address: h.signer.address as Hex }];
     for (let i = 0; i < 5; i++) {
       const v = await verifyReceiptOffline(h.receipts[i]!, { hourEpoch: h.hour, proof: proofFor(h.tree, i), root: h.tree.root }, { signers, anchor });
-      expect(v).toEqual({ valid: true, checks: { signature: true, leaf: true, proof: true, onChainRoot: true } });
+      expect(v).toEqual({ valid: true, status: "valid", checks: { signature: true, leaf: true, proof: true, onChainRoot: true } });
     }
     expect(calls).toEqual([`${RPC} eth_chainId`, ...Array(5).fill(`${RPC} eth_call`)]);
 
@@ -90,8 +90,16 @@ describe("receipts", () => {
 
     // an hour not anchored yet: not_posted (signature, leaf and proof still checked)
     const later = await hourOfReceipts("2026-01-01T12:05:00.000Z", 2);
-    const v3 = await verifyReceiptOffline(later.receipts[1]!, { hourEpoch: later.hour, proof: proofFor(later.tree, 1), root: later.tree.root }, { signers: [{ address: later.signer.address as Hex }], anchor });
+    // within its hour that is pending, never valid (security r1 F1); hours later, or at or below latestHour, it is invalid
+    const v3 = await verifyReceiptOffline(later.receipts[1]!, { hourEpoch: later.hour, proof: proofFor(later.tree, 1), root: later.tree.root }, { signers: [{ address: later.signer.address as Hex }], anchor, nowMs: Date.parse("2026-01-01T12:30:00.000Z") });
     expect(v3.checks.onChainRoot).toBe("not_posted");
+    expect(v3.valid).toBe(false);
+    expect(v3.status).toBe("pending");
+    expect(await anchor.latestHour!()).toBe(h.hour);
+    const skipped = await hourOfReceipts("2026-01-01T09:05:00.000Z", 1); // below latestHour, never anchored
+    const v4 = await verifyReceiptOffline(skipped.receipts[0]!, { hourEpoch: skipped.hour, proof: proofFor(skipped.tree, 0), root: skipped.tree.root }, { signers: [{ address: skipped.signer.address as Hex }], anchor, nowMs: Date.parse("2026-01-01T10:30:00.000Z") });
+    expect(v4.checks.onChainRoot).toBe("unanchored");
+    expect(v4.status).toBe("invalid");
 
     // an RPC that serves another chain is refused before any answer is trusted
     const wrongChain = rpcAnchorReader({ rpcUrl: RPC, address, chainId: 4663 });

@@ -197,7 +197,7 @@ apps() {
   start facilitator "$P_FAC" "$ENVRUN" "$BUN" apps/facilitator/src/index.ts
   # workers: receipts (the relay holds no key), the RootPosted indexer and the USDG detection; merkle-anchor is run
   # by every-tx.ts with the hour closed on the fork clock (S3), so it is not scheduled here
-  nohup "$ENVRUN" /usr/bin/env WORKER_JOBS=receipt-sign,root-indexer,x402-detect RECEIPT_SIGNER=keystore \
+  nohup "$ENVRUN" /usr/bin/env WORKER_JOBS=receipt-sign,receipt-sign-refusal,root-indexer,x402-detect RECEIPT_SIGNER=keystore \
     RECEIPT_KEYSTORE_PATH="$state/keys/receipt" RECEIPT_KEYSTORE_PASSWORD_FILE="$state/keys/receipt.password" \
     "$BUN" apps/workers/src/index.ts >"$logs/workers.log" 2>&1 </dev/null &
   record workers "$!" 0

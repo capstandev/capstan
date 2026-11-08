@@ -1,7 +1,7 @@
 // Receipt verification in the browser (spec 11): the receipts library's verifyFull checks the signature, recomputes
 // the leaf, checks the sorted-pair proof and reads the hourly root from the anchor over a JSON-RPC endpoint. The
 // server's own /verify answer is never used; only the receipt and its proof are fetched.
-import { PINS, mergePins, rpcAnchorReader, verifyFull, type Hex, type Network, type PinsOverride, type Receipt, type VerifyChecks } from "./capstan";
+import { PINS, mergePins, rpcAnchorReader, verifyFull, type Hex, type Network, type PinsOverride, type Receipt, type VerifyChecks, type VerifyStatus } from "./capstan";
 
 export interface ProofBody {
   hourEpoch: number;
@@ -15,6 +15,8 @@ export interface VerifyOutcome {
   receipt: Receipt;
   proof: ProofBody;
   valid: boolean;
+  /** valid (root posted and equal), pending (its hour may still be anchored), unchecked (no anchor address), invalid. */
+  status: VerifyStatus;
   checks: VerifyChecks & { hour: boolean };
   signerSource: "pins" | "override" | "none";
 }
@@ -28,6 +30,8 @@ export interface VerifyDeps {
   receiptSigners?: Hex[];
   anchorAddress?: Hex | null;
   anchorChainId?: number;
+  /** Clock for the pending window (default Date.now). */
+  nowMs?: number;
 }
 
 export class VerifyInputError extends Error {}
@@ -97,8 +101,10 @@ export async function verifyReceiptInput(raw: string, d: VerifyDeps): Promise<Ve
     signers,
     ...(proof.leaf ? { claimedLeaf: proof.leaf } : {}),
     ...(reader ? { readRoot: (h: number) => reader.rootOf(h) } : {}),
+    ...(reader?.latestHour ? { latestHour: () => reader.latestHour!() } : {}),
+    ...(d.nowMs !== undefined ? { nowMs: d.nowMs } : {}),
   });
   // the proof must be for the receipt's own hour
   const hour = Math.floor(Date.parse(receipt.ts) / 3_600_000) === proof.hourEpoch;
-  return { receipt, proof, valid: out.valid && hour, checks: { ...out.checks, hour }, signerSource };
+  return { receipt, proof, valid: out.valid && hour, status: hour ? out.status : "invalid", checks: { ...out.checks, hour }, signerSource };
 }

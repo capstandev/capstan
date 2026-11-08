@@ -10,3 +10,4 @@ export * from "./verify";
 export * from "./actions";
 export * from "./pg/store";
 export * from "./service";
+export * from "./validate";

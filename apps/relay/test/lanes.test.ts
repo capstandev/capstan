@@ -32,7 +32,7 @@ describe("lanes", () => {
     // the refused payload was not consumed: nothing was sent, and the window frees after a minute
     now += 60_001;
     expect((await submit()).code).toBeNull();
-    // cancels are safety traffic and never count against the free lane
+    // cancels are exit traffic and never count against the free lane (only against the exit lane)
     const c = await s.hl({}, { kind: "cancel" });
     s.store.builds.get(c.b.buildId)!.expiresAt = now + 30_000;
     expect((await codeOf(handleSubmit({ buildId: c.b.buildId, signedEnvelope: c.env }, { ip: "203.0.113.20" }, s.deps))).code).toBeNull();
@@ -55,7 +55,9 @@ describe("lanes", () => {
     s2.laneOf.value = async (_o, k) => (k === "pro" ? { lane: "pro", perMin: 20 } : { lane: "free", perMin: 20 });
     s2.deps.lanes = { take: async (o) => ({ ok: true, lane: o.lane }) };
     let open!: () => void;
-    const hold = s2.deps.dispatch.run("safety", () => new Promise<void>((r) => (open = r)));
+    // the HL key: each venue has its own slots. The hold is an opening job, because safety jobs run in reserved slots
+    // and would leave the opening slot free (R1-02).
+    const hold = s2.deps.dispatch.run("pro", () => new Promise<void>((r) => (open = r)), "hyperliquid");
     const made = [];
     for (let i = 0; i < 6; i++) made.push({ lane: i % 2 ? "pro" : "free", h: await s2.hl() });
     const subs = made.map((m) => handleSubmit({ buildId: m.h.b.buildId, signedEnvelope: m.h.env }, { ip: "203.0.113.21", apiKey: m.lane }, s2.deps));

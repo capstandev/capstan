@@ -17,7 +17,7 @@ import { checkOnboardingBundle } from "./onboard";
 import { resolvePresenter, type StepPresenter } from "./present";
 import { assertServerMatchesPins, mergePins, PINS, type Network, type NetworkPins, type Pins, type PinsOverride } from "./pins";
 import { sumDec, type PolicyChecker } from "./policy";
-import { rpcAnchorReader, verifyReceiptOffline, type AnchorReader, type ReceiptProof, type VerifyChecks } from "./receipts";
+import { rpcAnchorReader, verifyReceiptOffline, type AnchorReader, type ReceiptProof, type VerifyChecks, type VerifyStatus } from "./receipts";
 import { capstanMessage } from "./signed-message";
 import { sha256 } from "@noble/hashes/sha2.js";
 import { bytesToHex } from "@noble/hashes/utils.js";
@@ -93,7 +93,14 @@ export interface CheckedBuild {
 
 export interface SubmitOutcome {
   order: Order;
-  receiptId: string;
+  /**
+   * null when the relay sent the order but could not issue its receipt yet (receiptPending): the order still went
+   * out, and the receipt appears once the receipt job succeeds (security r1 R1-07). Never resend on null.
+   */
+  receiptId: string | null;
+  receiptPending?: true;
+  /** The receipt job id, when the relay queued the receipt. */
+  receiptJob?: string;
   venueResponse?: unknown;
 }
 
@@ -119,16 +126,17 @@ export interface CapstanClient {
   funding(asset: CanonicalAsset): Promise<FundingSnapshot[]>;
   onboard(venue: VenueId, opts?: { policy?: AgentPolicy; policySig?: Hex; collateralMoves?: { toDex: string; token: string; amount: string }[]; mode?: Mode; directIp?: string }): Promise<OnboardResult>;
   buildOrder(intent: OrderIntent, venue: VenueId, mode: Mode): Promise<CheckedBuild>;
-  signAndSubmit(b: CheckedBuild): Promise<{ order: Order; receiptId: string }>;
-  cancel(c: CancelIntent, venue: VenueId, mode?: Mode): Promise<{ receiptId: string; status: string }>;
+  signAndSubmit(b: CheckedBuild): Promise<SubmitOutcome>;
+  cancel(c: CancelIntent, venue: VenueId, mode?: Mode): Promise<{ receiptId: string | null; status: string; receiptPending?: true }>;
   closeAll(venues?: VenueId[]): Promise<{ venue: VenueId; marketId: string; receiptId: string | null; error?: string }[]>;
-  amend(venueOrderId: string, intent: OrderIntent, venue: VenueId): Promise<{ cancelReceiptId: string; order: Order; receiptId: string }>;
-  verifyReceipt(id: string | { receipt: Receipt; proof: ReceiptProof }): Promise<{ valid: boolean; checks: VerifyChecks }>;
+  amend(venueOrderId: string, intent: OrderIntent, venue: VenueId): Promise<{ cancelReceiptId: string | null; order: Order; receiptId: string | null }>;
+  verifyReceipt(id: string | { receipt: Receipt; proof: ReceiptProof }): Promise<{ valid: boolean; status: VerifyStatus; checks: VerifyChecks }>;
   kill(agentRef: string, closeAll?: boolean): Promise<KillResult>;
   /** Aster account read, routed by the agent's onboarding mode (relay: via /v1/risk/ingest; direct: from this host). */
   asterRead(kind?: "positionRisk" | "balance" | "openOrders", agentRef?: string): Promise<{ ok: boolean; mode: Mode; venueResponse?: unknown }>;
   agents(): AgentRecord[];
-  signer: { sign(payload: UnsignedVenuePayload): Promise<SignedEnvelope> };
+  /** Sign a build fetched elsewhere (an MCP host). Pass the user's intent; without one only reduce-only orders are signed. */
+  signer: { sign(payload: UnsignedVenuePayload, intent?: OrderIntent): Promise<SignedEnvelope> };
   readonly pins: Pins;
 }
 
@@ -181,6 +189,8 @@ export function createClient(o: CapstanClientOptions): CapstanClient {
     return rpcAnchorReader({ rpcUrl: o.anchor.rpcUrl, address: addr, chainId: np.anchor.chainId, fetch: venueFetch });
   })();
   const agents = new Map<string, AgentRecord>();
+  /** Slippage allowed around the reference price for orders read from the payload (close-all, kill, signer.sign). */
+  const closeSlip = o.closeAllSlippageBps ?? 300;
   const checked = new WeakSet<object>();
   let pinsChecked: Promise<void> | null = null;
 
@@ -276,10 +286,14 @@ export function createClient(o: CapstanClientOptions): CapstanClient {
     return f;
   }
 
-  async function checkOrderBuild(a: AgentRecord, intent: OrderIntent, b: UnsignedVenuePayload, mode: Mode): Promise<CheckedBuild> {
+  /**
+   * `derived`: the intent was read from the payload (no user intent), so the price is also bounded by an independent
+   * reference price within `slipBps` (security r1, review-r1:1 F1).
+   */
+  async function checkOrderBuild(a: AgentRecord, intent: OrderIntent, b: UnsignedVenuePayload, mode: Mode, derived?: { slipBps: number }): Promise<CheckedBuild> {
     const spec = await specFor(a.venue, intent.marketId);
-    const refPx = intent.type === "market" ? await markets.refPx(a.venue, intent.marketId) : undefined;
-    const r = checkBuild(intent, b, ctxFor(a, mode, spec, refPx));
+    const refPx = intent.type === "market" || derived ? await markets.refPx(a.venue, intent.marketId) : undefined;
+    const r = checkBuild(intent, b, { ...ctxFor(a, mode, spec, refPx), ...(derived ? { refBoundBps: derived.slipBps } : {}) });
     if (!r.ok) throw new SdkError(r.code, `${r.code}: ${r.field}`, { field: r.field });
     return seal({ build: b, intent, venue: a.venue, mode, agentRef: a.agentRef, digest: r.digest, checkedAt: now() });
   }
@@ -327,7 +341,7 @@ export function createClient(o: CapstanClientOptions): CapstanClient {
 
   async function submitChecked(cb: CheckedBuild): Promise<SubmitOutcome> {
     const r = await submitEnvelope(cb, await envelopeFor(cb));
-    if (r.order.status === "rejected") throw new SdkError("VENUE_ERROR", "the venue refused the order", { receiptId: r.receiptId });
+    if (r.order.status === "rejected") throw new SdkError("VENUE_ERROR", "the venue refused the order", r.receiptId ? { receiptId: r.receiptId } : {});
     return r;
   }
 
@@ -490,9 +504,9 @@ export function createClient(o: CapstanClientOptions): CapstanClient {
             const a = agentFor(b.venue);
             if (!eqAddr(a.owner, owner)) throw new SdkError("PAYLOAD_MISMATCH", "close-all for another owner", { field: "owner" });
             const spec = await specFor(b.venue, b.preview.marketId);
-            const intent = intentFromPayload(b, spec, { maxSlippageBps: o.closeAllSlippageBps ?? 300 });
+            const intent = intentFromPayload(b, spec, { maxSlippageBps: closeSlip });
             if (!intent.reduceOnly) throw new SdkError("PAYLOAD_MISMATCH", "a close-all order must be reduce-only", { field: "reduceOnly" });
-            const cb = await checkOrderBuild(a, intent, b, "relay");
+            const cb = await checkOrderBuild(a, intent, b, "relay", { slipBps: closeSlip });
             const r = await submitChecked(cb);
             out.push({ venue: b.venue, marketId: b.preview.marketId, receiptId: r.receiptId });
           } catch (e) {
@@ -515,7 +529,7 @@ export function createClient(o: CapstanClientOptions): CapstanClient {
       const cancelEnv = await envelopeFor(cancelChecked);
       const orderEnv = await envelopeFor(orderChecked);
       // cancel first; the new order is sent only when the cancel succeeded
-      let cancelReceipt: string;
+      let cancelReceipt: string | null;
       try {
         const r = await submitEnvelope(cancelChecked, cancelEnv);
         if (r.order.status === "rejected") throw new SdkError("VENUE_ERROR", "the cancel was refused; the new order was not sent");
@@ -536,7 +550,7 @@ export function createClient(o: CapstanClientOptions): CapstanClient {
         proof = await api.get<ReceiptProof>(`/receipts/${encodeURIComponent(id)}/proof`);
         if (receipt.receiptId !== id) throw new SdkError("PAYLOAD_MISMATCH", "the server returned another receipt", { field: "receiptId" });
       } else ({ receipt, proof } = id);
-      return verifyReceiptOffline(receipt, proof, { signers: np.receiptSigners, ...(anchor ? { anchor } : {}) });
+      return verifyReceiptOffline(receipt, proof, { signers: np.receiptSigners, nowMs: now(), ...(anchor ? { anchor } : {}) });
     },
 
     async kill(agentRef, closeAll = false) {
@@ -595,22 +609,26 @@ export function createClient(o: CapstanClientOptions): CapstanClient {
     },
 
     signer: {
-      async sign(payload) {
+      async sign(payload, userIntent) {
         await assertPins();
         const a = agentFor(payload.venue);
         const spec = await specFor(payload.venue, payload.preview?.marketId ?? "");
         const isCancel = (payload.payload as { action?: { type?: string }; txType?: number; kind?: string })?.action?.type?.startsWith("cancel") || (payload.payload as { txType?: number }).txType === 15 || (payload.payload as { kind?: string }).kind === "cancel";
         if (isCancel) throw new SdkError("UNSUPPORTED", "sign cancels through client.cancel, which knows the order id", { field: "type" });
-        const intent = intentFromPayload(payload, spec, { maxSlippageBps: o.closeAllSlippageBps ?? 300 });
-        const cb = await checkOrderBuild(a, intent, payload, "relay");
-        return envelopeFor(cb);
+        // with the user's own intent: the full check, field by field, as buildOrder does
+        if (userIntent) return envelopeFor(await checkOrderBuild(a, userIntent, payload, "relay"));
+        // without one, everything but the reference price came from the server: only reduce-only orders are signed,
+        // and their price is bounded by an independent reference (security r1, review-r1:1 F1)
+        const intent = intentFromPayload(payload, spec, { maxSlippageBps: closeSlip });
+        if (!intent.reduceOnly) throw new SdkError("PAYLOAD_MISMATCH", "without the user's intent only reduce-only orders are signed; pass the intent", { field: "reduceOnly" });
+        return envelopeFor(await checkOrderBuild(a, intent, payload, "relay", { slipBps: closeSlip }));
       },
     },
   };
 
   async function submitEnvelope(cb: CheckedBuild, env: SignedEnvelope): Promise<SubmitOutcome> {
     if (cb.mode === "relay") {
-      const r = await api.post<{ order: Order; receiptId: string }>("/orders/submit", { buildId: cb.build.buildId, signedEnvelope: env }, { auth: authAs(agents.get(cb.agentRef)) });
+      const r = await api.post<SubmitOutcome>("/orders/submit", { buildId: cb.build.buildId, signedEnvelope: env }, { auth: authAs(agents.get(cb.agentRef)) });
       account(cb);
       return r;
     }
@@ -628,10 +646,10 @@ export function createClient(o: CapstanClientOptions): CapstanClient {
       try {
         if (b.venue !== a.venue) throw new SdkError("PAYLOAD_MISMATCH", "close-all for another venue", { field: "venue" });
         if (a.venue === "aster" && a.mode === "relay") throw new SdkError("INVALID_INPUT", "a relay-only Aster agent cannot close from this host");
-        const intent = intentFromPayload(b, await specFor(b.venue, marketId), { maxSlippageBps: o.closeAllSlippageBps ?? 300 });
+        const intent = intentFromPayload(b, await specFor(b.venue, marketId), { maxSlippageBps: closeSlip });
         if (!intent.reduceOnly) throw new SdkError("PAYLOAD_MISMATCH", "a close-all order must be reduce-only", { field: "reduceOnly" });
         // checked as relay traffic (the owner asked for these reduce-only closes); posted straight to the venue
-        const cb = await checkOrderBuild(a, intent, b, "relay");
+        const cb = await checkOrderBuild(a, intent, b, "relay", { slipBps: closeSlip });
         const env = await envelopeFor(cb);
         const d = await postDirect(a.venue, env, { hosts, fetch: venueFetch });
         let receiptId: string | null = null;

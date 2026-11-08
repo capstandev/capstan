@@ -330,8 +330,9 @@ export async function startStack(o: StackOptions = {}) {
           if (body?.closeAll) {
             const ctx = { owner: venue.lastOwner as Hex, agentRef: ref, identity: { venue: "hyperliquid" as const, owner: venue.lastOwner as Hex, agentAddress: agent }, builderFee: { tenthsBp: 20 }, approvedMaxBps: 3, nowMs: T0, eligibilityDecisionId: "elig-stack", policyId: null, mode: "direct", feeTier: { takerRate: "0.00045", makerRate: "0.00015", source: "base" as const } };
             const c = await adapter.buildOrder({ marketId: "hyperliquid:-:BTC", side: "sell", size: "0.001", type: "market", tif: "ioc", reduceOnly: true, maxSlippageBps: 100 }, ctx as never);
-            builds.set(c.buildId, c);
-            closeAll = [c];
+            const tc = t.build ? t.build(c) : c; // a compromised server tampers close-all builds too
+            builds.set(tc.buildId, tc);
+            closeAll = [tc];
           }
           return Response.json({ relayBlocked: true, revocation, ...(closeAll ? { closeAll } : {}) });
         }
@@ -358,6 +359,13 @@ export async function startStack(o: StackOptions = {}) {
     issueKey,
     receiptSigner: rSigner.address as Hex,
     receipts: rStore,
+    /** The anchor as the chain would answer once each hour is posted: rootOf(hour) is that hour's tree root. */
+    anchor: {
+      async rootOf(hourEpoch: number) {
+        const rows = await rStore.byHour(hourEpoch);
+        return rows.length ? (buildTree(rows.map((x) => x.leaf)).root as Hex) : null;
+      },
+    },
     builds,
     killed,
     stop() {

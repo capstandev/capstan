@@ -12,7 +12,7 @@ export { PINS, mergePins, type Pins, type PinsOverride, type Network } from "../
 export { rpcAnchorReader, verifyReceiptOffline, type AnchorReader, type ReceiptProof } from "../../../packages/sdk/src/receipts";
 export { SPREAD_ACK_TEXT, spreadAckMessage } from "../../../packages/sdk/src/spreads";
 export { SdkError } from "../../../packages/sdk/src/errors";
-export { verifyFull, type VerifyChecks } from "../../../packages/receipts/src/verify";
+export { verifyFull, type VerifyChecks, type VerifyStatus } from "../../../packages/receipts/src/verify";
 export { RISK_BANNER } from "../../../packages/schema/src/core";
 export type { AccountSnapshot, FundingSnapshot, Position, QuoteRequest, RiskView, RouteQuote, VenueQuote, OrderIntent, Order } from "../../../packages/schema/src/core";
 export type { DelegationState, Hex, OnboardingBundle, OnboardingStep, UnsignedVenuePayload, VenueCapabilities, VenueId } from "../../../packages/schema/src/adapter";

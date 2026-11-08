@@ -21,7 +21,7 @@ export function OrderTicket() {
   const [slip, setSlip] = useState("50");
   const [mode, setMode] = useState<"relay" | "direct">("relay");
   const [checked, setChecked] = useState<CheckedBuild | null>(null);
-  const [result, setResult] = useState<{ status: string; receiptId: string } | null>(null);
+  const [result, setResult] = useState<{ status: string; receiptId: string | null } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const chosen = (venue || active[0] || "") as VenueId | "";
@@ -50,7 +50,8 @@ export function OrderTicket() {
     try {
       const r = await s.client.signAndSubmit(checked);
       setResult({ status: r.order.status, receiptId: r.receiptId });
-      s.addReceipt({ receiptId: r.receiptId, what: `Order ${checked.build.preview.side} ${checked.build.preview.size} ${checked.build.preview.marketId}`, venue: checked.venue });
+      // a null receipt id: the order went out and its receipt is still being issued (security r1 R1-07)
+      if (r.receiptId) s.addReceipt({ receiptId: r.receiptId, what: `Order ${checked.build.preview.side} ${checked.build.preview.size} ${checked.build.preview.marketId}`, venue: checked.venue });
       setChecked(null);
     } catch (err) {
       setError((err as Error).message);
@@ -211,7 +212,14 @@ export function OrderTicket() {
       ) : null}
       {result ? (
         <p className="ok" data-order-result="">
-          Order {result.status}. Receipt <Link to={`/verify?id=${encodeURIComponent(result.receiptId)}`}>{result.receiptId}</Link>
+          Order {result.status}.{" "}
+          {result.receiptId ? (
+            <>
+              Receipt <Link to={`/verify?id=${encodeURIComponent(result.receiptId)}`}>{result.receiptId}</Link>
+            </>
+          ) : (
+            "The order was sent. Its receipt is still being issued; it appears in your receipts list shortly. Do not send the order again."
+          )}
         </p>
       ) : null}
       {error ? (

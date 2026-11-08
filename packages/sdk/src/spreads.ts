@@ -37,7 +37,13 @@ export function clientSpreadPorts(client: Pick<CapstanClient, "buildOrder" | "si
       checked.set(cb.build.buildId, cb);
       return cb.build;
     },
-    sign: (p: UnsignedVenuePayload): Promise<SignedEnvelope> => client.signer.sign(p),
+    // sign with the intent buildOrder checked this payload against, so opening legs keep the full field check
+    // (signer.sign without an intent signs only reduce-only orders: security r1, review-r1:1 F1)
+    sign: (p: UnsignedVenuePayload): Promise<SignedEnvelope> => {
+      const intent = checked.get(p.buildId)?.intent;
+      if (!intent) throw new Error("spread executor: sign a payload this executor built");
+      return client.signer.sign(p, intent);
+    },
     async submit(env: SignedEnvelope): Promise<SubmitResult> {
       const cb = checked.get(env.buildId);
       if (!cb) throw new Error("spread executor: unknown build");

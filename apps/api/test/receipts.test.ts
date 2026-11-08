@@ -30,7 +30,7 @@ d("receipt routes", () => {
   }, 60_000);
 
   test("privacy", async () => {
-    const routes = createReceiptRoutes(() => dbReceiptDeps(db, { signers: [signer.address], readRoot: async () => null }));
+    const routes = createReceiptRoutes(() => ({ ...dbReceiptDeps(db, { signers: [signer.address], readRoot: async () => null }), now: () => T + 1000 }));
     const { app } = await smallApp(routes, { verifiers: { owner_sig: ownerSigVerifier({ nonces: memoryNonceStore(), host: HOST, now: () => T + 1000, agentsOf: async () => [] }) } });
     // by id: public
     const one = await app.request(`/v1/receipts/${made[2]!.receiptId}`);
@@ -38,9 +38,12 @@ d("receipt routes", () => {
     expect(((await one.json()) as Receipt).receiptId).toBe(made[2]!.receiptId);
     expect((await app.request("/v1/receipts/01JNOTAREALRECEIPT00000000")).status).toBe(404);
     // /verify on a real receipt: the signature checks, the root is not posted yet
-    const v = (await (await app.request(`/v1/receipts/${made[0]!.receiptId}/verify`)).json()) as { checks: { signature: boolean; onChainRoot: unknown } };
+    const v = (await (await app.request(`/v1/receipts/${made[0]!.receiptId}/verify`)).json()) as { valid: boolean; status: string; checks: { signature: boolean; onChainRoot: unknown } };
     expect(v.checks.signature).toBe(true);
     expect(v.checks.onChainRoot).toBe("not_posted");
+    // security r1 F1: an hour whose root is not posted yet is pending, never valid
+    expect(v.valid).toBe(false);
+    expect(v.status).toBe("pending");
     expect((await app.request(`/v1/receipts/${made[0]!.receiptId}/proof`)).status).toBe(200);
     // listing: no signature, someone else's signature, or a signature for another owner are all refused
     const listPath = (o: Hex) => `/v1/receipts?owner=${o}`;
@@ -53,5 +56,15 @@ d("receipt routes", () => {
     const list = ((await mine.json()) as { receipts: Receipt[] }).receipts;
     expect(list.map((r) => r.receiptId).sort()).toEqual([made[0]!.receiptId, made[1]!.receiptId].sort());
     expect(list.every((r) => r.owner === addr(alice))).toBe(true);
+  });
+
+  test("security-r1-f1-old-empty-hour-is-invalid", async () => {
+    // the same receipts read 4 hours later, or once a later hour is anchored: the hour can never be anchored
+    for (const extra of [{ now: () => T + 4 * 3_600_000 }, { now: () => T + 1000, latestHour: async () => Math.floor(T / 3_600_000) + 1 }]) {
+      const routes = createReceiptRoutes(() => ({ ...dbReceiptDeps(db, { signers: [signer.address], readRoot: async () => null }), ...extra }));
+      const { app } = await smallApp(routes, { verifiers: { owner_sig: ownerSigVerifier({ nonces: memoryNonceStore(), host: HOST, now: () => T + 1000, agentsOf: async () => [] }) } });
+      const v = (await (await app.request(`/v1/receipts/${made[0]!.receiptId}/verify`)).json()) as { valid: boolean; status: string; checks: { onChainRoot: unknown } };
+      expect(v).toMatchObject({ valid: false, status: "invalid", checks: { onChainRoot: "unanchored" } });
+    }
   });
 });

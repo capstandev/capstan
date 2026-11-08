@@ -12,27 +12,34 @@ describe("verify", () => {
     const proof = proofFor(t, 2);
     const hour = hourEpochOf(rs[2]!.ts);
     const asked: number[] = [];
-    // hour not posted yet: not_posted, and still valid on signature + leaf + proof
-    const notPosted = await verifyFull(rs[2]!, { proof, root: t.root, signers: [s.address], readRoot: async (h) => (asked.push(h), null) });
+    const nowMs = Date.parse("2026-11-06T03:30:00.000Z"); // inside the receipts' own hour
+    // hour not posted yet: not_posted, signature + leaf + proof checked, and pending rather than valid (security r1 F1)
+    const notPosted = await verifyFull(rs[2]!, { proof, root: t.root, signers: [s.address], readRoot: async (h) => (asked.push(h), null), nowMs });
     expect(notPosted.checks).toEqual({ signature: true, leaf: true, proof: true, onChainRoot: "not_posted" });
-    expect(notPosted.valid).toBe(true);
+    expect(notPosted.valid).toBe(false);
+    expect(notPosted.status).toBe("pending");
     expect(asked).toEqual([hour]);
     // a zero root from rootOf means not posted, too
-    const zero = await verifyFull(rs[2]!, { proof, root: t.root, signers: [s.address], readRoot: async () => `0x${"0".repeat(64)}` as Hex });
+    const zero = await verifyFull(rs[2]!, { proof, root: t.root, signers: [s.address], readRoot: async () => `0x${"0".repeat(64)}` as Hex, nowMs });
     expect(zero.checks.onChainRoot).toBe("not_posted");
+    // the same hour once later hours are anchored, or long after it ended: it can never be anchored, so invalid
+    expect((await verifyFull(rs[2]!, { proof, root: t.root, signers: [s.address], readRoot: async () => null, latestHour: async () => hour + 1, nowMs })).checks.onChainRoot).toBe("unanchored");
+    const late = await verifyFull(rs[2]!, { proof, root: t.root, signers: [s.address], readRoot: async () => null, nowMs: nowMs + 3 * 3_600_000 });
+    expect(late).toMatchObject({ valid: false, status: "invalid", checks: { onChainRoot: "unanchored" } });
     // posted and equal
     const posted = await verifyFull(rs[2]!, { proof, root: t.root, signers: [s.address], readRoot: async () => t.root });
-    expect(posted).toEqual({ valid: true, checks: { signature: true, leaf: true, proof: true, onChainRoot: true } });
+    expect(posted).toEqual({ valid: true, status: "valid", checks: { signature: true, leaf: true, proof: true, onChainRoot: true } });
     // posted and different: invalid
     const other = await verifyFull(rs[2]!, { proof, root: t.root, signers: [s.address], readRoot: async () => `0x${"12".repeat(32)}` as Hex });
     expect(other.checks.onChainRoot).toBe(false);
     expect(other.valid).toBe(false);
     // no reader: unchecked
-    expect((await verifyFull(rs[2]!, { proof, root: t.root, signers: [s.address] })).checks.onChainRoot).toBe("unchecked");
+    // no reader: unchecked, and never valid (security r1, review-r1:6 F1: a leaked signer key could forge the rest)
+    expect(await verifyFull(rs[2]!, { proof, root: t.root, signers: [s.address] })).toMatchObject({ valid: false, status: "unchecked", checks: { onChainRoot: "unchecked" } });
     // bad signature, wrong proof, no root: each makes it invalid
     expect((await verifyFull(rs[2]!, { proof, root: t.root, signers: [labelSigner("x").address] })).valid).toBe(false);
     expect((await verifyFull(rs[2]!, { proof: proofFor(t, 1), root: t.root, signers: [s.address] })).valid).toBe(false);
-    const noRoot = await verifyFull(rs[2]!, { proof: [], root: null, signers: [s.address], readRoot: async () => null });
+    const noRoot = await verifyFull(rs[2]!, { proof: [], root: null, signers: [s.address], readRoot: async () => null, nowMs });
     expect(noRoot.checks).toEqual({ signature: true, leaf: true, proof: false, onChainRoot: "not_posted" });
     expect(noRoot.valid).toBe(false);
   });

@@ -21,7 +21,7 @@ import { priorityDispatcher } from "../src/dispatch";
 import { relayFlags } from "../src/flags";
 import { memoryKillView } from "../src/kill";
 import { memoryLaneLimiter } from "../src/lanes";
-import { memoryRelayStore, memoryVenueSignals } from "../src/stores";
+import { isResting, memoryRelayStore, memoryVenueSignals } from "../src/stores";
 import type { DelegationView, RelayDeps, StoredBuild } from "../src/types";
 import { asterRelayVenue, hlRelayVenue, lighterRelayVenue, sha256Jcs } from "../src/venues";
 import { passThroughGovernor } from "../src/wire";
@@ -187,8 +187,8 @@ export function relayStack(o: StackOptions = {}) {
   store.delegations.set(ASTER_REF, delegation(ASTER_REF, "aster", { agentAddress: ASTER_AGENT }));
   store.delegations.set(LIGHTER_REF, delegation(LIGHTER_REF, "lighter-mainnet", { owner: LIGHTER_OWNER, agentAddress: null, accountIndex: 712, apiKeyIndex: 5 }));
 
-  function put(build: UnsignedVenuePayload, f: { owner: Hex; agentRef: string | null; kind?: StoredBuild["kind"]; policyId?: string | null; leverage?: number }): StoredBuild {
-    const s: StoredBuild = { build, owner: f.owner, agentRef: f.agentRef, venue: build.venue, marketId: build.preview.marketId, kind: f.kind ?? "order", mode: "relay", requestHash: sha256Jcs({ build: build.buildId }), policyId: f.policyId ?? null, leverage: f.leverage ?? 1, eligibilityDecisionId: build.eligibilityDecisionId, expiresAt: build.expiresAt };
+  function put(build: UnsignedVenuePayload, f: { owner: Hex; agentRef: string | null; kind?: StoredBuild["kind"]; policyId?: string | null; leverage?: number; intent?: OrderIntent }): StoredBuild {
+    const s: StoredBuild = { resting: (f.kind ?? "order") === "order" ? isResting(f.intent) : false, build, owner: f.owner, agentRef: f.agentRef, venue: build.venue, marketId: build.preview.marketId, kind: f.kind ?? "order", mode: "relay", requestHash: sha256Jcs({ build: build.buildId }), policyId: f.policyId ?? null, leverage: f.leverage ?? 1, eligibilityDecisionId: build.eligibilityDecisionId, expiresAt: build.expiresAt };
     store.builds.set(build.buildId, s);
     return s;
   }
@@ -201,7 +201,7 @@ export function relayStack(o: StackOptions = {}) {
     const agentAddress = c.agentKey ? (addressOf(c.agentKey).toLowerCase() as Hex) : AGENT;
     const bctx = ctx({ agentRef, policyId: c.policyId ?? null, identity: { venue: "hyperliquid", owner: USER_A, agentAddress }, ...(c.builderF === null ? { builderFee: null } : c.builderF ? { builderFee: { tenthsBp: c.builderF } } : {}) });
     const b = (c.kind === "cancel" ? await builder.adapter.buildCancel({ marketId: "hyperliquid:-:BTC", venueOrderId: "4242" }, bctx) : await builder.adapter.buildOrder(intent(over), bctx)) as HlUnsignedPayload;
-    const s = put(b, { owner: USER_A, agentRef, kind: c.kind ?? "order", policyId: c.policyId ?? null });
+    const s = put(b, { owner: USER_A, agentRef, kind: c.kind ?? "order", policyId: c.policyId ?? null, ...(c.kind === "cancel" ? {} : { intent: intent(over) }) });
     return { b, s, env: c.agentKey ? hlSign(b, c.agentKey) : hlSign(b) };
   }
 
@@ -211,7 +211,7 @@ export function relayStack(o: StackOptions = {}) {
     const i = intent({ marketId: "aster:-:BTCUSDT", type: "limit", limitPx: "76000.0", tif: "gtc", size: "0.010", ...over });
     const b0 = asterBuild(i, { owner: USER_A, signer: ASTER_AGENT, nowMs: T0 + ++asterNonce });
     const b = { ...b0, buildId: ulid(), expiresAt: NOW + 30_000 };
-    put(b, { owner: USER_A, agentRef: ASTER_REF });
+    put(b, { owner: USER_A, agentRef: ASTER_REF, intent: i });
     const params = (b.payload as { params: [string, unknown][] }).params;
     const query = queryString(params as never);
     const digest = digestTrade(query, 1666);
@@ -225,7 +225,7 @@ export function relayStack(o: StackOptions = {}) {
     const i = intent({ marketId: "lighter-mainnet:-:ETH", size: "0.1", ...over });
     const b0 = lighterBuild(i, { nowMs: T0, mutate: (a) => void (a.nonce = 100 + ++lighterNonce) });
     const b = { ...b0, buildId: ulid(), expiresAt: NOW + 30_000 };
-    put(b, { owner: LIGHTER_OWNER, agentRef: LIGHTER_REF, kind });
+    put(b, { owner: LIGHTER_OWNER, agentRef: LIGHTER_REF, kind, intent: i });
     const a = (b.payload as { args: Record<string, number | boolean> }).args;
     const bit = (x: unknown) => (x ? 1 : 0);
     const sig = Buffer.from(keccak_256(utf8ToBytes(`sig:${b.buildId}`))).toString("base64").replace(/=/g, "").repeat(4).slice(0, 106) + "==";

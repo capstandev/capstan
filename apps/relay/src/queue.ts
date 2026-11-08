@@ -6,6 +6,7 @@ import { CapstanError, errorBody, type ErrorBody, type SignedEnvelope } from "@c
 import type { Priority } from "@capstan/venue-client";
 import { traceFromJob, traceJobData } from "@capstan/telemetry";
 import { Queue, QueueEvents, Worker, type Job } from "bullmq";
+import { RELAY_MAX_OPEN_JOBS } from "./dispatch";
 import { handleSubmit } from "./pipeline";
 import type { RelayDeps, SubmitOutcome } from "./types";
 
@@ -20,12 +21,20 @@ export interface RelayJobData {
 
 export type RelayJobResult = { ok: true; result: SubmitOutcome } | { ok: false; status: number; body: ErrorBody };
 
+/** Worker slots: 64 above RELAY_MAX_OPEN_JOBS, so however many venue keys stall, safety jobs always find a worker (R1-02). */
+export const RELAY_WORKER_CONCURRENCY = RELAY_MAX_OPEN_JOBS + 64;
+
 export const BULL_PRIORITY: Record<Priority, number> = { safety: 1, pro: 2, free: 3 };
 
+/** A job BullMQ starts again after a stall (or a later attempt): its first run may already hold the order row. */
+export function isRerun(job: Pick<Job, "attemptsStarted" | "stalledCounter" | "attemptsMade">): boolean {
+  return (job.attemptsStarted ?? 0) > 1 || (job.stalledCounter ?? 0) > 0 || (job.attemptsMade ?? 0) > 0;
+}
+
 /** Run one job through the pipeline and turn any refusal into a status and error body. */
-export async function runRelayJob(data: RelayJobData, deps: RelayDeps): Promise<RelayJobResult> {
+export async function runRelayJob(data: RelayJobData, deps: RelayDeps, o: { rerun?: boolean } = {}): Promise<RelayJobResult> {
   try {
-    const result = await handleSubmit({ buildId: data.buildId, signedEnvelope: data.signedEnvelope }, { ip: data.ip, ...(data.apiKey ? { apiKey: data.apiKey } : {}) }, deps);
+    const result = await handleSubmit({ buildId: data.buildId, signedEnvelope: data.signedEnvelope }, { ip: data.ip, ...(data.apiKey ? { apiKey: data.apiKey } : {}), ...(o.rerun ? { rerun: true } : {}) }, deps);
     return { ok: true, result };
   } catch (e) {
     if (e instanceof CapstanError) return { ok: false, status: e.status, body: e.toBody() };
@@ -35,7 +44,7 @@ export async function runRelayJob(data: RelayJobData, deps: RelayDeps): Promise<
 }
 
 export function startRelayWorker(connection: Redis, deps: RelayDeps, o: { concurrency?: number; prefix?: string } = {}): Worker<RelayJobData, RelayJobResult> {
-  return new Worker<RelayJobData, RelayJobResult>(QUEUES.relaySubmit, async (job: Job<RelayJobData>) => traceFromJob(job.data, "relay submit", () => runRelayJob(job.data, deps)), { connection, prefix: o.prefix ?? "capstan", concurrency: o.concurrency ?? 8 });
+  return new Worker<RelayJobData, RelayJobResult>(QUEUES.relaySubmit, async (job: Job<RelayJobData>) => traceFromJob(job.data, "relay submit", () => runRelayJob(job.data, deps, { rerun: isRerun(job) })), { connection, prefix: o.prefix ?? "capstan", concurrency: o.concurrency ?? RELAY_WORKER_CONCURRENCY });
 }
 
 export interface RelayClient {

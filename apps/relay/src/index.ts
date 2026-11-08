@@ -34,6 +34,7 @@ if (import.meta.main) {
     });
     const stop = async () => {
       await worker.close();
+      await rt.close();
       await rt.kill.close();
       process.exit(0);
     };

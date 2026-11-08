@@ -2,9 +2,9 @@
 // (intent column: { intent, kind, mode, requestHash, policyId, leverage }); orders carries the unique payload hash
 // that dedupes submits. Delegations are public data only.
 import { schema, type Db } from "@capstan/core";
-import type { Hex, OrderIntent, UnsignedVenuePayload, VenueId } from "@capstan/schema";
-import { and, eq, gte, inArray } from "drizzle-orm";
-import type { BuildKind, DelegationView, NewOrderRow, RelayStore, StoredBuild } from "./types";
+import type { Hex, OrderIntent, RiskView, UnsignedVenuePayload, VenueId } from "@capstan/schema";
+import { and, desc, eq, gte, inArray, sql } from "drizzle-orm";
+import type { AgentUsage, BuildKind, DelegationView, GrossSince, NewOrderRow, RelayStore, StoredBuild } from "./types";
 
 export interface BuildFacts {
   intent: OrderIntent | null;
@@ -53,10 +53,67 @@ function toStored(r: typeof schema.orderBuilds.$inferSelect): StoredBuild {
     leverage: f.leverage,
     eligibilityDecisionId: r.eligibilityDecisionId,
     expiresAt: r.expiresAt.getTime(),
+    resting: f.kind === "order" ? isResting(f.intent) : false,
   };
 }
 
 const dayStart = (ms: number) => new Date(ms - (ms % 86_400_000));
+
+type Tx = Pick<Db, "select" | "insert">;
+
+/** Resting-capable from the stored facts: a limit order that is not IOC; no facts counts as resting. */
+export const isResting = (i: OrderIntent | null | undefined): boolean => !i || (i.type !== "market" && i.tif !== "ioc");
+
+async function pgAgentUsage(db: Tx, agentRef: string, nowMs: number, w: GrossSince): Promise<AgentUsage> {
+  const o = schema.orders;
+  const b = schema.orderBuilds;
+  const f = schema.fills;
+  const day = dayStart(nowMs);
+  const since = new Date(Math.min(w.sinceMs, w.restingSinceMs, day.getTime()));
+  const sinceTs = new Date(w.sinceMs).toISOString();
+  const notional = sql`(${b.preview}->>'notionalUsd')::numeric`;
+  const resting = sql`(coalesce(${b.intent}->>'kind', 'order') = 'order' and coalesce(${b.intent}->'intent'->>'type', 'limit') <> 'market' and coalesce(${b.intent}->'intent'->>'tif', 'gtc') <> 'ioc')`;
+  // the size a fill before the window start shows done (that part is in the positions read)
+  const filled = sql`(select coalesce(sum(${f.sz}), 0) from ${f} where ${f.ts} < ${sinceTs}::timestamptz and (${f.orderId} = ${o.id} or (${f.venue} = ${o.venue} and ${f.venueOrderId} = ${o.venueOrderId})))`;
+  const left = sql`greatest(0, 1 - coalesce(${filled} / nullif((${b.preview}->>'size')::numeric, 0), 0))`;
+  // conservative: every opening order the venue accepted (or may have) since sinceMs counts as open notional until a
+  // fresher positions read replaces it, and a resting order counts until a fill shows it done (security r1 R1-06:
+  // nothing resets at 00:00 UTC, and a positions read never shows a resting order)
+  const [r] = await db
+    .select({
+      gross: sql<string>`coalesce(sum(case when ${o.submittedAt} >= ${sinceTs}::timestamptz then ${notional} when ${resting} and ${o.submittedAt} >= ${new Date(w.restingSinceMs).toISOString()}::timestamptz then ${notional} * ${left} else 0 end) filter (where coalesce((${b.preview}->>'reduceOnly')::boolean, false) = false), 0)::text`,
+      today: sql<number>`(count(*) filter (where ${o.submittedAt} >= ${day.toISOString()}::timestamptz))::int`,
+    })
+    .from(o)
+    .innerJoin(b, eq(o.buildId, b.id))
+    .where(and(eq(b.agentRef, agentRef), gte(o.submittedAt, since), inArray(o.status, ["pending", "accepted", "unknown"])));
+  return { grossNotionalUsd: Number(r?.gross ?? 0).toFixed(2), ordersToday: Number(r?.today ?? 0) };
+}
+
+async function pgInsertOrder(db: Tx, row: NewOrderRow): Promise<boolean> {
+  const o = schema.orders;
+  const r = await db.insert(o).values(row).onConflictDoNothing({ target: o.signedPayloadHash }).returning({ id: o.id });
+  return r.length === 1;
+}
+
+/** A per-key async lock in this process (memory store; the pg store uses an advisory lock). */
+function keyedLock() {
+  const tails = new Map<string, Promise<void>>();
+  return async <T>(key: string, fn: () => Promise<T>): Promise<T> => {
+    const prev = tails.get(key) ?? Promise.resolve();
+    let release!: () => void;
+    const mine = new Promise<void>((r) => (release = r));
+    const tail = prev.then(() => mine);
+    tails.set(key, tail);
+    await prev;
+    try {
+      return await fn();
+    } finally {
+      release();
+      if (tails.get(key) === tail) tails.delete(key);
+    }
+  };
+}
 
 export function pgRelayStore(db: Db): RelayStore {
   const o = schema.orders;
@@ -70,9 +127,10 @@ export function pgRelayStore(db: Db): RelayStore {
       if (!d) return null;
       return { id: d.id, venue: d.venue as VenueId, owner: d.owner as Hex, agentAddress: (d.agentAddress as Hex | null) ?? null, accountIndex: d.accountIndex, apiKeyIndex: d.apiKeyIndex, state: d.state as DelegationView["state"], expiresAt: d.expiresAt ? d.expiresAt.getTime() : null };
     },
-    async insertOrder(row: NewOrderRow) {
-      const r = await db.insert(o).values(row).onConflictDoNothing({ target: o.signedPayloadHash }).returning({ id: o.id });
-      return r.length === 1;
+    insertOrder: (row: NewOrderRow) => pgInsertOrder(db, row),
+    async orderByHash(h) {
+      const [r] = await db.select({ id: o.id, buildId: o.buildId, status: o.status, venueOrderId: o.venueOrderId }).from(o).where(eq(o.signedPayloadHash, h)).limit(1);
+      return r ?? null;
     },
     async updateOrder(id, patch) {
       await db.update(o).set({ status: patch.status, ...(patch.venueOrderId !== undefined ? { venueOrderId: patch.venueOrderId } : {}) }).where(eq(o.id, id));
@@ -80,35 +138,34 @@ export function pgRelayStore(db: Db): RelayStore {
     async releaseOrder(id) {
       await db.delete(o).where(eq(o.id, id));
     },
-    async agentUsage(agentRef, nowMs) {
-      // conservative: every non-reduce-only order the venue accepted (or may have) today counts as open notional
-      const rows = await db
-        .select({ preview: schema.orderBuilds.preview, status: o.status })
-        .from(o)
-        .innerJoin(schema.orderBuilds, eq(o.buildId, schema.orderBuilds.id))
-        .where(and(eq(schema.orderBuilds.agentRef, agentRef), gte(o.submittedAt, dayStart(nowMs)), inArray(o.status, ["pending", "accepted", "unknown"])));
-      let gross = 0;
-      let count = 0;
-      for (const r of rows) {
-        count++;
-        const p = r.preview as { notionalUsd?: string; reduceOnly?: boolean };
-        if (!p.reduceOnly) gross += Number(p.notionalUsd ?? 0);
-      }
-      return { grossNotionalUsd: gross.toFixed(2), ordersToday: count };
+    agentUsage: (agentRef, nowMs, since) => pgAgentUsage(db, agentRef, nowMs, since),
+    async reserveAgentOrder(row, agentRef, nowMs, since, check) {
+      // one transaction per reservation: the advisory lock serialises every relay process's reservations for this
+      // agent, so the usage read and the pending row are one step
+      return db.transaction(async (tx) => {
+        await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${`agent-usage:${agentRef}`}, 0))`);
+        const r = check(await pgAgentUsage(tx, agentRef, nowMs, since));
+        if (!r.ok) return { ok: false, reason: "policy", field: r.field } as const;
+        return (await pgInsertOrder(tx, row)) ? ({ ok: true } as const) : ({ ok: false, reason: "duplicate" } as const);
+      });
     },
   };
 }
 
 /** Same contract in memory (unit tests, the local stack). */
-export function memoryRelayStore(): RelayStore & { builds: Map<string, StoredBuild>; delegations: Map<string, DelegationView>; orders: Map<string, NewOrderRow & { venueOrderId?: string | null }> } {
+export function memoryRelayStore(): RelayStore & { builds: Map<string, StoredBuild>; delegations: Map<string, DelegationView>; orders: Map<string, NewOrderRow & { venueOrderId?: string | null }>; fills: { venue: VenueId; venueOrderId: string; sz: string; ts: number }[] } {
   const builds = new Map<string, StoredBuild>();
   const delegations = new Map<string, DelegationView>();
   const orders = new Map<string, NewOrderRow & { venueOrderId?: string | null }>();
   const byHash = new Map<string, string>();
-  return {
+  /** Fills the reconcile workers record (venue order id, size, time). */
+  const fills: { venue: VenueId; venueOrderId: string; sz: string; ts: number }[] = [];
+  const lock = keyedLock();
+  const store: RelayStore & { builds: typeof builds; delegations: typeof delegations; orders: typeof orders; fills: typeof fills } = {
     builds,
     delegations,
     orders,
+    fills,
     getBuild: async (id) => builds.get(id) ?? null,
     getDelegation: async (ref) => delegations.get(ref) ?? null,
     async insertOrder(row) {
@@ -116,6 +173,11 @@ export function memoryRelayStore(): RelayStore & { builds: Map<string, StoredBui
       byHash.set(row.signedPayloadHash, row.id);
       orders.set(row.id, { ...row });
       return true;
+    },
+    async orderByHash(h) {
+      const id = byHash.get(h);
+      const r = id ? orders.get(id) : undefined;
+      return r ? { id: r.id, buildId: r.buildId, status: r.status, venueOrderId: r.venueOrderId ?? null } : null;
     },
     async updateOrder(id, patch) {
       const r = orders.get(id);
@@ -126,16 +188,59 @@ export function memoryRelayStore(): RelayStore & { builds: Map<string, StoredBui
       if (r) byHash.delete(r.signedPayloadHash);
       orders.delete(id);
     },
-    async agentUsage(agentRef, nowMs) {
+    async agentUsage(agentRef, nowMs, w) {
       let gross = 0;
       let count = 0;
       for (const r of orders.values()) {
         const b = builds.get(r.buildId);
-        if (!b || b.agentRef !== agentRef || r.submittedAt.getTime() < dayStart(nowMs).getTime() || !["pending", "accepted", "unknown"].includes(r.status)) continue;
-        count++;
-        if (!b.build.preview.reduceOnly) gross += Number(b.build.preview.notionalUsd);
+        if (!b || b.agentRef !== agentRef || !["pending", "accepted", "unknown"].includes(r.status)) continue;
+        const t = r.submittedAt.getTime();
+        if (t >= dayStart(nowMs).getTime()) count++;
+        if (b.build.preview.reduceOnly) continue;
+        const n = Number(b.build.preview.notionalUsd);
+        if (t >= w.sinceMs) gross += n;
+        else if (b.kind === "order" && b.resting !== false && t >= w.restingSinceMs) {
+          const done = fills.filter((x) => x.ts < w.sinceMs && x.venue === r.venue && r.venueOrderId && x.venueOrderId === r.venueOrderId).reduce((m, x) => m + Number(x.sz), 0);
+          const size = Number(b.build.preview.size);
+          gross += n * Math.max(0, 1 - (size > 0 ? done / size : 0));
+        }
       }
       return { grossNotionalUsd: gross.toFixed(2), ordersToday: count };
+    },
+    reserveAgentOrder: (row, agentRef, nowMs, since, check) =>
+      lock(agentRef, async () => {
+        const r = check(await store.agentUsage(agentRef, nowMs, since));
+        if (!r.ok) return { ok: false, reason: "policy", field: r.field } as const;
+        return (await store.insertOrder(row)) ? ({ ok: true } as const) : ({ ok: false, reason: "duplicate" } as const);
+      }),
+  };
+  return store;
+}
+
+/** A risk snapshot older than this is not used for the gross cap (risk-compute writes one every 5 minutes). */
+export const EXPOSURE_FRESH_MS = 10 * 60_000;
+
+/**
+ * Open exposure from risk_snapshots (security r1 R1-06): the owner's newest snapshot within EXPOSURE_FRESH_MS, summed
+ * over that venue's positions. Owner-level, so other agents' positions on the account count too (over-counting only
+ * refuses earlier). Null when there is no fresh snapshot or the venue is missing from it; the relay then counts every
+ * opening order since the policy was issued.
+ */
+export function dbExposure(db: Db): import("./types").ExposureSource {
+  return {
+    async openGrossUsd(owner, venue, nowMs) {
+      const [r] = await db
+        .select({ view: schema.riskSnapshots.view })
+        .from(schema.riskSnapshots)
+        .where(and(eq(schema.riskSnapshots.owner, owner.toLowerCase()), gte(schema.riskSnapshots.ts, new Date(nowMs - EXPOSURE_FRESH_MS))))
+        .orderBy(desc(schema.riskSnapshots.ts))
+        .limit(1);
+      const snap = (r?.view as RiskView | undefined)?.perVenue?.find((p) => p.venue === venue);
+      const asOfMs = snap ? Date.parse(snap.asOf) : Number.NaN;
+      if (!snap || !Number.isFinite(asOfMs) || nowMs - asOfMs > EXPOSURE_FRESH_MS) return null;
+      const gross = snap.positions.reduce((n, p) => n + Math.abs(Number(p.notionalUsd)), 0);
+      if (!Number.isFinite(gross)) return null;
+      return { grossUsd: gross.toFixed(2), asOfMs };
     },
   };
 }

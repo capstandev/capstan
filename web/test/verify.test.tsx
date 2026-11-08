@@ -33,8 +33,11 @@ beforeAll(async () => {
 
 afterAll(() => stack?.stop());
 
-async function run(input: string) {
-  const m = await mount(<Verify />, { path: "/verify", config: { apiBase: stack.apiBase, network: "mainnet", rpcUrl: RPC, receiptSigners: [stack.receiptSigner], anchorAddress: ANCHOR, anchorChainId: 31337, fetch: pageFetch } });
+let clock = 0;
+
+async function run(input: string, o: { anchor?: Hex | null } = {}) {
+  const anchorAddress = o.anchor === undefined ? ANCHOR : o.anchor;
+  const m = await mount(<Verify />, { path: "/verify", config: { apiBase: stack.apiBase, network: "mainnet", rpcUrl: RPC, receiptSigners: [stack.receiptSigner], anchorAddress, anchorChainId: 31337, fetch: pageFetch, now: () => clock } });
   await typeInto(m.host.querySelector("#receipt-input")!, input);
   await click(byText(m.host, "button", "Verify"));
   const res = await waitFor(() => m.host.querySelector<HTMLElement>("[data-verify-result]") ?? m.host.querySelector<HTMLElement>("[role=alert]"), "the result");
@@ -47,18 +50,37 @@ async function run(input: string) {
 describe("verify", () => {
   test("local-receipt", async () => {
     expect(receiptId).toMatch(/^r\d{6}$/);
-    // fresh receipt, hour not anchored yet
+    const receipt = (await (await fetch(`${stack.apiBase}/receipts/${receiptId}`)).json()) as Record<string, unknown>;
+    clock = Date.parse(String(receipt.ts)) + 60_000;
+    // fresh receipt, hour not anchored yet: pending, not valid (security r1, review-r1:6 F1)
     posted = null;
     const a = await run(receiptId);
-    expect(a).toMatchObject({ result: "valid", signature: "valid", leaf: "recomputed and matches", proof: "valid for the hourly root", hour: "the receipt's own hour", root: "not posted yet" });
-    expect(a.text).toContain("The receipt is valid.");
+    expect(a).toMatchObject({ result: "pending", signature: "valid", leaf: "recomputed and matches", proof: "valid for the hourly root", hour: "the receipt's own hour", root: "not posted yet" });
+    expect(a.text).toContain("The receipt is not valid yet");
+    expect(a.text).not.toContain("The receipt is valid.");
     expect(a.text).toContain("It does not prove that a venue filled fairly.");
+
+    // the same receipt hours later with no root: it can never be anchored, so it is invalid (a forged, backdated
+    // receipt looks exactly like this); the root line never says "matches"
+    clock = Date.parse(String(receipt.ts)) + 4 * 3_600_000;
+    const late = await run(receiptId);
+    expect(late).toMatchObject({ result: "invalid", root: "no root was posted for this hour, and none can be now" });
+    expect(late.text).toContain("The receipt is not valid.");
+    expect(late.text).not.toContain("matches the posted root");
+    clock = Date.parse(String(receipt.ts)) + 60_000;
+
+    // no anchor address in this build: not verified, and not called valid
+    const none = await run(receiptId, { anchor: null });
+    expect(none).toMatchObject({ result: "unchecked", root: "not checked (no anchor address yet)" });
+    expect(none.text).toContain("The receipt is not verified");
+    expect(none.text).not.toContain("The receipt is valid.");
 
     // the hour's root is posted and equal: every check passes
     const proof = (await (await fetch(`${stack.apiBase}/receipts/${receiptId}/proof`)).json()) as { root: string };
     posted = proof.root;
     const b = await run(receiptId);
     expect(b).toMatchObject({ result: "valid", root: "matches the posted root" });
+    expect(b.text).toContain("The receipt is valid.");
 
     // a different root on chain fails the receipt
     posted = `0x${"11".repeat(32)}`; // not-a-key
@@ -67,13 +89,15 @@ describe("verify", () => {
 
     // pasted JSON with an edited fee line: signature and leaf both fail
     posted = null;
-    const receipt = (await (await fetch(`${stack.apiBase}/receipts/${receiptId}`)).json()) as Record<string, unknown>;
     const d = await run(JSON.stringify({ ...receipt, venue: "aster" }));
     expect(d).toMatchObject({ result: "invalid", signature: "not valid", proof: "not valid" });
 
-    // the untouched JSON verifies the same as the id
+    // the untouched JSON verifies the same as the id (pending while the root is not posted, valid once it is)
     const e = await run(JSON.stringify(receipt));
-    expect(e).toMatchObject({ result: "valid", signature: "valid" });
+    expect(e).toMatchObject({ result: "pending", signature: "valid" });
+    posted = proof.root;
+    expect(await run(JSON.stringify(receipt))).toMatchObject({ result: "valid", signature: "valid", root: "matches the posted root" });
+    posted = null;
 
     // bad input is explained, not crashed on
     const f = await run("not a receipt id!");

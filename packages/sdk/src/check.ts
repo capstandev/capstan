@@ -35,6 +35,12 @@ export interface CheckContext {
   refPx?: string | null;
   /** Allowance for drift between the venue's reference and ours, on top of maxSlippageBps. Default 25 bps. */
   refTolBps?: number;
+  /**
+   * Set for an intent read from the payload itself (close-all, kill, signer.sign without a user intent): its price is
+   * also bounded by refPx within this many bps (plus refTolBps), since its own limit came from the same server
+   * (security r1, review-r1:1 F1). refPx is then required.
+   */
+  refBoundBps?: number;
   identity?: CheckIdentity;
   /** Inputs the policy check needs beyond the intent. */
   policyInput?: { agentRef: string; grossNotionalUsd: string; ordersToday: number; mode: "relay" | "direct" };
@@ -95,6 +101,11 @@ function priceWithin(px: string, intent: OrderIntent, ctx: CheckContext): void {
   const lim = intent.type === "limit" ? intent.limitPx! : marketBound(intent, ctx);
   // never worse than the user's bound: a buy pays at most, a sell receives at least
   if (intent.side === "buy" ? cmp(px, lim) > 0 : cmp(px, lim) < 0) no("price");
+  if (ctx.refBoundBps !== undefined) {
+    // a derived intent's limit is the server's own price: bound it by the independent reference as well
+    const refLim = marketBound({ ...intent, maxSlippageBps: ctx.refBoundBps }, ctx);
+    if (intent.side === "buy" ? cmp(px, refLim) > 0 : cmp(px, refLim) < 0) no("price");
+  }
 }
 
 function runPolicy(intent: OrderIntent, notionalUsd: string, ctx: CheckContext): void {

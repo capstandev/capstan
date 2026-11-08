@@ -241,7 +241,7 @@ export function loadConfig<R extends Role>(role: R, env: Record<string, string |
  * geo settings without which every write is refused. Plus every variable the schema itself requires.
  */
 export const SERVER_ENV: Record<Role, readonly string[]> = {
-  api: ["CAPSTAN_NETWORK", "PUBLIC_API_HOST", "OTLP_FILE", "PROM_PORT", "API_PORT", "DATABASE_URL", "REDIS_URL", "CAPSTAN_TRUST_FORWARDED_FOR", "CAPSTAN_GEO_DIR"],
+  api: ["CAPSTAN_NETWORK", "PUBLIC_API_HOST", "OTLP_FILE", "PROM_PORT", "API_PORT", "DATABASE_URL", "REDIS_URL", "CAPSTAN_TRUST_FORWARDED_FOR", "CAPSTAN_GEO_DIR", "RECEIPT_SIGNERS", "ANCHOR_RPC_URL"],
   ws: ["CAPSTAN_NETWORK", "PUBLIC_API_HOST", "OTLP_FILE", "PROM_PORT", "WS_PORT", "REDIS_URL", "DATABASE_URL", "CAPSTAN_TRUST_FORWARDED_FOR"],
   relay: ["CAPSTAN_NETWORK", "PUBLIC_API_HOST", "OTLP_FILE", "PROM_PORT", "RELAY_PORT", "DATABASE_URL", "REDIS_URL", "RELAY_EGRESS_ID", "RELAY_SUBMIT_ARMED", "CAPSTAN_GEO_DIR"],
   mcp: ["CAPSTAN_NETWORK", "PUBLIC_API_HOST", "OTLP_FILE", "PROM_PORT", "MCP_PORT", "API_BASE_URL", "DATABASE_URL"],

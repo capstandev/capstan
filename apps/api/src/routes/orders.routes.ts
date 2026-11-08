@@ -8,7 +8,9 @@ import { createDb, createRedis, enqueuePolicyBreach, QUEUES, schema, ulid, type 
 import { checkPolicy } from "@capstan/policy";
 import { draft, type ReceiptDraft } from "@capstan/receipts";
 import {
+  dbExposure,
   dbPolicySource,
+  grossWindow,
   memoryKillView,
   pgRelayStore,
   queuedReceipts,
@@ -42,6 +44,8 @@ export interface OrdersRouteDeps {
   claim: (req: ClaimRequest) => Promise<{ receiptId: string }>;
   policy: RelayDeps["policy"];
   usage: RelayDeps["store"]["agentUsage"];
+  /** Fresh open positions for the gross cap; without it every opening order since the policy was issued counts. */
+  exposure?: RelayDeps["exposure"];
   issue: (d: ReceiptDraft) => Promise<{ receiptId: string }>;
   alerts: RelayDeps["alerts"];
   /** Builder fee by tier (todo 34): STANDARD_FEE, or LOCK_FEE for lock tiers. */
@@ -191,7 +195,10 @@ export function createOrderRoutes(getDeps: () => Promise<OrdersRouteDeps> | Orde
         throw e;
       }
       if (policy) {
-        const u = await deps.usage(agentRef, nowMs);
+        // the same gross window as the relay (security r1 R1-06): open exposure, never a daily sum
+        const w = await grossWindow(deps.exposure, policy.issuedAtMs, owner, venue, nowMs);
+        const u0 = await deps.usage(agentRef, nowMs, { sinceMs: w.sinceMs, restingSinceMs: w.restingSinceMs });
+        const u = { ...u0, grossNotionalUsd: (Number(u0.grossNotionalUsd) + w.base).toFixed(2) };
         const r = checkPolicy({ policy: policy.policy, agentRef, venue, marketId: intent.marketId, side: intent.side, notionalUsd: b.preview.notionalUsd, leverage: intent.leverage ?? 1, reduceOnly: intent.reduceOnly, grossNotionalUsd: u.grossNotionalUsd, ordersToday: u.ordersToday, nowMs, mode });
         if (!r.ok) {
           await deps.alerts.policyBreach({ owner, agentRef, field: r.field, buildId: b.buildId }).catch(() => undefined);
@@ -358,6 +365,7 @@ export async function ordersEnvDeps(): Promise<OrdersRouteDeps> {
       claim: (req) => handleClaim(req, claimDeps),
       policy,
       usage: relayStore.agentUsage,
+      exposure: dbExposure(db),
       issue: async (d) => ({ receiptId: (await receipts.issue(d)).receiptId }),
       // the shared producer sets the alert queue priority (R1-8-03): a refusal never jumps ahead of liquidation alerts
       alerts: { policyBreach: (e) => enqueuePolicyBreach(alertsQ, { owner: e.owner, agentRef: e.agentRef, field: e.field }) },

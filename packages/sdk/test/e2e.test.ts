@@ -47,11 +47,16 @@ describe("end to end", () => {
     expect(out.order.status).toBe("open");
     expect(out.order.venueOrderId).toBe("1000");
     expect(out.receiptId).toMatch(/^r\d{6}$/);
-    const v = await client.verifyReceipt(out.receiptId);
+    const v = await client.verifyReceipt(out.receiptId!);
     expect(v.checks.signature).toBe(true);
     expect(v.checks.leaf).toBe(true);
     expect(v.checks.proof).toBe(true);
-    expect(v.valid).toBe(true);
+    // no anchor pinned: the posted root was not read, so the receipt is not valid (security r1, review-r1:6 F1)
+    expect(v).toMatchObject({ valid: false, status: "unchecked" });
+    expect(v.checks.onChainRoot).toBe("unchecked");
+    // a client with the anchor reader reads the posted root: valid
+    const anchored = createClient({ apiBase: stack.apiBase, network: "mainnet", keystore: memoryKeyStore(), walletSigner: testWallet(), pinned: { networks: { mainnet: { ...PINS.networks.mainnet, receiptSigners: [{ address: stack.receiptSigner }] } } }, anchor: stack.anchor, now: () => T0 });
+    expect(await anchored.verifyReceipt(out.receiptId!)).toMatchObject({ valid: true, status: "valid", checks: { onChainRoot: true } });
     // the relay forwarded exactly one order to the venue, signed by the local agent key
     const orders = stack.venue.st.exchangePosts.filter((x) => (x as { action: { type: string } }).action.type === "order");
     expect(orders.length).toBe(1);
@@ -80,11 +85,11 @@ describe("other client paths on the local stack", () => {
       const agentRef = client.agents()[0]!.agentRef;
       const owner = client.agents()[0]!.owner;
       const raw = await (await fetch(`${s.apiBase}/orders/build`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ owner, agentRef, intent, mode: "relay" }) })).json();
-      const env = await client.signer.sign(raw);
+      const env = await client.signer.sign(raw, intent);
       expect(env.buildId).toBe(raw.buildId);
       const bad = structuredClone(raw);
       bad.payload.action.builder.b = "0x00000000000000000000000000000000000000aa";
-      expect(((await client.signer.sign(bad).catch((x) => x)) as { field: string }).field).toBe("builder.address");
+      expect(((await client.signer.sign(bad, intent).catch((x) => x)) as { field: string }).field).toBe("builder.address");
     } finally {
       s.stop();
     }

@@ -159,8 +159,13 @@ export const VERIFY_COPY = {
   root: "On-chain root",
   hour: "Proof hour",
   notPosted: "not posted yet",
+  unanchored: "no root was posted for this hour, and none can be now",
   unchecked: "not checked (no anchor address yet)",
+  rootMatches: "matches the posted root",
+  rootDiffers: "differs from the posted root",
   valid: "The receipt is valid.",
+  pending: "The receipt is not valid yet: its hourly root is not posted. Check again after the hour is anchored.",
+  uncheckedHeadline: "The receipt is not verified: this build has no anchor address, so the posted root was not read.",
   invalid: "The receipt is not valid.",
   limits: "A valid receipt proves what Capstan did. It does not prove that a venue filled fairly.",
 } as const;

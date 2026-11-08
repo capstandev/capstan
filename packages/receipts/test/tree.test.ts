@@ -55,7 +55,10 @@ describe("tree", () => {
     expect(res.checks.leaf).toBe(false);
     expect(res.checks.proof).toBe(false);
     expect(res.valid).toBe(false);
-    const good = await verifyFull(receipts[0]!, { proof: proofFor(t, 0), root: t.root, signers: [s.address] });
+    const good = await verifyFull(receipts[0]!, { proof: proofFor(t, 0), root: t.root, signers: [s.address], readRoot: async () => t.root });
     expect(good.valid).toBe(true);
+    // the same receipt with no chain reader is sound but not valid (security r1, review-r1:6 F1: never fail open)
+    const unread = await verifyFull(receipts[0]!, { proof: proofFor(t, 0), root: t.root, signers: [s.address] });
+    expect(unread).toMatchObject({ valid: false, status: "unchecked" });
   });
 });

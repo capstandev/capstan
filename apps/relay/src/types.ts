@@ -21,6 +21,11 @@ export interface StoredBuild {
   leverage: number;
   eligibilityDecisionId: string;
   expiresAt: number; // ms
+  /**
+   * The order can rest on the book (a limit order that is not IOC). Missing counts as resting (security r1 R1-06
+   * delta: a resting order is in no positions read, so it counts toward the gross cap until a fill shows it done).
+   */
+  resting?: boolean;
 }
 
 export interface DelegationView {
@@ -52,12 +57,36 @@ export interface RelayStore {
   getDelegation(agentRef: string): Promise<DelegationView | null>;
   /** INSERT with the unique signed_payload_hash index: false when that payload already exists (dedupe). */
   insertOrder(row: NewOrderRow): Promise<boolean>;
+  /** The order row that holds this payload hash (a re-run of a stalled relay job reads what the first run recorded). */
+  orderByHash(signedPayloadHash: string): Promise<{ id: string; buildId: string; status: string; venueOrderId: string | null } | null>;
   updateOrder(id: string, patch: { status: string; venueOrderId?: string | null }): Promise<void>;
   /** Remove an order row when nothing was sent (lane or budget refusal), so the same payload may be tried again. */
   releaseOrder(id: string): Promise<void>;
-  /** The agent's open gross notional and today's (UTC) order count under its policy. */
-  agentUsage(agentRef: string, nowMs: number): Promise<{ grossNotionalUsd: string; ordersToday: number }>;
+  /**
+   * The gross notional of the agent's opening orders still pending, accepted or unknown (security r1 R1-06: no daily
+   * reset): every one submitted at or after `since.sinceMs`, plus every resting one (limit, not IOC) submitted at or
+   * after `since.restingSinceMs`, less the size a fill before `since.sinceMs` shows done. Also today's (UTC) count.
+   */
+  agentUsage(agentRef: string, nowMs: number, since: GrossSince): Promise<AgentUsage>;
+  /**
+   * One atomic step per agent (security r1 R1-05): recompute the usage, run `check` on it and insert the pending row,
+   * with no other reservation for the same agent in between (a Postgres advisory lock, an in-process lock in memory).
+   */
+  reserveAgentOrder(row: NewOrderRow, agentRef: string, nowMs: number, since: GrossSince, check: (u: AgentUsage) => ReserveCheck): Promise<ReserveResult>;
 }
+
+/** Where the gross cap starts counting orders (see agentUsage). */
+export interface GrossSince {
+  sinceMs: number;
+  restingSinceMs: number;
+}
+
+export interface AgentUsage {
+  grossNotionalUsd: string;
+  ordersToday: number;
+}
+export type ReserveCheck = { ok: true } | { ok: false; field: string };
+export type ReserveResult = { ok: true } | { ok: false; reason: "duplicate" } | { ok: false; reason: "policy"; field: string };
 
 /** Kill view: an in-memory set fed by the Redis subscription; 'unknown' when Redis cannot answer. */
 export interface KillView {
@@ -65,7 +94,13 @@ export interface KillView {
 }
 
 export interface PolicySource {
-  active(agentRef: string, owner: Hex): Promise<{ policyId: string; policy: AgentPolicy } | null>;
+  /** `issuedAtMs`: when the policy was stored; opening orders since then count toward its gross cap. */
+  active(agentRef: string, owner: Hex): Promise<{ policyId: string; policy: AgentPolicy; issuedAtMs?: number } | null>;
+}
+
+/** The owner's open position notional on one venue from a recent positions read, or null when none is fresh. */
+export interface ExposureSource {
+  openGrossUsd(owner: Hex, venue: VenueId, nowMs: number): Promise<{ grossUsd: string; asOfMs: number } | null>;
 }
 
 export type Lane = "free" | "pro";
@@ -73,7 +108,7 @@ export type Lane = "free" | "pro";
 export interface LaneDecision {
   ok: boolean;
   lane: Lane;
-  reason?: "free_wallet" | "free_ip" | "bot_cap" | "unavailable";
+  reason?: "free_wallet" | "free_ip" | "bot_cap" | "unavailable" | "exit_wallet" | "exit_ip";
 }
 
 export interface LaneLimiter {
@@ -110,7 +145,8 @@ export interface RelayFlags {
 }
 
 export interface Dispatcher {
-  run<T>(priority: Priority, fn: () => Promise<T>): Promise<T>;
+  /** `key` is the venue budget the job waits on: each key has its own slots. */
+  run<T>(priority: Priority, fn: () => Promise<T>, key?: string): Promise<T>;
 }
 
 export interface RelayDeps {
@@ -118,6 +154,8 @@ export interface RelayDeps {
   kill: KillView;
   policy: PolicySource;
   eligibility: (i: EligibilityInput) => Promise<EligibilityDecision>;
+  /** Fresh open positions for the gross cap (security r1 R1-06). Without one, every opening order since the policy was issued counts. */
+  exposure?: ExposureSource;
   /** Venue-signal refusals cached per owner and venue (24 h). */
   venueSignals: { get(owner: Hex, venue: VenueId, nowMs: number): Promise<boolean>; put(owner: Hex, venue: VenueId, nowMs: number): Promise<void> };
   lanes: LaneLimiter;
@@ -135,10 +173,16 @@ export interface RelayDeps {
   /** How long a free-lane submit may wait for venue budget before VENUE_RATE_LIMITED. */
   freeBudgetWaitMs?: number;
   proBudgetWaitMs?: number;
+  /** How long exit traffic (cancels, closes, reduce-only) may wait for venue budget (default 30 s). */
+  safetyBudgetWaitMs?: number;
 }
 
 export interface SubmitOutcome {
   order: Order;
-  receiptId: string;
+  /** null only when the receipt could not be issued yet (receiptPending): the receipt job keeps retrying. */
+  receiptId: string | null;
   outcome: SubmitResult["status"];
+  receiptPending?: true;
+  /** The receipt-sign job id, when the receipt is queued. */
+  receiptJob?: string;
 }

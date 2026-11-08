@@ -44,7 +44,8 @@ describe("request auth", () => {
     const cb = await client.buildOrder(intent, "hyperliquid", "relay");
     const out = await client.signAndSubmit(cb);
     expect(out.order.status).toBe("open");
-    expect((await client.verifyReceipt(out.receiptId)).valid).toBe(true);
+    // no anchor is pinned in this client: sound but unchecked, never valid (security r1, review-r1:6 F1)
+    expect(await client.verifyReceipt(out.receiptId!)).toMatchObject({ valid: false, status: "unchecked" });
     // the order calls are owner-signed by the agent key over method, path and the raw body; no key needed
     const agent = d.agentRef.replace(/^hl:/, "");
     for (const p of ["/v1/orders/build", "/v1/orders/submit"]) {

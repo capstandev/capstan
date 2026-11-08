@@ -7,6 +7,12 @@ import type { Redis } from "ioredis";
 export const QUEUES = {
   relaySubmit: "relay-submit",
   receiptSign: "receipt-sign",
+  // refusal receipts (any stranger can trigger one) sign on their own queue and worker, so a refusal flood never
+  // delays an order, claim or kill receipt (security r1 F4)
+  receiptSignRefusal: "receipt-sign-refusal",
+  // order receipts the relay could not sign in-process right away: the relay (which holds the key) retries them from
+  // here with backoff, so a receipt survives a database blip or a relay restart (security r1 R1-07)
+  relayReceiptRetry: "relay-receipt-retry",
   anchorHourly: "anchor-hourly",
   catalogSync: "catalog-sync",
   fundingTick: "funding-tick",

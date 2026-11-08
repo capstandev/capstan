@@ -8,10 +8,42 @@ function word(ok: boolean, yes: string, no: string) {
   return ok ? yes : no;
 }
 
+// every root state by name: a new state is a type error here, never a fall-through to "matches"
 export function rootText(v: VerifyOutcome["checks"]["onChainRoot"]): string {
-  if (v === "not_posted") return VERIFY_COPY.notPosted;
-  if (v === "unchecked") return VERIFY_COPY.unchecked;
-  return v ? "matches the posted root" : "differs from the posted root";
+  switch (v) {
+    case true:
+      return VERIFY_COPY.rootMatches;
+    case false:
+      return VERIFY_COPY.rootDiffers;
+    case "not_posted":
+      return VERIFY_COPY.notPosted;
+    case "unanchored":
+      return VERIFY_COPY.unanchored;
+    case "unchecked":
+      return VERIFY_COPY.unchecked;
+    default: {
+      const never: never = v;
+      return never;
+    }
+  }
+}
+
+/** The headline follows the status, never the valid flag alone: pending and unchecked are not valid, and not forged. */
+export function headline(s: VerifyOutcome["status"]): string {
+  switch (s) {
+    case "valid":
+      return VERIFY_COPY.valid;
+    case "pending":
+      return VERIFY_COPY.pending;
+    case "unchecked":
+      return VERIFY_COPY.uncheckedHeadline;
+    case "invalid":
+      return VERIFY_COPY.invalid;
+    default: {
+      const never: never = s;
+      return never;
+    }
+  }
 }
 
 export function Verify() {
@@ -38,6 +70,7 @@ export function Verify() {
           ...(cfg.receiptSigners ? { receiptSigners: cfg.receiptSigners } : {}),
           ...(cfg.anchorAddress !== undefined ? { anchorAddress: cfg.anchorAddress } : {}),
           ...(cfg.anchorChainId !== undefined ? { anchorChainId: cfg.anchorChainId } : {}),
+          ...(cfg.now ? { nowMs: cfg.now() } : {}),
         }),
       );
     } catch (err) {
@@ -66,8 +99,8 @@ export function Verify() {
         </p>
       ) : null}
       {out ? (
-        <section aria-labelledby="result-title" data-verify-result={out.valid ? "valid" : "invalid"}>
-          <h2 id="result-title">{out.valid ? VERIFY_COPY.valid : VERIFY_COPY.invalid}</h2>
+        <section aria-labelledby="result-title" data-verify-result={out.valid ? "valid" : out.status === "valid" ? "invalid" : out.status}>
+          <h2 id="result-title">{headline(out.valid ? "valid" : out.status === "valid" ? "invalid" : out.status)}</h2>
           <dl className="checks">
             <div data-check="signature">
               <dt>{VERIFY_COPY.signature}</dt>
