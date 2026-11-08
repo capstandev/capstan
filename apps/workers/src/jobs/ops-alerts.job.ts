@@ -4,6 +4,7 @@
 // refreshes the database gauges. It refuses to run when a cause in code is missing from ops/alerts/GLOSSARY.md.
 // Notify only (MON-1): nothing here can stop the relay, kill an agent or flip a venue flag.
 import type { JobDef, JobDeps, Redis } from "@capstan/core";
+import { anchorLag } from "../anchor/anchor";
 import {
   assertCausesKnown,
   CAUSES,
@@ -86,6 +87,11 @@ export async function runOpsAlerts(deps: JobDeps, o: OpsAlertsOptions = {}) {
     const aster = o.aster ?? null;
     if (hl || aster) await checkBuilderBalances({ hl: hl ?? undefined, aster: aster ?? undefined, emit });
     if (deps.db) await refreshDbGauges(deps.db).catch((e: Error) => deps.log.warn("db gauges refresh failed", { error: e.message }));
+    // r1:6 F10: anchoring that has stopped or keeps failing is paged, read from the database so a dead RPC still fires
+    if (deps.db) {
+      const lag = await anchorLag(deps.db, deps.now()).catch((e: Error) => (deps.log.warn("anchor lag check failed", { error: e.message }), null));
+      if (lag) await emit({ kind: "anchor.lagging", severity: "critical", detail: lag });
+    }
   }
 
   if (deps.redis) {

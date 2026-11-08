@@ -127,7 +127,8 @@ function checkData(kind: SpreadEventKind, raw: unknown): Record<string, unknown>
   const data = { ...obj(raw) };
   const allowed = FIELDS[kind];
   for (const [k, v] of Object.entries(data)) {
-    const c = allowed[k];
+    // own names only: an inherited Object.prototype name (constructor, __proto__) is never a field (R2-SPREADS-01)
+    const c = Object.hasOwn(allowed, k) ? allowed[k] : undefined;
     if (!c) throw new PlanError("INVALID_INPUT", `event data.${k} is not accepted for ${kind}`);
     if (v !== undefined && !c(v)) throw new PlanError("INVALID_INPUT", `event data.${k} is not valid`);
   }

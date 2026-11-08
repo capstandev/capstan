@@ -1,10 +1,11 @@
 // @capstan/api: Hono REST app. Routes are drop-in files (src/routes/*.routes.ts, each exporting `routes: RouteSpec[]`),
 // found by a sorted glob scan at boot. Every route is wrapped by authGate(spec.auth); a route without a known auth
 // value is refused at mount (deny by default), and auth kinds with no verifier registered answer 401.
-import { ROUTE_AUTHS, type RouteAuth, type RouteSpec, type RouteWrite } from "@capstan/core";
+import { logger, ROUTE_AUTHS, type RouteAuth, type RouteSpec, type RouteWrite } from "@capstan/core";
 import { CapstanError, errorBody } from "@capstan/schema";
 import { Hono, type Context, type MiddlewareHandler } from "hono";
 import { join, relative } from "node:path";
+import { CREDIT_REFUND } from "./auth/index";
 import { corsFor } from "./cors";
 import { mountTrpc } from "./trpc";
 
@@ -62,7 +63,16 @@ export function authGate(auth: RouteAuth | undefined, spec: RouteSpec, verifiers
       }
       const refusal = await verify(c, spec);
       if (!refusal) {
-        await next();
+        // a credit spend is kept only for a 2xx answer (r1:3 F8): the limiter, validation or handler refusing the
+        // request (429, 400, 404, 5xx, or a throw) gives it back
+        let ok = false;
+        try {
+          await next();
+          ok = c.res.status < 400;
+        } finally {
+          const refund = (c as unknown as { get(k: string): unknown }).get(CREDIT_REFUND) as (() => Promise<void>) | undefined;
+          if (refund && !ok) await refund().catch((e: Error) => logger("api").error("credit refund failed", { error: e.message }));
+        }
         return;
       }
       first ??= refusal;

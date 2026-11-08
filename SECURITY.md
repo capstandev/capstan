@@ -43,8 +43,18 @@ roots and locks on the old contracts stay readable and verifiable.
 | 1 | No code path accepts, stores, logs or imports a user private key, seed or mnemonic | `ops/ci/check-key-identifiers.ts` (pre-commit, `invariants` workflow, `bun test`), gitleaks job, config refuses raw key variables |
 | 2 | No venue authorization asks for withdraw or transfer; every adapter declares `canWithdraw: false` | type-level literal (`packages/schema` test), `canWithdraw: true` grep (pre-commit, `invariants` workflow) |
 | 3 | No cross-venue margin, no collateral netting, and no schema object that pools collateral across venues | `packages/schema/test/invariant3.test.ts` (`ts` job) |
-| 4 | Every routed action produces a signed receipt | receipt service tests (`ts` job) and the hourly anchor |
+| 4 | Every routed action produces a signed receipt | `apps/relay/test/receipts.test.ts` (every submit and claim, failed submits included, gets exactly one signed receipt), `packages/receipts/test/actions.test.ts` (every receipt action type), `packages/receipts/test/pg/chain.test.ts` (receipts chain per account) (`ts` job); hourly roots posted by the anchor worker, with an alert when a post fails or falls 2 hours behind |
 | 5 | Banned words never appear in docs, copy, API strings or MCP tool descriptions | `ops/ci/check-banned-words.ts` (pre-commit, `invariants` workflow) |
+
+Contract invariants, each run for 102,400 handler calls (256 runs x depth 400, `FOUNDRY_PROFILE=ci` in the `contracts`
+job) in `contracts/test/invariant/Invariants.t.sol`:
+
+| Contract invariant | Test function |
+| --- | --- |
+| `CPSTLock.totalLocked` equals the sum of every `lockedOf` amount | `invariant_totalEqualsSum` |
+| The lock always holds at least `totalLocked` CPST (solvent) | `invariant_solvent` |
+| Every lock can be unlocked after its time, for its exact amount | `invariant_everyLockUnlockable` |
+| The anchor's `latestHour` never decreases and a posted root never changes | `invariant_anchorMonotonicWriteOnce` |
 
 ## Roles and keys
 

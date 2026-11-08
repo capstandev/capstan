@@ -75,6 +75,18 @@ export async function spendCredit(db: Db, accountId: string, route: string, usd:
   });
 }
 
+/**
+ * Give back one spend when the request it paid for was refused (r1:3 F8: a 429, 400, 404 or 500 used to keep the
+ * credit). The caller calls it at most once per spend; the ledger row names the route.
+ */
+export async function refundCredit(db: Db, accountId: string, route: string, usd: string): Promise<void> {
+  if (!USD_RE.test(usd) || !(Number(usd) > 0)) throw new CreditsError("refund must be a positive USD amount");
+  await db.transaction(async (tx) => {
+    await tx.update(schema.apiAccounts).set({ credits: sql`${schema.apiAccounts.credits} + ${usd}::numeric` }).where(eq(schema.apiAccounts.id, accountId));
+    await tx.insert(schema.creditLedger).values({ id: ulid(), accountId, delta: usd, reason: "refund", ref: route });
+  });
+}
+
 /** Grant a ledger credit once per (account, ref): monthly allowances and access credits. */
 export async function grantCredit(db: Db, accountId: string, usd: string, reason: string, ref: string): Promise<boolean> {
   if (!USD_RE.test(usd) || !(Number(usd) > 0)) throw new CreditsError("grant must be a positive USD amount");

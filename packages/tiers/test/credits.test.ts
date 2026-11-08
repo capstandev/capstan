@@ -103,3 +103,25 @@ describe("credit math", () => {
     expect(Number(await balance(other))).toBe(25);
   }, 60_000);
 });
+
+// r1:3 F8: a refused request gets its credit back, with a ledger row
+(PG ? describe : describe.skip)("credit refunds", () => {
+  test("refundCredit adds the spend back once and writes a refund row", async () => {
+    const { refundCredit } = await import("../src/credits");
+    const t = await createTempDatabase(PG!, { migrated: true, prefix: "capstan_crefund" });
+    const db = createDb(t.url, { max: 4 });
+    try {
+      const { id } = await createApiKey(db, null);
+      await topUpCredits(db, id, rec("eip155:84532:0xref", "1000000"));
+      expect(await spendCredit(db, id, "GET /funding/forecast", "0.25")).toBe(true);
+      await refundCredit(db, id, "GET /funding/forecast", "0.25");
+      const row = (await db.select().from(schema.apiAccounts).where(eq(schema.apiAccounts.id, id)))[0]!;
+      expect(Number(row.credits)).toBe(1);
+      const ledger = await creditsOf(db, id, 10);
+      expect(ledger!.ledger.some((l) => l.reason === "refund" && Number(l.delta) === 0.25)).toBe(true);
+    } finally {
+      await closeDb(db);
+      await t.drop();
+    }
+  }, 30_000);
+});

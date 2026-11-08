@@ -5,10 +5,12 @@ import type { Hex } from "@capstan/schema";
 import { initTelemetry, telemetryEnv } from "@capstan/telemetry";
 import { and, eq, isNotNull } from "drizzle-orm";
 import { redisBus } from "./bus";
+import { catalogReader, wsCapOf } from "./caps";
 import { createWsGateway } from "./server";
 
 export const PACKAGE_NAME = "@capstan/ws" as const;
 export * from "./bus";
+export * from "./caps";
 export * from "./server";
 
 if (import.meta.main) {
@@ -19,16 +21,8 @@ if (import.meta.main) {
     const redis = createRedis(cfg.REDIS_URL);
     const cache = createMarketDataCache(redis);
     const db = process.env.DATABASE_URL ? createDb(process.env.DATABASE_URL, { max: 2 }) : null;
-    const { LIMITS, tierOf } = await import("@capstan/plans");
-    const noLock = { lockedOf: async () => ({ amount: 0n, unlockAt: 0n }) };
-    // the catalog's market ids and canonical assets, read at most once a minute (r1 F6: only these may be subscribed)
-    let catalog: { at: number; markets: Set<string>; assets: Set<string> } | null = null;
-    const catalogNow = async () => {
-      if (catalog && Date.now() - catalog.at < 60_000) return catalog;
-      const rows = db ? await db.select({ id: schema.markets.id, asset: schema.markets.canonicalAsset }).from(schema.markets) : [];
-      catalog = { at: Date.now(), markets: new Set(rows.map((r) => r.id)), assets: new Set(rows.map((r) => r.asset).filter((a): a is string => !!a)) };
-      return catalog;
-    };
+    const { lockReaderFromEnv } = await import("@capstan/plans");
+    const catalogNow = catalogReader(async () => (db ? await db.select({ id: schema.markets.id, asset: schema.markets.canonicalAsset }).from(schema.markets) : []));
     const trustXff = process.env.CAPSTAN_TRUST_FORWARDED_FOR === "1";
     const gw = createWsGateway({
       bus: redisBus(redis),
@@ -51,12 +45,9 @@ if (import.meta.main) {
         const agents = await db.select({ a: schema.delegations.agentAddress }).from(schema.delegations).where(and(eq(schema.delegations.owner, p.owner.toLowerCase()), eq(schema.delegations.state, "active"), isNotNull(schema.delegations.agentAddress)));
         return [p.owner as Hex, ...agents.map((x) => x.a as Hex)];
       },
-      // anonymous and free connections: the configured cap (free tier); a signed owner gets its tier's cap
-      async capOf(owner) {
-        if (!owner) return cfg.WS_MAX_SUBS_PER_CONN;
-        const t = await tierOf({ owner }, { db, lock: noLock, cacheTtlMs: 60_000 }).catch(() => null);
-        return Math.max(cfg.WS_MAX_SUBS_PER_CONN, LIMITS[t?.tier ?? "free"].wsSubs);
-      },
+      // anonymous and free connections: the configured cap (free tier); a signed owner gets its tier's cap, lock tiers
+      // read from the shared CPSTLock reader (r1:3 F9)
+      capOf: wsCapOf({ db, lock: lockReaderFromEnv(process.env), defaultCap: cfg.WS_MAX_SUBS_PER_CONN }),
     });
     await gw.start(cfg.WS_PORT);
     log.info("listening", { port: cfg.WS_PORT });

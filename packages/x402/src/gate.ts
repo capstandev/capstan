@@ -109,7 +109,17 @@ export function paymentGate(routes: Record<string, PricedRoute>, server: x402Res
     }
     return null;
   };
+  // Hono answers HEAD by running the GET route with c.req.method still "HEAD" (hono-base #dispatch), so a HEAD on a
+  // priced GET route would run the handler unpaid (r1:3 F7). Refuse it before anything runs.
+  const headOnPriced = (c: Context): boolean => {
+    if (c.req.method.toUpperCase() !== "HEAD") return false;
+    return keys.some((k) => {
+      const [km, kp] = k.includes(" ") ? (k.split(" ", 2) as [string, string]) : ["*", k];
+      return (km === "GET" || km === "*") && pathMatches(kp, c.req.path);
+    });
+  };
   return async (c, next) => {
+    if (headOnPriced(c)) return c.body(null, 405, { Allow: "GET" });
     const key = matchKey(c);
     if (!key) return next();
     if (opts.paused && (await opts.paused())) return c.json(PAYMENTS_PAUSED, 503);

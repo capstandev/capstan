@@ -49,6 +49,13 @@ health() { # true when every service answers (or the test override says so)
   for hp in 8710/v1/health 8711/health 8712/health 8713/health 8714/health; do
     /usr/bin/curl -fsS -m 3 "http://127.0.0.1:$hp" >/dev/null 2>&1 || return 1
   done
+  # r1:9 F-3: /health has no host check, so also send an MCP request with the public Host Caddy forwards; a 403 means
+  # MCP_ALLOWED_HOSTS does not hold api.<domain> and every hosted MCP call would be refused
+  dom="$(conf_get DOMAIN 2>/dev/null || true)"
+  if [ -n "$dom" ]; then
+    code="$(/usr/bin/curl -sS -m 5 -o /dev/null -w '%{http_code}' -X POST -H "Host: api.$dom" -H 'content-type: application/json' -H 'accept: application/json, text/event-stream' --data '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' http://127.0.0.1:8713/mcp 2>/dev/null || echo 000)"
+    [ "$code" = "200" ] || return 1
+  fi
 }
 
 wait_healthy() {

@@ -9,7 +9,7 @@
 import { schema, type Db, type Logger, type ServiceSigner } from "@capstan/core";
 import { buildTree, pgReceiptStore } from "@capstan/receipts";
 import type { Hex } from "@capstan/schema";
-import { and, eq, gt, lte, max, sql } from "drizzle-orm";
+import { and, eq, gt, lte, max, min, sql } from "drizzle-orm";
 import { existsSync } from "node:fs";
 import { encodeFunctionData, type PublicClient } from "viem";
 import { ANCHOR_ABI, RHC_MAINNET, ZERO32 } from "./abi";
@@ -140,6 +140,8 @@ export async function anchorHour(hourEpoch: number, deps: AnchorDeps): Promise<{
   } catch (e) {
     await deps.nonces.resync();
     deps.log.error("anchor post failed", { hourEpoch, nonce, error: (e as Error).message });
+    // r1:6 F10: a failed send is paged, never only logged (the ops-alerts worker dedupes per cause)
+    await alert(deps, { kind: "anchor.post_failed", severity: "critical", detail: { hourEpoch, error: (e as Error).message } }).catch(() => undefined);
     return { status: "failed" };
   }
 }
@@ -161,9 +163,35 @@ export async function anchorBacklog(deps: AnchorDeps): Promise<{ hourEpoch: numb
     .limit(MAX_HOURS_PER_RUN);
   const out: { hourEpoch: number; status: AnchorStatus; txHash?: Hex }[] = [];
   for (const { h } of hours) {
-    const res = await anchorHour(h, deps);
+    let res: { status: AnchorStatus; txHash?: Hex };
+    try {
+      res = await anchorHour(h, deps);
+    } catch (e) {
+      // an RPC or chain-id error before the send (r1:6 F10): page it, then let the job fail as before
+      if (!(e instanceof AnchorRefused)) await alert(deps, { kind: "anchor.post_failed", severity: "critical", detail: { hourEpoch: h, error: (e as Error).message } }).catch(() => undefined);
+      throw e;
+    }
     out.push({ hourEpoch: h, ...res });
     if (res.status === "failed") break;
   }
   return out;
+}
+
+/** Hours of delay before anchoring counts as behind: two missed hourly runs (r1:6 F10). */
+export const ANCHOR_LAG_HOURS = 2;
+
+/**
+ * How far anchoring is behind, from the database alone (so it works while the RPC is down): the oldest non-empty
+ * ended hour after the last recorded root. Null while it is fewer than ANCHOR_LAG_HOURS hours behind.
+ */
+export async function anchorLag(db: Db, now: Date): Promise<{ oldestUnanchored: number; latestRecorded: number | null; hoursBehind: number } | null> {
+  const ended = Math.floor(now.getTime() / 3_600_000) - 1;
+  const lastRaw = (await db.select({ h: max(schema.receiptRoots.hourEpoch) }).from(schema.receiptRoots))[0]?.h ?? null;
+  const last = lastRaw === null ? null : Number(lastRaw);
+  const r = schema.receipts;
+  const cond = last === null ? lte(r.hourEpoch, ended) : and(gt(r.hourEpoch, last), lte(r.hourEpoch, ended));
+  const oldest = (await db.select({ h: min(r.hourEpoch) }).from(r).where(cond))[0]?.h ?? null;
+  if (oldest === null) return null;
+  const hoursBehind = ended - Number(oldest);
+  return hoursBehind >= ANCHOR_LAG_HOURS ? { oldestUnanchored: Number(oldest), latestRecorded: last, hoursBehind } : null;
 }

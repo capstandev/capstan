@@ -193,9 +193,40 @@ jobs:
       - name: committed artifacts match SHA256SUMS
         run: sha256sum -c packages/signers/lighter-wasm/artifacts/SHA256SUMS
 
+  web:
+    # the website and dashboard (keys and signing screens): its own install (web/bunfig.toml keeps the 3-day delay),
+    # the build (tsc, vite, hashed public files, check-dist), the tests and the copy check (r1:9 F-5)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with: { persist-credentials: false }
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with: { bun-version: 1.4.4 }
+      - name: cache bun installs
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.bun/install/cache
+          key: bun-web-${{ runner.os }}-1.4.4-${{ hashFiles('bun.lock', 'web/bun.lock') }}
+          restore-keys: bun-web-${{ runner.os }}-1.4.4-
+      - name: root install (the site imports the SDK from packages/)
+        run: bun install --frozen-lockfile
+      - name: web install
+        working-directory: web
+        run: bun install --frozen-lockfile
+      - name: build (includes check-dist)
+        working-directory: web
+        run: bun run build
+      - name: tests
+        working-directory: web
+        run: bun run test
+      - name: copy check
+        working-directory: web
+        run: bun run check:copy
+
   ci-summary:
     # the single required check: green only when every job passed
-    needs: [ts, coverage, contracts, contracts-fork, slither, semgrep, gitleaks, lighter-wasm]
+    needs: [ts, coverage, contracts, contracts-fork, slither, semgrep, gitleaks, lighter-wasm, web]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 5

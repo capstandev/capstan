@@ -35,6 +35,8 @@ const count = (v: unknown) => (Array.isArray(v) ? v.length : v === undefined ? 0
 export const CAUSES: Record<string, CauseSpec> = {
   "anchor.hour_unpostable": { affected: "Receipts of that hour have no on-chain root; users are not otherwise affected.", facts: (e) => `hour ${field(e, "hourEpoch")}, latest on chain ${field(e, "latestOnChain")}` },
   "anchor.poster_low_balance": { affected: "No users yet; posting stops when the gas runs out.", done: "Posting continues while funds remain.", facts: (e) => `balance ${field(e, "balanceWei")} wei, minimum ${field(e, "minWei")} wei, poster ${field(e, "poster")}` },
+  "anchor.post_failed": { affected: "Receipts of that hour have no on-chain root yet; they still verify off chain.", done: "The nonce was resynced; the next hourly run retries the same hour.", facts: (e) => `hour ${field(e, "hourEpoch")}: ${field(e, "error")}` },
+  "anchor.lagging": { affected: "Recent receipts have no on-chain root; they still verify off chain.", facts: (e) => `oldest unanchored hour ${field(e, "oldestUnanchored")}, ${field(e, "hoursBehind")} hours behind, latest recorded ${field(e, "latestRecorded")}` },
   "anchor.root_mismatch": { affected: "Receipt proofs for that hour may not verify.", facts: (e) => `hour ${field(e, "hourEpoch")}` },
   "anchor.root_event_mismatch": { affected: "Receipt proofs for that hour may not verify.", facts: (e) => `hour ${field(e, "hourEpoch")}` },
   "backup.failed": { affected: "No users; the last good backup is older than a day.", facts: (e) => `step ${field(e, "step")}` },

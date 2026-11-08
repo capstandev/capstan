@@ -120,6 +120,34 @@ describe("check-pins", () => {
   test("the real repo is clean", () => {
     expect(findPinProblems(REAL)).toEqual([]);
   });
+  // r1:9 F-5: web/ has its own bunfig.toml, so the root supply-chain delay does not cover its installs
+  test("every bunfig.toml keeps exact versions and the 3-day supply-chain delay", () => {
+    const ok = "[install]\nexact = true\nminimumReleaseAge = 259200\n";
+    expect(findPinProblems(repo({ "bunfig.toml": ok, "web/bunfig.toml": ok }))).toEqual([]);
+    expect(findPinProblems(repo({ "bunfig.toml": ok, "web/bunfig.toml": "[test]\npreload = []\n" })).map((p) => `${p.file}:${p.what}`)).toEqual([
+      "web/bunfig.toml:no [install] exact = true",
+      "web/bunfig.toml:no [install] minimumReleaseAge of at least 259200 seconds",
+    ]);
+    expect(findPinProblems(repo({ "web/bunfig.toml": "[install]\nexact = true\nminimumReleaseAge = 60\n" })).map((p) => p.what)).toEqual(["no [install] minimumReleaseAge of at least 259200 seconds"]);
+  });
+});
+
+// r1:9 F-5: the web dashboard (keys and signing screens) was never installed, built or tested in CI
+describe("ci runs the web package", () => {
+  const ci = readFileSync(join(REAL, ".github/workflows/ci.yml"), "utf8");
+  const job = (name: string) => {
+    const m = ci.match(new RegExp(`\\n  ${name}:\\n([\\s\\S]*?)(?=\\n  [a-z][a-z0-9-]*:\\n|$)`));
+    return m ? m[1]! : "";
+  };
+  test("a web job installs frozen, builds (with check-dist), tests and checks copy, and ci-summary needs it", () => {
+    const web = job("web");
+    expect(web).toContain("working-directory: web");
+    expect(web).toContain("bun install --frozen-lockfile");
+    expect(web).toContain("bun run build");
+    expect(web).toContain("bun run test");
+    expect(web).toContain("bun run check:copy");
+    expect(job("ci-summary")).toMatch(/needs: \[[^\]]*\bweb\b[^\]]*\]/);
+  });
 });
 
 describe("check-deployments", () => {

@@ -5,7 +5,7 @@
 // With X402_ENABLED off (the default) every priced route answers 503 "payments unavailable": never served free.
 import { createDb, createRedis, logger, redisNonceStore, schema, type ConfigFor, type Db, type RouteSpec } from "@capstan/core";
 import { clientIp } from "@capstan/eligibility";
-import { LIMITS, limitsFor, multiplierOf, spendCredit, tierOf, topupPendingHook, topupSettleHook, verifyApiKey, type LockReader } from "@capstan/plans";
+import { LIMITS, limitsFor, multiplierOf, refundCredit, spendCredit, tierOf, topupPendingHook, topupSettleHook, verifyApiKey, lockReaderFromEnv, type LockReader } from "@capstan/plans";
 import { errorBody, type Hex } from "@capstan/schema";
 import { and, eq, isNotNull } from "drizzle-orm";
 import type { MiddlewareHandler } from "hono";
@@ -137,19 +137,34 @@ export function guardedPayment(gate: MiddlewareHandler): MiddlewareHandler {
   };
 }
 
+/**
+ * The rate limiter's tier multiplier: pro 5x, Lock Whale 5x, Lock Holder 2x, else 1x, cached a minute per subject.
+ * Locks come from the shared CPSTLock reader (r1:3 F9: this was a reader hard-coded to zero).
+ */
+export function limiterMultiplier(db: Db | null, env: Record<string, string | undefined>, lock: LockReader = lockReaderFromEnv(env)): (sub: { apiKeyId?: string; owner?: string }) => Promise<1 | 2 | 5> {
+  const tiers = new Map<string, { at: number; m: 1 | 2 | 5 }>();
+  return async (sub) => {
+    const k = sub.apiKeyId ?? sub.owner ?? "";
+    const hit = tiers.get(k);
+    if (hit && Date.now() - hit.at < 60_000) return hit.m;
+    const t = await tierOf({ ...(sub.apiKeyId ? { apiKeyId: sub.apiKeyId } : {}), ...(sub.owner ? { owner: sub.owner as Hex } : {}) }, { db, lock, cacheTtlMs: 60_000 }).catch(() => null);
+    const m: 1 | 2 | 5 = t ? (t.tier === "pro" ? 5 : multiplierOf(t.tier === "lock_whale" ? "lock_whale" : t.tier === "lock_holder" ? "lock_holder" : null)) : 1;
+    tiers.set(k, { at: Date.now(), m });
+    return m;
+  };
+}
+
 /** Build the createApp options for the api process. */
 export async function gatewayFromEnv(cfg: ConfigFor<"api">, env: Record<string, string | undefined>, specs: RouteSpec[], overrides: Omit<PaymentOverrides, "db"> = {}): Promise<Pick<CreateAppOptions, "verifiers" | "preAuth" | "limiter" | "payment">> {
   const db = createDb(cfg.DATABASE_URL, { max: 6 });
   const redis = createRedis(cfg.REDIS_URL);
   const check = apiKeyCheck({ verify: (k) => verifyApiKey(db, k) });
-  const lock: LockReader = { lockedOf: async () => ({ amount: 0n, unlockAt: 0n }) };
-  const tiers = new Map<string, { at: number; m: 1 | 2 | 5 }>();
   const trust = env.CAPSTAN_TRUST_FORWARDED_FOR === "1";
   return {
     verifiers: {
       owner_sig: ownerSigVerifier({ nonces: redisNonceStore(redis, NONCE_TTL_MS), host: cfg.PUBLIC_API_HOST, agentsOf: agentsOfDb(db) }),
       api_key: apiKeyVerifier(check),
-      x402: x402Verifier({ check, spend: (id, route, usd) => spendCredit(db, id, route, usd), ...(env.CAPSTAN_INTERNAL_TOKEN ? { internalToken: env.CAPSTAN_INTERNAL_TOKEN } : {}) }),
+      x402: x402Verifier({ check, spend: (id, route, usd) => spendCredit(db, id, route, usd), refund: (id, route, usd) => refundCredit(db, id, route, usd), ...(env.CAPSTAN_INTERNAL_TOKEN ? { internalToken: env.CAPSTAN_INTERNAL_TOKEN } : {}) }),
       internal: internalVerifier(env.CAPSTAN_INTERNAL_TOKEN),
     },
     preAuth: preAuthLimiter({ store: redisWindowStore(redis), fallback: memoryWindowStore(), ipOf: (c) => clientIp(c, trust) ?? "" }),
@@ -157,15 +172,7 @@ export async function gatewayFromEnv(cfg: ConfigFor<"api">, env: Record<string, 
       store: redisWindowStore(redis),
       fallback: memoryWindowStore(),
       ipOf: (c) => clientIp(c, trust) ?? "",
-      async multiplier(sub) {
-        const k = sub.apiKeyId ?? sub.owner ?? "";
-        const hit = tiers.get(k);
-        if (hit && Date.now() - hit.at < 60_000) return hit.m;
-        const t = await tierOf({ ...(sub.apiKeyId ? { apiKeyId: sub.apiKeyId } : {}), ...(sub.owner ? { owner: sub.owner as Hex } : {}) }, { db, lock, cacheTtlMs: 60_000 }).catch(() => null);
-        const m: 1 | 2 | 5 = t ? (t.tier === "pro" ? 5 : multiplierOf(t.tier === "lock_whale" ? "lock_whale" : t.tier === "lock_holder" ? "lock_holder" : null)) : 1;
-        tiers.set(k, { at: Date.now(), m });
-        return m;
-      },
+      multiplier: limiterMultiplier(db, env),
     }),
     payment: await paymentFromEnv(cfg, env, specs, { db, ...overrides }),
   };

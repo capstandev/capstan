@@ -8,7 +8,7 @@ Capstan never holds user keys or funds. Orders are built server-side, checked an
 the SDK, then relayed or sent directly to the venue. Every routed action gets a signed receipt, and hourly Merkle
 roots of the receipts are anchored on-chain. Collateral stays on each venue: there is no cross-venue margin.
 
-Status: pre-release scaffold. Nothing is deployed.
+Status: pre-release. No contract is deployed yet and the code has not had an external audit.
 
 ## Layout
 
@@ -31,8 +31,8 @@ packages/
   catalog/        canonical-asset map and equivalence records
   x402/           client and server helpers (Permit2 + EIP-3009)
 contracts/        Foundry: CapstanReceiptAnchor, CPSTLock, CPST
-web/              website (placeholder)
-ops/              CI checks, dashboards, alerts
+web/              website and dashboard (Vite, its own install and tests: `cd web && bun run test`)
+ops/              CI checks, deploy scripts, server scripts, dashboards, alerts, runbooks
 ```
 
 ### Contracts (`contracts/src`)
@@ -43,7 +43,7 @@ ops/              CI checks, dashboards, alerts
 | `CPSTLock` | Locks CPST for API tiers; unlock always works after the chosen duration (0, 30 or 90 days) |
 | `CPST` | Fixed-supply ERC-20 |
 
-Interfaces only so far (`src/interfaces`). Non-upgradeable, no pause, no admin beyond what each contract states.
+Non-upgradeable, no pause, no admin beyond what each contract states. Interfaces are in `src/interfaces`.
 Vendored: forge-std v1.17.0.
 
 ### Deployments
@@ -105,12 +105,50 @@ All config comes from environment variables. `.env.example` lists every variable
 Each service validates only its own variables at boot and names any missing one (never a value). Variables named
 like a raw key are refused. Never commit `.env` files or keys; `.gitignore` refuses them.
 
+## Deploy the contracts from a fresh clone
+
+The deploy is owner-run and goes in one order: CPST (whole supply to the brand Safe), then CPSTLock, then
+CapstanReceiptAnchor. Every stage reads the chain first and skips what is already done, so a second run only prints
+skip lines. Nothing here asks for a key in plain text: the deployer is a Foundry keystore and Foundry asks for its
+password at a hidden prompt.
+
+```sh
+git clone <this repo> capstan && cd capstan
+bun install
+cd contracts && forge build && forge test && cd ..
+
+# 1. local rehearsal on anvil (chain 31337, throwaway keystores under out/deploy-local/, nothing leaves the machine)
+anvil --port 21445 --silent &
+EXPECTED_CHAIN_ID=31337 bash ops/deploy/deploy-rhc.sh local
+bash ops/deploy/post-deploy-check.sh local
+
+# 2. fork dry run against Robinhood Chain mainnet state: measures the gas the deployer needs, sends nothing
+(cd contracts && RHC_RPC_URL=https://rpc.mainnet.chain.robinhood.com forge test --match-path test/fork/DeployFork.t.sol -vv)
+
+# 3. testnet 46630 (keystore account "capstan-deployer", a real Safe as BRAND_SAFE)
+POSTER_ADDRESS=<anchor poster> BRAND_SAFE=<Safe address> bash ops/deploy/deploy-rhc.sh testnet
+bash ops/deploy/post-deploy-check.sh testnet
+
+# 4. mainnet 4663, only on the day of the go (the guard refuses any other date string)
+CAPSTAN_MAINNET_GO=go-$(date -u +%Y-%m-%d) POSTER_ADDRESS=<anchor poster> BRAND_SAFE=<Safe address> \
+  bash ops/deploy/deploy-rhc.sh mainnet
+bash ops/deploy/post-deploy-check.sh mainnet
+```
+
+`deploy-rhc.sh` writes `contracts/deployments/<chainId>.json`; commit it with the copies `bun run gen:deployments`
+regenerates (CI fails when they differ). `post-deploy-check.sh` is read-only: code at every address, runtime code equal
+to a fresh build, `poster()` and `token()` equal to the deployment file, the reviewed selector set, the chain id and the
+Sourcify status. The BRAND_SAFE check requires Safe 1.4.1, threshold 2 or more, no modules and no guard.
+
+When something breaks after a deploy, see `ops/runbooks/` (incident and relay stop).
+
 ## Checks
 
 CI (`.github/workflows/ci.yml`) runs the typecheck, the pin check (exact dependencies, actions by sha, images by
 digest), the migrations against Postgres + TimescaleDB, `bun test`, a coverage gate (70% of lines in `packages/`),
 `forge fmt --check`, `forge build --sizes`, `forge test` (4,096 fuzz runs), a NatSpec check, slither, semgrep with a
-local ruleset, and gitleaks. `.github/workflows/invariants.yml` runs the key-identifier rule
+local ruleset, gitleaks, and the web package (its own frozen install, build with the dist check, tests and copy
+check). `.github/workflows/invariants.yml` runs the key-identifier rule
 (`ops/ci/check-key-identifiers.ts`), the banned-word list (`ops/ci/check-banned-words.ts`), the deployment-file and
 vector-file checks and the public guard. The fast checks also run in the pre-commit hook
 (`git config core.hooksPath .githooks`).

@@ -59,6 +59,23 @@ export function findPinProblems(root: string): PinProblem[] {
     out.push(...checkPackageJson(f, readFileSync(join(root, f), "utf8")));
   }
   for (const f of walk(root, ".github/workflows", (rel) => /\.ya?ml$/.test(rel))) out.push(...checkWorkflow(f, readFileSync(join(root, f), "utf8")));
+  for (const f of walk(root, ".", (rel) => rel === "bunfig.toml" || rel.endsWith("/bunfig.toml"))) out.push(...checkBunfig(f, readFileSync(join(root, f), "utf8")));
+  return out;
+}
+
+/** The supply-chain delay every install must keep, in seconds (3 days). */
+export const MIN_RELEASE_AGE_S = 259200;
+
+/**
+ * Bun reads the bunfig.toml of the folder it runs in, so a package with its own (web/) does not inherit the root's
+ * install rules (r1:9 F-5). Each one must keep exact versions and the 3-day delay itself.
+ */
+function checkBunfig(file: string, text: string): PinProblem[] {
+  const install = text.split(/^\[/m).find((sec) => sec.startsWith("install]")) ?? "";
+  const out: PinProblem[] = [];
+  if (!/^exact\s*=\s*true\s*$/m.test(install)) out.push({ file, what: "no [install] exact = true" });
+  const age = install.match(/^minimumReleaseAge\s*=\s*(\d+)\s*$/m);
+  if (!age || Number(age[1]) < MIN_RELEASE_AGE_S) out.push({ file, what: `no [install] minimumReleaseAge of at least ${MIN_RELEASE_AGE_S} seconds` });
   return out;
 }
 

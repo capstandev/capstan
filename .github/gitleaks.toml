@@ -18,3 +18,15 @@ description = "recorded public venue responses (tx and order hashes, no keys)"
 paths = [
   '''^packages/venue-client/fixtures/''',
 ]
+
+# Two made-up API keys in tests, excused by their exact line only (a path allowlist would excuse every other key in
+# those files): the key-verify timing test in packages/tiers/test/keys.test.ts builds "cpst_01ARZ3NDEKTSV4RRFFQ69G5FAV_"
+# + "A" x 43, and an old npm smoke test (ops/release/npm/capstan-mcp/smoke.mjs, removed, still in history) passed
+# "cpst_acct_0123456789abcdef". Neither was ever a real key.
+[[allowlists]]
+description = "fake API keys in tests, by exact line"
+regexTarget = "line"
+regexes = [
+  '''const key = "cpst_01ARZ3NDEKTSV4RRFFQ69G5FAV_" \+ "A"\.repeat\(43\);''',
+  '''CAPSTAN_API_KEY: "cpst_acct_0123456789abcdef" \}''',
+]

@@ -2,7 +2,7 @@
 
 Every ops alert names one cause from this file. Each entry says what it means and what to do. The `ops-alerts` worker
 refuses to start if code uses a cause that is not listed here. Alerts only notify: none of them stops, pauses or
-kills anything. Stopping the relay is a person's decision (see the relay-stop runbook).
+kills anything. Stopping the relay is a person's decision (see `ops/runbooks/relay-stop.md`).
 
 Severity: `info` = note it; `act` = someone acts today; `critical` = act now, consider stopping the relay.
 
@@ -16,10 +16,22 @@ Severity: act
 Means: the anchor poster's gas balance on Robinhood Chain is below the configured minimum.
 Do: the owner funds the poster address with the amount in the alert; posting continues while funds remain.
 
+## anchor.post_failed
+Severity: critical
+Means: sending an hour's receipt root failed (gas estimate, signing, send, receipt or revert), or the RPC failed before
+the send. The next hourly run retries the same hour; later hours wait behind it.
+Do: read the error in the alert. Check the RPC (RHC_RPC_URL), the poster balance and the anchor contract address.
+
+## anchor.lagging
+Severity: critical
+Means: the oldest hour with receipts and no recorded root is 2 or more hours old, so anchoring has stopped or keeps
+failing. Checked every 10 minutes from the database, so it fires even while the RPC is down.
+Do: look for anchor.post_failed alerts and the workers log; fix the RPC, gas or worker, then watch the backlog post.
+
 ## anchor.root_mismatch
 Severity: critical
 Means: a root read back from the anchor contract differs from the root Capstan computed for that hour.
-Do: stop the relay, compare the two roots and the receipts of that hour, follow the incident runbook.
+Do: stop the relay, compare the two roots and the receipts of that hour, follow `ops/runbooks/incident.md`.
 
 ## anchor.root_event_mismatch
 Severity: critical

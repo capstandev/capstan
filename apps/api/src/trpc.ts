@@ -33,12 +33,19 @@ export type AppRouter = typeof appRouter;
 /** The REST routes the router mirrors (a test keeps this list equal to the procedures). */
 export const TRPC_MIRRORS = ["/venues", "/markets", "/markets/:id/book", "/funding", "/eligibility", "/receipts/:id", "/receipts/:id/proof", "/receipts/:id/verify"] as const;
 
+/**
+ * Most procedures one batched request may name (r1:3 F5). Each one is an internal call through the full /v1 chain
+ * (request log, rate limiter, handler), so an unbounded batch was a fan-out amplifier.
+ */
+export const TRPC_MAX_BATCH = 10;
+
 export function mountTrpc(app: Hono, _mounted?: unknown): void {
   app.use(
     "/trpc/*",
     trpcServer({
       router: appRouter,
       endpoint: "/trpc",
+      maxBatchSize: TRPC_MAX_BATCH,
       createContext: (_opts, c: HonoContext): TrpcCtx => ({
         async call(path, query) {
           const u = new URL(path, c.req.url);

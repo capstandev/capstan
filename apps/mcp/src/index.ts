@@ -18,7 +18,12 @@ export * from "./tools";
  * paymentsFromEnv; with payments off they answer "payments unavailable" and are never served free.
  */
 export async function mcpAppFromEnv(cfg: ConfigFor<"mcp">, env: Record<string, string | undefined>, o: McpPaymentOverrides & { api?: CapstanApiClient; requestLog?: McpAppDeps["requestLog"] } = {}) {
-  const hosts = (env.MCP_ALLOWED_HOSTS ?? `127.0.0.1:${cfg.MCP_PORT},localhost:${cfg.MCP_PORT}`).split(",").map((s) => s.trim()).filter(Boolean);
+  // r1:9 F-3: behind Caddy the Host is the public api host, so a hosted server with only the loopback default answers
+  // 403 to every /mcp request while its loopback health probe stays green. Refuse to start instead.
+  if (!env.MCP_ALLOWED_HOSTS?.trim() && (cfg.CAPSTAN_NETWORK === "testnet" || cfg.CAPSTAN_NETWORK === "mainnet")) {
+    throw new Error(`MCP_ALLOWED_HOSTS is required on ${cfg.CAPSTAN_NETWORK} (the public api host, for example api.<domain>)`);
+  }
+  const hosts = (env.MCP_ALLOWED_HOSTS?.trim() || `127.0.0.1:${cfg.MCP_PORT},localhost:${cfg.MCP_PORT}`).split(",").map((s) => s.trim()).filter(Boolean);
   const origins = (env.MCP_ALLOWED_ORIGINS ?? "").split(",").map((s) => s.trim()).filter(Boolean);
   const payments = await paymentsFromEnv(cfg, env, o);
   const app = createMcpApp({ api: o.api ?? httpApiClient(cfg.API_BASE_URL), version: MCP_VERSION, allowedHosts: hosts, allowedOrigins: origins, ...(payments ? { payments } : {}), ...(o.requestLog ? { requestLog: o.requestLog } : {}), rateLimit: { perMin: cfg.MCP_RATE_LIMIT_PER_MIN } });

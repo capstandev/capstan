@@ -15,7 +15,7 @@
 // subscription or a query; a resync needs the book subscription and runs at most once a second per market; a private
 // subscribe is checked for freshness and a recoverable signature before any database read.
 import { SERVICE_METRICS } from "@capstan/telemetry";
-import { capstanMessage, ipBucket, PUBSUB, recoverPersonalSigner, verifyCapstanMessage, type NonceStore } from "@capstan/core";
+import { capstanMessage, ipBucket, logger, PUBSUB, recoverPersonalSigner, verifyCapstanMessage, type NonceStore } from "@capstan/core";
 import type { Hex, OrderBook } from "@capstan/schema";
 import type { Server, ServerWebSocket } from "bun";
 import type { Bus } from "./bus";
@@ -327,7 +327,13 @@ export function createWsGateway(deps: WsDeps) {
           open() {
             SERVICE_METRICS.wsConnections.set(++open);
           },
-          message: (ws, raw) => void onMessage(ws, raw as string),
+          // a dependency that throws (a database or Redis error) answers an error frame, never an unhandled
+          // rejection that could exit the gateway (R2-GW-1)
+          message: (ws, raw) =>
+            void onMessage(ws, raw as string).catch((e) => {
+              logger("ws").error("message failed", { error: (e as Error).message });
+              err(ws, null, "INTERNAL_ERROR", "the gateway could not handle this message; try again");
+            }),
           close(ws) {
             SERVICE_METRICS.wsConnections.set(Math.max(0, --open));
             release(ws.data.ip);

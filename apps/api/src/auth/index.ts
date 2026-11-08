@@ -197,7 +197,12 @@ export interface X402AuthDeps {
   internalToken?: string;
   /** Spend credits for one call (todo 34 spendCredit); false when the balance is too low. */
   spend(accountId: string, route: string, usd: string): Promise<boolean>;
+  /** Give one spend back; the auth gate calls it when the answer is not 2xx (r1:3 F8). */
+  refund?(accountId: string, route: string, usd: string): Promise<void>;
 }
+
+/** Context key holding the refund for this request's credit spend, called by authGate on a non-2xx answer. */
+export const CREDIT_REFUND = "creditRefund";
 
 /** x402 routes: an API key with enough credits pays from credits; anyone else goes to the payment middleware. */
 export function x402Verifier(deps: X402AuthDeps | null): AuthVerifier {
@@ -212,15 +217,21 @@ export function x402Verifier(deps: X402AuthDeps | null): AuthVerifier {
       }
     }
     const key = bearerOf(c);
-    if (key && deps && spec.priced && !(spec.priced as { perRows?: number }).perRows) {
+    // credits never pay a top-up (r1:3 F8): the pack would be spent and nothing credited back
+    const topup = spec.path.startsWith("/credits/topup/");
+    if (key && deps && spec.priced && !(spec.priced as { perRows?: number }).perRows && !topup) {
       // a busy legacy key check is not a 500: the caller simply pays through the x402 gate instead of credits
       const acct = await deps.check(key).catch((e: Error) => {
         if (e.name === "ApiKeyBusyError") return null;
         throw e;
       });
-      if (acct && (await deps.spend(acct.id, routeKey(spec), spec.priced.usd))) {
+      const route = routeKey(spec);
+      const usd = spec.priced.usd;
+      if (acct && (await deps.spend(acct.id, route, usd))) {
         ctxSet(c, "apiKeyId", acct.id);
         ctxSet(c, "x402PaidBy", "credits");
+        const refund = deps.refund;
+        if (refund) ctxSet(c, CREDIT_REFUND, () => refund(acct.id, route, usd));
       }
     }
     return null;
