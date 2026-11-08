@@ -52,6 +52,8 @@ export interface LighterAdapter extends VenueAdapter {
   readonly reader: LighterReader;
   readonly nonces: NonceTracker;
   buildCloseAll(id: VenueIdentity, ctx: BuildContext): Promise<LighterBuild[]>;
+  /** Give back the nonce of a build that was refused after it was made, so the next build carries it (D2-ADP-01). */
+  releaseBuild(b: UnsignedVenuePayload): void;
   close(): void;
 }
 
@@ -86,6 +88,7 @@ export function createLighterAdapter(cfg: Readonly<LighterConfig>, deps: Lighter
   const ensureSeeded = async (id: VenueIdentity) => {
     if (id.accountIndex === undefined || id.apiKeyIndex === undefined) throw new CapstanError("INVALID_INPUT", "a Lighter identity needs accountIndex and apiKeyIndex");
     if (!nonces.seeded(id.accountIndex, id.apiKeyIndex)) await nonces.seed(id.accountIndex, id.apiKeyIndex);
+    else await nonces.refresh(id.accountIndex, id.apiKeyIndex); // close a gap left by an unsent build (D2-ADP-01)
     return { a: id.accountIndex, k: id.apiKeyIndex };
   };
 
@@ -185,6 +188,11 @@ export function createLighterAdapter(cfg: Readonly<LighterConfig>, deps: Lighter
       const b = await buildRevocation(id, { cfg, reader, replacementPubKey, nowMs: now(), integratorAccountIndex: integrator });
       bundles.set(b.bundleId, b);
       return b;
+    },
+    releaseBuild(b: UnsignedVenuePayload) {
+      const x = (b.payload as { args?: { accountIndex?: unknown; apiKeyIndex?: unknown; nonce?: unknown } } | null)?.args;
+      if (b.venue !== cfg.venue || typeof x?.accountIndex !== "number" || typeof x.apiKeyIndex !== "number" || typeof x.nonce !== "number") return;
+      nonces.release(x.accountIndex, x.apiKeyIndex, x.nonce);
     },
     close() {
       closeHasher?.();

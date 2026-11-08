@@ -4,7 +4,7 @@
 // process under 80% of it, and a 429 body's retry_after_seconds sets the cool-off before the retry.
 import type { MarketDataCache } from "@capstan/core";
 import { CapstanError, type FundingSnapshot, type Market, type MarketEvent, type OrderBook, type Unsubscribe, type VenueCapabilities } from "@capstan/schema";
-import { createGovernor, createMemoryGovernor, venueHttp, type Governor, type VenueHttp, type VenueHttpOptions } from "@capstan/venue-client";
+import { egressIdOf, createGovernor, createMemoryGovernor, venueHttp, type Governor, type VenueHttp, type VenueHttpOptions } from "@capstan/venue-client";
 import { VENUE_HOSTS } from "@capstan/schema";
 import type { Redis } from "ioredis";
 import { markOf, normalizeFunding, snapshotAsOf, normalizeMarket, quoteBuckets, tickerOf, type VariationalListing, type VariationalStats } from "./normalize";
@@ -155,7 +155,7 @@ export function variationalHttp(gov: Governor, opts: VenueHttpOptions = {}, base
 /** Adapter wired from the environment: Redis governor when a client is given, else an in-process one. */
 export function defaultVariationalAdapter(o: { redis?: Redis | null; cache?: MarketDataCache | null; env?: Record<string, string | undefined> } = {}): VariationalAdapter {
   const env = o.env ?? process.env;
-  const egress = env.RELAY_EGRESS_IP?.trim() || "local";
+  const egress = egressIdOf(env); // one label per host (D2-ADP-06)
   const gov = o.redis ? createGovernor(o.redis, egress) : createMemoryGovernor(egress);
   return createVariationalAdapter(variationalHttp(gov), o.cache ?? null);
 }

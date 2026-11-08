@@ -60,6 +60,11 @@ export interface RelayStore {
   /** The order row that holds this payload hash (a re-run of a stalled relay job reads what the first run recorded). */
   orderByHash(signedPayloadHash: string): Promise<{ id: string; buildId: string; status: string; venueOrderId: string | null } | null>;
   updateOrder(id: string, patch: { status: string; venueOrderId?: string | null }): Promise<void>;
+  /**
+   * Relay order rows with no venue answer yet (status pending or unknown) submitted between `from` and `to`, oldest
+   * first (security r2 R2-RELAY-03: the pending-order sweep reconciles them).
+   */
+  unsettledOrders(from: Date, to: Date, limit: number): Promise<{ id: string; buildId: string; venue: VenueId; signedPayloadHash: Hex; status: string; venueOrderId: string | null; submittedAt: Date }[]>;
   /** Remove an order row when nothing was sent (lane or budget refusal), so the same payload may be tried again. */
   releaseOrder(id: string): Promise<void>;
   /**
@@ -112,7 +117,7 @@ export interface LaneDecision {
 }
 
 export interface LaneLimiter {
-  take(o: { wallet: string; ipBucket: string; lane: Lane; perMin: number; kind: BuildKind; nowMs: number }): Promise<LaneDecision>;
+  take(o: { wallet: string; ipBucket: string; lane: Lane; perMin: number; kind: BuildKind; nowMs: number; venue?: VenueId }): Promise<LaneDecision>;
 }
 
 /** How the relay talks to one executable venue. */
@@ -132,6 +137,11 @@ export interface RelayVenue {
   draft(b: StoredBuild, env: SignedEnvelope, result: SubmitResult, payloadHash: Hex): ReceiptDraft;
   /** A venue reply that means "region refused" (spec 10 input 4). None match until a real text is recorded. */
   isGeoError?(result: SubmitResult): boolean;
+  /**
+   * Ask the venue what became of a payload the relay may have sent (the pending-order sweep, R2-RELAY-03). Null when
+   * the venue has no keyless read for it or gave no clear answer. Never sends anything.
+   */
+  lookup?(b: StoredBuild, signedPayloadHash: Hex): Promise<SubmitResult | null>;
 }
 
 export const VENUE_FLAGS = ["HL_ENABLED", "LIGHTER_304_ENABLED", "LIGHTER_RH_ENABLED", "ASTER_ENABLED"] as const;
@@ -145,8 +155,8 @@ export interface RelayFlags {
 }
 
 export interface Dispatcher {
-  /** `key` is the venue budget the job waits on: each key has its own slots. */
-  run<T>(priority: Priority, fn: () => Promise<T>, key?: string): Promise<T>;
+  /** `key` is the venue budget the job waits on: each key has its own slots. `owner` (the wallet) shares safety places fairly. */
+  run<T>(priority: Priority, fn: () => Promise<T>, key?: string, owner?: string): Promise<T>;
 }
 
 export interface RelayDeps {

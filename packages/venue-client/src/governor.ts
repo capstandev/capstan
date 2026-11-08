@@ -297,7 +297,9 @@ export function createGovernorWithStore(store: GovernorStore, egress: string, op
           }
           record(venue, r.used, null);
           if (t + r.waitMs > deadline) throw new CapstanError("VENUE_RATE_LIMITED", `${venue}: budget wait ${r.waitMs} ms passes the deadline`);
-          if (priority === "pro" && !registered) {
+          // pro and safety waiters both hold free traffic back (security r2 D2-ADP-05: a safety read used not to
+          // register, so a flood of free reads kept taking the slot it waited for)
+          if (priority !== "free" && !registered) {
             registered = true;
             await store.proWaiting(key, 1);
           }

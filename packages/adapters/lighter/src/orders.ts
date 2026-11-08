@@ -14,6 +14,9 @@ import { fromVenueUnits, priceToUnits, sizeToUnits } from "./normalize";
 import type { NonceTracker } from "./nonce";
 import type { LighterMarketMeta, LighterReader } from "./read";
 
+/** A market order needs a book at most this old (the Hyperliquid rule, DECISIONS #29). */
+export const BOOK_MAX_AGE_MS = 3_000;
+
 export const BUILD_VALID_MS = 30_000;
 /** lighter-go DefaultExpireTime: a tx expires 10 min - 1 s after it is built. */
 export const TX_EXPIRY_MS = 10 * 60_000 - 1000;
@@ -138,8 +141,11 @@ export async function buildOrder(intent: OrderIntent, ctx: OrderBuildContext): P
     // a buy never pays above its limit, a sell never sells below it
     priceUnits = priceToUnits(intent.limitPx, m.priceDecimals, intent.side === "buy" ? "down" : "up");
   } else {
-    const ref = best ?? m.markPx;
-    if (!ref) throw new CapstanError("STALE_QUOTE", `no book or mark for ${m.market.id}`);
+    // a market order is priced from a fresh book only (security r2 D2-ADP-04, review-r1:7 F4): never from a cached
+    // mark when the book read failed, the same rule as Hyperliquid's BOOK_MAX_AGE_MS
+    const age = book ? nowMs - Date.parse(book.asOf) : Number.NaN;
+    if (!book || !best || !Number.isFinite(age) || age > BOOK_MAX_AGE_MS) throw new CapstanError("STALE_QUOTE", `no book under ${BOOK_MAX_AGE_MS / 1000} s old for ${m.market.id}`);
+    const ref = best;
     const f = Dec.parse(String(intent.maxSlippageBps), 0);
     const one = Dec.parse("10000", 0);
     const bound = Dec.div(Dec.mul(D(ref), intent.side === "buy" ? Dec.add(one, f) : Dec.sub(one, f), S), one, S, "half_even");
@@ -179,7 +185,13 @@ export async function buildOrder(intent: OrderIntent, ctx: OrderBuildContext): P
   const walk = book ? walkBook(book, intent.side, size, px) : null;
   const avg = walk?.avg ?? null;
   const refPx = best ? D(best) : m.markPx ? D(m.markPx) : null;
-  const notional = Dec.mul(D(size), avg ?? D(px), 2, "half_even");
+  // a buy's part the visible book does not fill is priced at the built limit, where it fills deeper or rests (security
+  // r2 D2-ADP-07, review-r1:7 F7): policy caps compare this notional, so it is never the partial average alone
+  const filled = walk ? Dec.min(walk.filled, D(size)) : Dec.parse("0", S);
+  const notional =
+    intent.side === "buy" || !avg
+      ? Dec.add(avg ? Dec.mul(filled, avg, S, "half_even") : Dec.parse("0", S), Dec.mul(Dec.sub(D(size), filled), D(px), S, "half_even"))
+      : Dec.mul(D(size), avg, S, "half_even"); // a sell's remainder fills below the visible average
   const maker = intent.tif === "alo";
   const warnings = [...latencyWarnings(cfg.venue, ctx.fee.tier, intent.tif)];
   if (baseAmount < minUnits) warnings.push(`size is below the market minimum ${m.minBaseAmount}; the venue may refuse it`);
@@ -189,7 +201,7 @@ export async function buildOrder(intent: OrderIntent, ctx: OrderBuildContext): P
     side: intent.side,
     size,
     px,
-    notionalUsd: Dec.toString(notional),
+    notionalUsd: Dec.toString(Dec.rescale(notional, 2, "half_even")),
     venueFeeBps: maker ? ctx.fee.makerBps : ctx.fee.takerBps,
     builderFeeBps: 0,
     builderFee: null,
@@ -250,7 +262,7 @@ export async function buildCancel(req: CancelIntent, ctx: CancelBuildContext): P
 
 export interface CloseAllContext extends BuildContext {
   cfg: Readonly<LighterConfig>;
-  reader: Pick<LighterReader, "getAccount" | "marketMeta">;
+  reader: Pick<LighterReader, "getAccount" | "marketMeta"> & Partial<Pick<LighterReader, "getBook">>;
   nonces: NonceTracker;
   hasher: HashOnly;
   fee: LighterFeeRow & { tier: LighterTier };
@@ -267,7 +279,21 @@ export async function buildCloseAll(id: VenueIdentity, ctx: CloseAllContext): Pr
   const acct = await ctx.reader.getAccount(id);
   if (id.apiKeyIndex === undefined) throw new CapstanError("INVALID_INPUT", "close-all needs the key index that signs");
   if (!ctx.nonces.seeded(id.accountIndex!, id.apiKeyIndex)) await ctx.nonces.seed(id.accountIndex!, id.apiKeyIndex);
+  else await ctx.nonces.refresh(id.accountIndex!, id.apiKeyIndex); // D2-ADP-01
   const out: LighterBuild[] = [];
+  try {
+    await closeLegs(id, acct, ctx, out);
+  } catch (e) {
+    // a market that cannot be built fails the close-all: give back the nonces of the legs already built (newest
+    // first), so the next build on this key is not stuck behind them (D2-ADP-01)
+    for (const b of [...out].reverse()) if (b.payload.txType === 14) ctx.nonces.release(id.accountIndex!, id.apiKeyIndex!, b.payload.args.nonce);
+    throw e;
+  }
+  return out;
+}
+
+async function closeLegs(id: VenueIdentity, acct: Awaited<ReturnType<CloseAllContext["reader"]["getAccount"]>>, ctx: CloseAllContext, out: LighterBuild[]): Promise<void> {
+  if (id.apiKeyIndex === undefined) return;
   for (const p of acct.positions) {
     const meta = await ctx.reader.marketMeta(p.marketId);
     const intent: OrderIntent = { marketId: p.marketId, side: p.side === "long" ? "sell" : "buy", size: p.size, type: "market", tif: "ioc", reduceOnly: true, maxSlippageBps: ctx.maxSlippageBps ?? CLOSE_ALL_DEFAULT_SLIPPAGE_BPS };
@@ -278,9 +304,10 @@ export async function buildCloseAll(id: VenueIdentity, ctx: CloseAllContext): Pr
         market: { ...meta, market: { ...meta.market, executable: true }, markPx: meta.markPx ?? p.markPx }, // closing is allowed on any perp the account holds
         nonce: ctx.nonces.next(id.accountIndex!, id.apiKeyIndex),
         clientOrderIndex: ctx.nonces.nextClientOrderIndex(id.accountIndex!, id.apiKeyIndex),
-        book: ctx.books?.get(p.marketId) ?? null,
+        // a fresh book per market (D2-ADP-04): a market with no fresh book fails the Lighter close-all with STALE_QUOTE,
+        // which the close-all route and the kill list as unavailable for this venue only
+        book: ctx.books?.get(p.marketId) ?? (ctx.reader.getBook ? await ctx.reader.getBook(p.marketId, 50) : null),
       }),
     );
   }
-  return out;
 }

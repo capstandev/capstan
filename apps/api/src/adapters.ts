@@ -9,11 +9,15 @@ import { createMarketDataCache, createRedis, schema, type Db, type MarketDataCac
 import { declarationStep } from "@capstan/eligibility";
 import { policyTypedData, type KillAdapter } from "@capstan/policy";
 import { venueNetwork, venueUrlOverride, type AgentPolicy, type BuildContext, type Hex, type OnboardingBundle, type OnboardingStep, type UnsignedVenuePayload, type VenueAdapter, type VenueId, type VenueIdentity } from "@capstan/schema";
-import { createGovernor, venueHttp, type Governor } from "@capstan/venue-client";
+import { egressIdOf, createGovernor, venueHttp, type Governor } from "@capstan/venue-client";
 import { and, eq, inArray, sql } from "drizzle-orm";
 
 /** An adapter the api builds with. Executable venues add close-all; read-only venues refuse every build. */
-export type BuildAdapter = VenueAdapter & { buildCloseAll?(id: VenueIdentity, ctx: BuildContext & { snapshot?: null }): Promise<UnsignedVenuePayload[]> };
+export type BuildAdapter = VenueAdapter & {
+  buildCloseAll?(id: VenueIdentity, ctx: BuildContext & { snapshot?: null }): Promise<UnsignedVenuePayload[]>;
+  /** Lighter: give back the nonce of a build refused after it was made (security r2 D2-ADP-01). */
+  releaseBuild?(b: UnsignedVenuePayload): void;
+};
 
 export interface AdapterSet {
   adapters: Map<VenueId, BuildAdapter>;
@@ -62,7 +66,7 @@ export function hlConfigFor(env: Record<string, string | undefined>, mainnet: bo
 export async function composeAdapters(env: Record<string, string | undefined>, o: { db: Db | null; redis: Redis | null; governor?: Governor; cache?: MarketDataCache }): Promise<AdapterSet> {
   // every host comes from the network profile (packages/schema networks.ts), so one profile never mixes networks
   const mainnet = venueNetwork("hyperliquid", env) === "mainnet";
-  const egress = env.RELAY_EGRESS_ID ?? "local";
+  const egress = egressIdOf(env); // one label per host (D2-ADP-06)
   const gov = o.governor ?? (o.redis ? createGovernor(o.redis, egress) : (await import("@capstan/venue-client")).createMemoryGovernor(egress));
   const { memoryMarketDataCache } = await import("@capstan/core");
   const cache = o.cache ?? (o.redis ? createMarketDataCache(o.redis) : memoryMarketDataCache());
@@ -116,7 +120,7 @@ export async function composeAdapters(env: Record<string, string | undefined>, o
     "aster",
     aster.createAdapter(
       { ...asterCfg, builder: (env.ASTER_BUILDER_ADDRESS as Hex | undefined) ?? ZERO, execution: aster.asterExecutionEnabled(env) },
-      { http: asterHttp, cache, reader: aster.createAsterReader(asterCfg, asterHttp, cache), bundles, eligibilityStep: (owner) => declarationStep(owner, ["aster"], Date.now()), ...(env.RELAY_EGRESS_IP ? { relayEgressIp: env.RELAY_EGRESS_IP } : {}) },
+      { http: asterHttp, cache, reader: aster.createAsterReader(asterCfg, asterHttp, cache), bundles, ...(o.redis ? { accounts: aster.redisAccountStore(o.redis) } : {}), eligibilityStep: (owner) => declarationStep(owner, ["aster"], Date.now()), ...(env.RELAY_EGRESS_IP ? { relayEgressIp: env.RELAY_EGRESS_IP } : {}) },
     ) as unknown as BuildAdapter,
   );
   const { defaultVariationalAdapter } = await import("@capstan/adapter-variational");

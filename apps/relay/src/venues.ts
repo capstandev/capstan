@@ -6,7 +6,7 @@ import { toReceiptDraft as asterDraft } from "@capstan/adapter-aster";
 import { draft, jcs, type ReceiptDraft } from "@capstan/receipts";
 import type { Hex, SignedEnvelope, SubmitResult, VenueAdapter, VenueId } from "@capstan/schema";
 import { payloadHashOf as asterPayloadHash } from "@capstan/signer-aster";
-import { asterWeight, hlExchangeWeight, type BucketKey } from "@capstan/venue-client";
+import { asterWeight, hlExchangeWeight, VenueHttpError, type BucketKey, type VenueHttp } from "@capstan/venue-client";
 import { createHash } from "node:crypto";
 import { flagOf } from "./flags";
 import type { RelayVenue, StoredBuild } from "./types";
@@ -26,8 +26,45 @@ function hlCount(env: SignedEnvelope): number {
   return a?.orders?.length ?? a?.cancels?.length ?? 1;
 }
 
-export function hlRelayVenue(adapter: Adapter, o: { governorKey?: BucketKey } = {}): RelayVenue {
+type Lookup = NonNullable<RelayVenue["lookup"]>;
+const HL_CLOID = /^0x[0-9a-fA-F]{32}$/;
+
+/**
+ * Hyperliquid orderStatus by the order's cloid (public info read, weight 2): any known order was accepted by the
+ * venue (open, filled, canceled and so on), a status naming a rejection is rejected. unknownOid, a cancel (no cloid)
+ * or a bad answer gives no answer: Hyperliquid answers an exchange post at once, but the sweep never guesses.
+ */
+export function hlLookup(http: Pick<VenueHttp, "postJson">): Lookup {
+  return async (b) => {
+    const action = (b.build as HlUnsignedPayload).payload?.action as { type?: string; orders?: { c?: unknown }[] } | undefined;
+    const cloid = action?.type === "order" ? action.orders?.[0]?.c : undefined;
+    if (typeof cloid !== "string" || !HL_CLOID.test(cloid)) return null;
+    const j = await http.postJson<{ status?: unknown; order?: { order?: { oid?: unknown }; status?: unknown } }>("/info", { type: "orderStatus", user: b.owner.toLowerCase(), oid: cloid.toLowerCase() }, 2);
+    if (j?.status !== "order" || typeof j.order?.status !== "string") return null;
+    const oid = j.order.order?.oid;
+    const venueOrderId = typeof oid === "number" || typeof oid === "string" ? String(oid) : null;
+    const status: SubmitResult["status"] = /rejected/i.test(j.order.status) ? "rejected" : "accepted";
+    return { status, venueOrderId, txHash: null, venueResponse: j };
+  };
+}
+
+/** Lighter tx by its hash (the payload hash the build carries; public read). Found means the venue took the tx. */
+export function lighterLookup(http: Pick<VenueHttp, "getJson">): Lookup {
+  return async (_b, payloadHash) => {
+    try {
+      const r = await http.getJson<{ hash?: unknown; status?: unknown }>("/api/v1/tx", { by: "hash", value: payloadHash });
+      if (!r || typeof r !== "object" || r.hash === undefined) return null;
+      return { status: "accepted", venueOrderId: null, txHash: typeof r.hash === "string" ? r.hash : payloadHash, venueResponse: r };
+    } catch (e) {
+      if (e instanceof VenueHttpError && e.httpStatus >= 400 && e.httpStatus < 500) return null;
+      throw e;
+    }
+  };
+}
+
+export function hlRelayVenue(adapter: Adapter, o: { governorKey?: BucketKey; lookup?: Lookup } = {}): RelayVenue {
   return {
+    ...(o.lookup ? { lookup: o.lookup } : {}),
     venue: "hyperliquid",
     flag: "HL_ENABLED",
     adapter,
@@ -75,8 +112,9 @@ export function asterRelayVenue(adapter: Adapter, o: { governorKey?: BucketKey }
 
 const LIGHTER_CANCEL_TYPES = new Set([15, 16]);
 
-export function lighterRelayVenue(venue: Extract<VenueId, "lighter-mainnet" | "lighter-rh">, adapter: Adapter, o: { governorKey?: BucketKey; l1Of: (b: StoredBuild) => string }): RelayVenue {
+export function lighterRelayVenue(venue: Extract<VenueId, "lighter-mainnet" | "lighter-rh">, adapter: Adapter, o: { governorKey?: BucketKey; l1Of: (b: StoredBuild) => string; lookup?: Lookup }): RelayVenue {
   return {
+    ...(o.lookup ? { lookup: o.lookup } : {}),
     venue,
     flag: flagOf(venue)!,
     adapter,

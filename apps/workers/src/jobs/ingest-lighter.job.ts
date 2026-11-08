@@ -6,7 +6,7 @@
 import { createLighterIngest, lighterConfigsFor, lighterReaderFor, type IngestMarket, type LighterConfig, type LighterIngest, type LighterReader } from "@capstan/adapter-lighter";
 import type { Db, JobDef, JobDeps, MarketDataCache } from "@capstan/core";
 import { db as schema, type MarketEvent, type Unsubscribe } from "@capstan/schema";
-import { createGovernor, createMemoryGovernor, VenueWsError, wsErrorText, type Governor } from "@capstan/venue-client";
+import { egressIdOf, createGovernor, createMemoryGovernor, VenueWsError, wsErrorText, type Governor } from "@capstan/venue-client";
 
 export const INGEST_LIGHTER_EVERY_MS = 5 * 60_000;
 export const PERSIST_EVERY_MS = 60_000;
@@ -63,7 +63,7 @@ const sameSet = (a: IngestMarket[], b: IngestMarket[]) => a.length === b.length 
 
 /** One tick: open the streams on the first call, refresh market metadata on every call. */
 export async function runIngestTick(deps: JobDeps, f: IngestFactories = {}, st: IngestState | null = state): Promise<{ configs: { venue: string; markets: number; books: number; subscriptions: number; gaps: number }[]; state: IngestState }> {
-  const egress = process.env.CAPSTAN_EGRESS_ID ?? "local";
+  const egress = egressIdOf(process.env); // one label per host (D2-ADP-06)
   if (!st) {
     const gov = deps.redis ? createGovernor(deps.redis, egress) : createMemoryGovernor(egress);
     const configs = f.configs ?? lighterConfigsFor(process.env); // the network profile's two configs

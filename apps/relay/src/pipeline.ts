@@ -41,16 +41,50 @@ export interface SubmitContext {
   rerun?: boolean;
 }
 
-/** What a re-run of a stalled job answers for a payload the first run already recorded (it is never sent again). */
-async function replayOf(deps: RelayDeps, b: StoredBuild, payloadHash: string, now: number): Promise<SubmitOutcome | null> {
+/**
+ * What a re-run of a stalled job answers for a payload the first run already recorded (it is never sent again). The
+ * order.submit receipt is issued here too (security r2 R2-RELAY-03): receipts are idempotent on request hash and build,
+ * so when the first run issued one this returns it, and when it stopped before that the receipt now exists with the
+ * status the row recorded ("unknown" for a row still pending). The pending-order sweep later fills in the venue answer.
+ */
+async function replayOf(deps: RelayDeps, b: StoredBuild, venue: RelayVenue, env: SignedEnvelope, payloadHash: Hex, now: number): Promise<SubmitOutcome | null> {
   const prior = await deps.store.orderByHash(payloadHash).catch(() => null);
   if (!prior || prior.buildId !== b.build.buildId) return null;
   // "pending": the first run stopped between the row and the venue answer, so the order may have been sent
   const status: SubmitResult["status"] = prior.status === "accepted" || prior.status === "rejected" ? prior.status : "unknown";
-  const result: SubmitResult = { status, venueOrderId: prior.venueOrderId, txHash: null, venueResponse: null };
+  const result: SubmitResult = { status, venueOrderId: prior.venueOrderId, txHash: null, venueResponse: status === "unknown" ? { status: "unknown", recordedBy: "relay re-run" } : null };
   deps.log?.("relay job re-run: answering with the first run's record", { buildId: b.build.buildId, payloadHash, status: prior.status });
   if (status === "rejected") throw new CapstanError("VENUE_ERROR", "The venue refused the order (answer recorded by an earlier run of this job).");
-  return { order: orderOf(b, result, now), receiptId: null, outcome: status, receiptPending: true };
+  let receiptId: string | null = null;
+  try {
+    receiptId = (await deps.receipts.issue({ ...venue.draft(b, env, result, payloadHash), signedPayloadHash: payloadHash })).receiptId;
+  } catch (e) {
+    deps.log?.("receipt pending", { buildId: b.build.buildId, payloadHash, error: (e as Error).message });
+  }
+  return { order: orderOf(b, result, now), receiptId, outcome: status, ...(receiptId === null ? { receiptPending: true as const } : {}) };
+}
+
+/**
+ * A stalled job's re-run (security r2 R2-RELAY-03). BullMQ starts it again only after the 30 s lock lapses, when the
+ * build has usually expired, and the first run's own order row would count as policy usage. So before the expiry,
+ * kill, eligibility and policy steps: if the envelope matches the build and its signature checks, and a row for this
+ * build already exists, answer with that row. Anything else falls through to the normal checks (nothing is refused here).
+ */
+async function rerunReplay(req: SubmitRequest, deps: RelayDeps): Promise<SubmitOutcome | null> {
+  const env = req.signedEnvelope;
+  const b = await deps.store.getBuild(req.buildId).catch(() => null);
+  if (!b || !env || env.buildId !== req.buildId || env.buildId !== b.build.buildId || env.venue !== b.venue) return null;
+  const venue = deps.venues.get(b.venue);
+  if (!venue) return null;
+  let payloadHash: Hex;
+  try {
+    payloadHash = venue.payloadHashOf(env, b);
+    if (typeof env.payloadHash !== "string" || env.payloadHash.toLowerCase() !== payloadHash.toLowerCase()) return null;
+    if (!venue.adapter.verifySigned(env, { ...b.build, expiresAt: Number.MAX_SAFE_INTEGER }).ok) return null;
+  } catch {
+    return null;
+  }
+  return replayOf(deps, b, venue, env, payloadHash, deps.now());
 }
 
 interface RefuseOpts {
@@ -185,6 +219,10 @@ export async function grossWindow(exposure: ExposureSource | undefined, issuedAt
 
 export async function handleSubmit(req: SubmitRequest, ctx: SubmitContext, deps: RelayDeps): Promise<SubmitOutcome> {
   const env = req.signedEnvelope;
+  if (ctx.rerun) {
+    const replay = await rerunReplay(req, deps);
+    if (replay) return replay;
+  }
   const { b, venue, payloadHash, policy } = await loadAndVerify(req, deps, { checkAgent: true });
   const ref: RefuseOpts = { b, buildId: req.buildId, payloadHash };
   const now = deps.now();
@@ -231,12 +269,12 @@ export async function handleSubmit(req: SubmitRequest, ctx: SubmitContext, deps:
     const r = await deps.store.reserveAgentOrder(row, b.agentRef!, now, grossSince, (u) => policyCheck(withBase(u)));
     if (!r.ok && r.reason === "policy") return breach(r.field);
     if (!r.ok) {
-      const replay = ctx.rerun ? await replayOf(deps, b, payloadHash, now) : null;
+      const replay = ctx.rerun ? await replayOf(deps, b, venue, env, payloadHash, now) : null;
       if (replay) return replay;
       return refuse(deps, "DUPLICATE_PAYLOAD", ref);
     }
   } else if (!(await deps.store.insertOrder(row))) {
-    const replay = ctx.rerun ? await replayOf(deps, b, payloadHash, now) : null;
+    const replay = ctx.rerun ? await replayOf(deps, b, venue, env, payloadHash, now) : null;
     if (replay) return replay;
     return refuse(deps, "DUPLICATE_PAYLOAD", ref);
   }
@@ -246,7 +284,7 @@ export async function handleSubmit(req: SubmitRequest, ctx: SubmitContext, deps:
   // after leg A, which left the user unhedged). Eligibility treats it the same way in step 5.
   const exit = b.kind !== "order" || b.build.preview.reduceOnly === true;
   const { lane, perMin } = await deps.laneOf(b.owner, ctx.apiKey);
-  const taken = await deps.lanes.take({ wallet: b.owner, ipBucket: ipBucket(ctx.ip), lane, perMin, kind: exit ? "close" : b.kind, nowMs: now });
+  const taken = await deps.lanes.take({ wallet: b.owner, ipBucket: ipBucket(ctx.ip), lane, perMin, kind: exit ? "close" : b.kind, nowMs: now, venue: b.venue });
   if (!taken.ok) {
     await deps.store.releaseOrder(orderId);
     return refuse(deps, "VENUE_RATE_LIMITED", { ...ref, message: DIRECT_MODE_HINT, field: taken.reason ?? "lane" });
@@ -275,7 +313,7 @@ export async function handleSubmit(req: SubmitRequest, ctx: SubmitContext, deps:
         // the request may or may not have left: never resent, recorded as unknown
         return { status: "unknown", venueOrderId: null, txHash: null, venueResponse: String((e as Error).message ?? e).slice(0, 200), code: "VENUE_ERROR", message: "no clear answer from the venue" } satisfies SubmitResult;
       }
-    }, venue.governorKey);
+    }, venue.governorKey, b.owner);
   } catch (e) {
     await deps.store.releaseOrder(orderId);
     if (e instanceof CapstanError && e.code === "VENUE_RATE_LIMITED") return refuse(deps, "VENUE_RATE_LIMITED", { ...ref, message: `${DIRECT_MODE_HINT} (${e.message})`, field: "venue_budget" });

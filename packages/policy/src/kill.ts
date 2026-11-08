@@ -174,7 +174,12 @@ export interface KillResponseDeps {
   /** Build context for close-all payloads (no builder fee on a close). */
   buildContext?: (id: VenueIdentity, agentRef: string) => BuildContext;
   now?: () => number;
+  /** The replacement Lighter API public key from the kill request (Lighter revocations rotate the key slot to it). */
+  replacementPubKey?: string;
 }
+
+const LIGHTER_VENUES = new Set<VenueId>(["lighter-mainnet", "lighter-rh"]);
+const whyNot = (e: unknown): string => (e instanceof Error && e.message ? e.message : "the venue could not build it here").slice(0, 200);
 
 /** Revocation bundles for every venue the agent's key was onboarded on, plus reduce-only close-alls when asked. */
 export async function buildKillResponse(agentRef: string, deps: KillResponseDeps): Promise<KillResponse> {
@@ -199,17 +204,36 @@ export async function buildKillResponse(agentRef: string, deps: KillResponseDeps
       continue;
     }
     const id = identityOf(d);
-    const bundle = await a.buildRevocation(id);
-    assertNoMoneyMovement(bundle);
-    out.revocations.push(bundle);
-    if (d.id === own.id) out.revocation = bundle;
+    // one venue failing never costs the owner the others (security r2 D2-ADP-02, D2-ADP-03): each venue's
+    // revocation and close-all is tried on its own and a failure is listed in unavailable
+    if (LIGHTER_VENUES.has(venue) && !deps.replacementPubKey) {
+      out.unavailable.push({ venue, reason: "a Lighter revocation needs replacementPubKey (the new API public key your SDK made); send it with the kill, or rotate the key from Lighter's own app" });
+    } else {
+      let bundle: OnboardingBundle | null = null;
+      try {
+        bundle = await a.buildRevocation(LIGHTER_VENUES.has(venue) ? ({ ...id, replacementPubKey: deps.replacementPubKey } as VenueIdentity) : id);
+      } catch (e) {
+        out.unavailable.push({ venue, reason: `revocation unavailable: ${whyNot(e)}` });
+      }
+      if (bundle) {
+        assertNoMoneyMovement(bundle); // a money-moving bundle is a bug: the whole kill answer fails, never hands it out
+        out.revocations.push(bundle);
+        if (d.id === own.id) out.revocation = bundle;
+      }
+    }
     if (deps.closeAll) {
       if (!a.buildCloseAll) {
         out.unavailable.push({ venue, reason: "close-all is not available for this venue here" });
         continue;
       }
       const ctx: BuildContext = deps.buildContext?.(id, d.id) ?? { owner: d.owner as Hex, agentRef: d.id, identity: id, builderFee: null, approvedMaxBps: null, nowMs: now(), eligibilityDecisionId: "not-required:kill", policyId: null };
-      for (const p of await a.buildCloseAll(id, ctx)) {
+      let legs: UnsignedVenuePayload[] | null = null;
+      try {
+        legs = await a.buildCloseAll(id, ctx);
+      } catch (e) {
+        out.unavailable.push({ venue, reason: `close-all unavailable: ${whyNot(e)}` });
+      }
+      for (const p of legs ?? []) {
         assertNoMoneyMovement(p);
         closes.push(p);
       }

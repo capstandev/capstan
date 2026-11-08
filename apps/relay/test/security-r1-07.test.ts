@@ -62,7 +62,7 @@ describe("security r1 R1-07", () => {
     expect(await s.store.insertOrder(row)).toBe(true);
     const r2 = await runRelayJob({ buildId: h2.b.buildId, signedEnvelope: h2.env, ip: "203.0.113.78" }, s.deps, { rerun: true });
     expect(r2.ok).toBe(true);
-    if (r2.ok) expect(r2.result).toMatchObject({ outcome: "unknown", receiptId: null, receiptPending: true });
+    if (r2.ok) expect(r2.result.outcome).toBe("unknown"); // the receipt is issued now (R2-RELAY-03)
     expect(s.venues.hl.length).toBe(1);
   });
 

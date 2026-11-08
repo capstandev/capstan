@@ -72,7 +72,7 @@ describe("aster ingest", () => {
     const b = await ingestSignedRead({ venue: "aster", snapshot: [{ asset: "USDT", balance: "1000", crossUnPnl: "60", availableBalance: "800" }, { asset: "USD1", balance: "50", availableBalance: "50" }, { asset: "BTC", balance: "1" }], signedRead: await signedRead("balance") }, d);
     expect(b).toMatchObject({ equityUsd: "1110", freeCollateralUsd: "850" });
     expect(b.positions.length).toBe(2);
-    expect(Object.keys(b).sort()).toEqual(["asOf", "equityUsd", "freeCollateralUsd", "identity", "positions", "source", "venue"]);
+    expect(Object.keys(b).sort()).toEqual(["asOf", "equityUsd", "freeCollateralUsd", "identity", "positions", "positionsAsOf", "positionsSource", "source", "venue"]);
     const st = await d.store.get(owner.address);
     expect(st!.snapshot.identity).toEqual({ venue: "aster", owner: owner.address, agentAddress: agent.address });
   });

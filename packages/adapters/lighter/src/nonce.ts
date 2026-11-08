@@ -24,9 +24,19 @@ export interface NonceSource {
   tx(hash: string): Promise<{ found: boolean; status: number | null }>;
 }
 
+/**
+ * How long a handed-out nonce is held for its build (security r2 D2-ADP-01, review-r1:2 R1-01 and review-r1:3 F4): a
+ * Lighter build is valid 30 s, so a nonce still not seen at the venue after this was never sent (refused after the
+ * build, never signed, or expired) and nothing above it can land under the strict previous + 1 rule.
+ */
+export const RESERVATION_TTL_MS = 45_000;
+
 interface KeyState {
   next: number;
-  inFlight: Set<number>;
+  /** nonce -> when it was handed out */
+  inFlight: Map<number, number>;
+  /** a nonce given back that was not the newest: the next build re-reads the venue first */
+  gap: boolean;
   unknown: Map<number, string | null>; // nonce -> tx hash
   clientOrder: number;
 }
@@ -50,7 +60,7 @@ export class NonceTracker {
   async seed(accountIndex: number, apiKeyIndex: number): Promise<void> {
     const n = await this.reader.nextNonce(accountIndex, apiKeyIndex);
     checkNonce(n);
-    this.keys.set(k(accountIndex, apiKeyIndex), { next: n, inFlight: new Set(), unknown: new Map(), clientOrder: 0 });
+    this.keys.set(k(accountIndex, apiKeyIndex), { next: n, inFlight: new Map(), gap: false, unknown: new Map(), clientOrder: 0 });
   }
 
   seeded(accountIndex: number, apiKeyIndex: number): boolean {
@@ -64,8 +74,41 @@ export class NonceTracker {
     const n = s.next;
     checkNonce(n);
     s.next = n + 1;
-    s.inFlight.add(n);
+    s.inFlight.set(n, this.now());
     return n;
+  }
+
+  /**
+   * Give back a nonce whose build was refused after it was made (policy, quote check, store): the newest one simply
+   * goes back, so the next build carries it; an older one leaves a gap the next refresh() closes from the venue.
+   */
+  release(accountIndex: number, apiKeyIndex: number, nonce: number): void {
+    const s = this.keys.get(k(accountIndex, apiKeyIndex));
+    if (!s || !s.inFlight.has(nonce)) return;
+    s.inFlight.delete(nonce);
+    if (s.next === nonce + 1) s.next = nonce;
+    else s.gap = true;
+  }
+
+  /**
+   * Before handing out a nonce (security r2 D2-ADP-01): when a nonce was given back out of order, or one was handed out
+   * longer ago than RESERVATION_TTL_MS, read the venue's nextNonce. Reservations below it landed (or were consumed) and
+   * are dropped. A reservation at or above it that is past its build life was never sent, so nothing after it can
+   * land: signing restarts from the venue's nextNonce. Nothing changes while an outcome is unknown.
+   */
+  async refresh(accountIndex: number, apiKeyIndex: number): Promise<void> {
+    const s = this.state(accountIndex, apiKeyIndex);
+    if (s.unknown.size) return;
+    const t = this.now();
+    const stale = [...s.inFlight].filter(([, at]) => t - at > RESERVATION_TTL_MS).map(([n]) => n);
+    if (!s.gap && !stale.length) return;
+    const venueNext = checkNonce(await this.reader.nextNonce(accountIndex, apiKeyIndex));
+    for (const n of [...s.inFlight.keys()]) if (n < venueNext) s.inFlight.delete(n);
+    if (s.gap || stale.some((n) => n >= venueNext)) {
+      s.next = venueNext;
+      s.inFlight.clear();
+    } else s.next = Math.max(s.next, venueNext);
+    s.gap = false;
   }
 
   /** A client order index per key: increasing, 1 .. 2^48 - 1, millisecond-based so restarts do not repeat it. */
@@ -97,7 +140,7 @@ export class NonceTracker {
       case "api":
         return { kind: "resend_same", nonce };
       case "sequencer_before": {
-        const resign = [...s.inFlight].filter((n) => n > nonce).sort((a, b) => a - b);
+        const resign = [...s.inFlight.keys()].filter((n) => n > nonce).sort((a, b) => a - b);
         for (const n of resign) s.inFlight.delete(n);
         s.inFlight.delete(nonce);
         s.next = nonce;

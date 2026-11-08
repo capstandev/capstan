@@ -27,6 +27,7 @@ d("order routes", () => {
   let db: Db;
   let s: ReturnType<typeof relayStack>;
   let app: Awaited<ReturnType<typeof createApp>>["app"];
+  let deps: OrdersRouteDeps;
   const dataOnly = { caps: { venue: "variational", execution: false, keyType: null, delegation: "none", canWithdraw: false, builderFee: null, collateral: ["USDC"], directSubmitSupported: false, publicAccountReads: true } } as unknown as BuildAdapter;
 
   beforeAll(async () => {
@@ -41,7 +42,7 @@ d("order routes", () => {
       { id: "variational:route", venue: "variational", owner: USER_A, agentAddress: "0x00000000000000000000000000000000000000d1", state: "active" },
     ]);
     s.policies.set("hl:policy-route", { policyId: "pol-route", policy: policyFor("hl:policy-route", { maxNotionalPerOrderUsd: "5" }) });
-    const deps: OrdersRouteDeps = {
+    deps = {
       db,
       adapters: new Map([
         ["hyperliquid", s.builder.adapter as unknown as BuildAdapter],
@@ -158,5 +159,38 @@ d("order routes", () => {
     expect(body.builds.length).toBeGreaterThan(0);
     expect(body.builds.every((b) => b.preview.reduceOnly)).toBe(true);
     void (null as unknown as VenueAdapter);
+  });
+
+  test("a-build-refused-after-it-was-made-gives-its-nonce-back (security r2 D2-ADP-01)", async () => {
+    const real = deps.adapters.get("hyperliquid")!;
+    const released: string[] = [];
+    deps.adapters.set("hyperliquid", new Proxy(real, { get: (t, p) => (p === "releaseBuild" ? (b: { buildId: string }) => void released.push(b.buildId) : Reflect.get(t, p)) }));
+    try {
+      const r = await post("/orders/build", { owner: USER_A, agentRef: "hl:policy-route", intent: intent(), mode: "relay" });
+      expect(((await r.json()) as { error: { code: string } }).error.code).toBe("POLICY_BREACH");
+      expect(released.length).toBe(1);
+      // an allowed build is kept
+      expect((await post("/orders/build", { owner: USER_A, agentRef: HL_REF, intent: intent(), mode: "relay" })).status).toBe(200);
+      expect(released.length).toBe(1);
+    } finally {
+      deps.adapters.set("hyperliquid", real);
+    }
+  });
+
+  test("close-all-one-venue-failing-keeps-the-others (security r2 D2-ADP-03)", async () => {
+    // an Aster delegation with no stored account read: its close-all throws needs_signed_read
+    await db.insert(schema.delegations).values({ id: "aster:close-route", venue: "aster", owner: USER_A, agentAddress: "0x00000000000000000000000000000000000000d3", builderMaxBps: 3, state: "active" });
+    const failing = { caps: { ...dataOnly.caps, venue: "aster", execution: true }, buildCloseAll: async () => Promise.reject(new Error("needs_signed_read: post a fresh signed account read to /v1/risk/ingest first")) } as unknown as BuildAdapter;
+    deps.adapters.set("aster", failing);
+    try {
+      const all = await post("/orders/close-all/build", { owner: USER_A });
+      expect(all.status).toBe(200);
+      const body = (await all.json()) as { builds: HlUnsignedPayload[]; unavailable: { venue: string; reason: string }[] };
+      expect(body.builds.some((b) => b.venue === "hyperliquid")).toBe(true);
+      expect(body.unavailable.find((u) => u.venue === "aster")?.reason).toContain("needs_signed_read");
+    } finally {
+      deps.adapters.delete("aster");
+      await db.delete(schema.delegations).where(eq(schema.delegations.id, "aster:close-route"));
+    }
   });
 });

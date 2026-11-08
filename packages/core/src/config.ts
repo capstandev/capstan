@@ -80,6 +80,11 @@ const webOrigins = z
 // caller is 127.0.0.1 (a private range, no country) and every write is refused.
 const geoDir = path.default("var/geo");
 
+// One egress label per host for every venue governor (security r2 D2-ADP-06): api, relay and workers on one IP must
+// name it the same, so they share that IP's venue budgets. Required (not "local") on mainnet; see egressIdOf.
+const egressId = z.string().min(1).regex(/^[A-Za-z0-9._-]{1,64}$/, "egress label").default("local");
+const EGRESS_ROLES = new Set<string>(["api", "relay", "workers"]);
+
 const ROLE_SCHEMAS = {
   api: z.object({
     ...common,
@@ -98,6 +103,7 @@ const ROLE_SCHEMAS = {
     CAPSTAN_WEB_ORIGINS: webOrigins,
     CAPSTAN_TRUST_FORWARDED_FOR: flag(false),
     CAPSTAN_GEO_DIR: geoDir,
+    CAPSTAN_EGRESS_ID: egressId,
   }),
   ws: z.object({
     ...common,
@@ -110,7 +116,7 @@ const ROLE_SCHEMAS = {
     RELAY_PORT: port(8712),
     DATABASE_URL: pgUrl,
     REDIS_URL: redisUrl,
-    RELAY_EGRESS_ID: z.string().min(1).default("local"),
+    CAPSTAN_EGRESS_ID: egressId,
     RELAY_FREE_ORDERS_PER_MIN: posInt(2),
     RELAY_SUBMIT_ARMED: flag(false),
     // "none": the relay holds no key and receipts are signed by the receipt-sign job (the VPS relay env sets it)
@@ -137,6 +143,7 @@ const ROLE_SCHEMAS = {
     DATABASE_URL: pgUrl,
     REDIS_URL: redisUrl,
     WORKER_JOBS: z.string().default(""),
+    CAPSTAN_EGRESS_ID: egressId,
     ANCHOR_RPC_URL: url.default("http://127.0.0.1:8545"),
     ANCHOR_ARMED: flag(false),
     // mainnet posting also needs this file to exist (set only in the production env; todo 28 R14)
@@ -232,6 +239,11 @@ export function loadConfig<R extends Role>(role: R, env: Record<string, string |
       throw new ConfigError(role, [armed, chain, "CAPSTAN_NETWORK"], "refused");
     }
   }
+  // mainnet: every service that talks to a venue names the host's egress label (D2-ADP-06)
+  if (EGRESS_ROLES.has(role) && cfg.CAPSTAN_NETWORK === "mainnet") {
+    const label = env.CAPSTAN_EGRESS_ID?.trim() || env.RELAY_EGRESS_ID?.trim() || "local"; // the egressIdOf rule
+    if (label === "local") throw new ConfigError(role, ["CAPSTAN_EGRESS_ID"], "missing or invalid");
+  }
   return { ...(cfg as object), role } as ConfigFor<R>;
 }
 
@@ -241,11 +253,11 @@ export function loadConfig<R extends Role>(role: R, env: Record<string, string |
  * geo settings without which every write is refused. Plus every variable the schema itself requires.
  */
 export const SERVER_ENV: Record<Role, readonly string[]> = {
-  api: ["CAPSTAN_NETWORK", "PUBLIC_API_HOST", "OTLP_FILE", "PROM_PORT", "API_PORT", "DATABASE_URL", "REDIS_URL", "CAPSTAN_TRUST_FORWARDED_FOR", "CAPSTAN_GEO_DIR", "RECEIPT_SIGNERS", "ANCHOR_RPC_URL"],
+  api: ["CAPSTAN_NETWORK", "PUBLIC_API_HOST", "OTLP_FILE", "PROM_PORT", "API_PORT", "DATABASE_URL", "REDIS_URL", "CAPSTAN_TRUST_FORWARDED_FOR", "CAPSTAN_GEO_DIR", "RECEIPT_SIGNERS", "ANCHOR_RPC_URL", "CAPSTAN_EGRESS_ID"],
   ws: ["CAPSTAN_NETWORK", "PUBLIC_API_HOST", "OTLP_FILE", "PROM_PORT", "WS_PORT", "REDIS_URL", "DATABASE_URL", "CAPSTAN_TRUST_FORWARDED_FOR"],
-  relay: ["CAPSTAN_NETWORK", "PUBLIC_API_HOST", "OTLP_FILE", "PROM_PORT", "RELAY_PORT", "DATABASE_URL", "REDIS_URL", "RELAY_EGRESS_ID", "RELAY_SUBMIT_ARMED", "CAPSTAN_GEO_DIR"],
+  relay: ["CAPSTAN_NETWORK", "PUBLIC_API_HOST", "OTLP_FILE", "PROM_PORT", "RELAY_PORT", "DATABASE_URL", "REDIS_URL", "CAPSTAN_EGRESS_ID", "RELAY_SUBMIT_ARMED", "CAPSTAN_GEO_DIR"],
   mcp: ["CAPSTAN_NETWORK", "PUBLIC_API_HOST", "OTLP_FILE", "PROM_PORT", "MCP_PORT", "API_BASE_URL", "DATABASE_URL"],
-  workers: ["CAPSTAN_NETWORK", "PUBLIC_API_HOST", "OTLP_FILE", "PROM_PORT", "DATABASE_URL", "REDIS_URL", "WORKER_JOBS"],
+  workers: ["CAPSTAN_NETWORK", "PUBLIC_API_HOST", "OTLP_FILE", "PROM_PORT", "DATABASE_URL", "REDIS_URL", "WORKER_JOBS", "CAPSTAN_EGRESS_ID"],
   facilitator: ["CAPSTAN_NETWORK", "PUBLIC_API_HOST", "OTLP_FILE", "PROM_PORT", "FACILITATOR_PORT", "DATABASE_URL", "REDIS_URL", "X402_SETTLE_ARMED"],
 };
 

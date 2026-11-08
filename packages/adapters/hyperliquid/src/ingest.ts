@@ -6,7 +6,7 @@
 // It never subscribes to user channels (the venue allows only 10 unique users per IP).
 import { memoryMarketDataCache, type Db, type Logger, type MarketDataCache, type Redis } from "@capstan/core";
 import { db as tables, venueNetwork, venueUrlOverride, type OrderBook } from "@capstan/schema";
-import { createGovernor, createMemoryGovernor, venueHttp, type Governor, type VenueHttp, type VenueWs } from "@capstan/venue-client";
+import { egressIdOf, createGovernor, createMemoryGovernor, venueHttp, type Governor, type VenueHttp, type VenueWs } from "@capstan/venue-client";
 import { parseMarketId } from "./meta";
 import { mulStr, type HlMarket } from "./normalize";
 import { createHlReader, HL_MAINNET, HL_TESTNET, hlWs, type HlConfig, type HlReader } from "./read";
@@ -155,7 +155,7 @@ export function createHlRuntime(env: Record<string, string | undefined>, deps: {
   // a local stand-in venue (fork stack, CAPSTAN_VENUE_URL_HYPERLIQUID, loopback only) replaces the hosts
   const o = venueUrlOverride("hyperliquid", env);
   const cfg: HlConfig = { ...base, ...(o ? { infoUrl: `${o}/info`, exchangeUrl: `${o}/exchange`, wsUrl: `${o.replace(/^http/, "ws")}/ws` } : {}), builderAddress: builder };
-  const egress = env.EGRESS_ID ?? env.RELAY_EGRESS_ID ?? "local";
+  const egress = egressIdOf(env); // one label per host (D2-ADP-06)
   const governor = deps.redis ? createGovernor(deps.redis, egress) : createMemoryGovernor(egress);
   const venue = testnet ? "hyperliquid-testnet" : "hyperliquid";
   const http = venueHttp(venue, cfg.infoUrl.replace(/\/info$/, ""), governor, { priority: "free" });

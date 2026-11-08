@@ -29,7 +29,7 @@ import {
 } from "@capstan/relay";
 import { CancelBuildZ, CapstanError, CloseAllBuildZ, errorBody, OrderBuildZ, OrderSubmitZ, type BuildContext, type ErrorCode, type Hex, type OrderIntent, type UnsignedVenuePayload, type VenueId, type VenueIdentity } from "@capstan/schema";
 import { buildContextFee, STANDARD_FEE, type BuilderFee } from "@capstan/plans";
-import type { Priority } from "@capstan/venue-client";
+import { egressIdOf, withVenueLane, type Priority } from "@capstan/venue-client";
 import { clientIp, edgeScopeMatches } from "@capstan/eligibility";
 import { and, eq } from "drizzle-orm";
 import type { Context } from "hono";
@@ -187,27 +187,48 @@ export function createOrderRoutes(getDeps: () => Promise<OrdersRouteDeps> | Orde
       const apiKeyId = ctxGet(c, "apiKeyId") as string | undefined;
       let b: UnsignedVenuePayload;
       try {
-        b = await adapter.buildOrder(intent, buildCtx(c, a, await deps.feeOf(owner, apiKeyId), { policyId: policy?.policyId ?? null, mode, requestHash, nowMs }));
+        const fee = await deps.feeOf(owner, apiKeyId);
+        // build reads (book, marks, nonces) in the pro lane with a deadline, never behind public reads (D2-ADP-05);
+        // a reduce-only build is exit traffic and reads in the safety lane
+        b = await withVenueLane(intent.reduceOnly ? "safety" : "pro", () => adapter.buildOrder(intent, buildCtx(c, a, fee, { policyId: policy?.policyId ?? null, mode, requestHash, nowMs })));
       } catch (e) {
         const ce = asCapstan(e);
         if (ce && BUILD_REFUSALS.includes(ce.code)) return refuseBuild(c, deps, ce.code, { ...base, message: ce.message });
         if (ce) return fail(c, ce.code, ce.message, ce.receiptId);
         throw e;
       }
+      // a build refused from here on is never handed out, so its Lighter nonce goes back: the next build carries it
+      // and the key is not left behind a nonce the venue never sees (security r2 D2-ADP-01)
+      const giveBack = () => {
+        try {
+          adapter.releaseBuild?.(b);
+        } catch {
+          // a release never changes the answer
+        }
+      };
       if (policy) {
         // the same gross window as the relay (security r1 R1-06): open exposure, never a daily sum
-        const w = await grossWindow(deps.exposure, policy.issuedAtMs, owner, venue, nowMs);
+        const w = await grossWindow(deps.exposure, policy.issuedAtMs, owner, venue, nowMs).catch((e) => (giveBack(), Promise.reject(e)));
         const u0 = await deps.usage(agentRef, nowMs, { sinceMs: w.sinceMs, restingSinceMs: w.restingSinceMs });
         const u = { ...u0, grossNotionalUsd: (Number(u0.grossNotionalUsd) + w.base).toFixed(2) };
         const r = checkPolicy({ policy: policy.policy, agentRef, venue, marketId: intent.marketId, side: intent.side, notionalUsd: b.preview.notionalUsd, leverage: intent.leverage ?? 1, reduceOnly: intent.reduceOnly, grossNotionalUsd: u.grossNotionalUsd, ordersToday: u.ordersToday, nowMs, mode });
         if (!r.ok) {
+          giveBack();
           await deps.alerts.policyBreach({ owner, agentRef, field: r.field, buildId: b.buildId }).catch(() => undefined);
           return refuseBuild(c, deps, "POLICY_BREACH", { ...base, field: r.field, message: `The request breaches the agent policy (${r.field}).` });
         }
       }
       const q = quoteCheck(b, intent);
-      if (q) return fail(c, q);
-      await store(deps, b, a, "order", { mode, requestHash, policyId: policy?.policyId ?? null, leverage: intent.leverage ?? 1, intent });
+      if (q) {
+        giveBack();
+        return fail(c, q);
+      }
+      try {
+        await store(deps, b, a, "order", { mode, requestHash, policyId: policy?.policyId ?? null, leverage: intent.leverage ?? 1, intent });
+      } catch (e) {
+        giveBack();
+        throw e;
+      }
       recordFunnel("build");
       return c.json(b);
     },
@@ -253,7 +274,7 @@ export function createOrderRoutes(getDeps: () => Promise<OrdersRouteDeps> | Orde
       const adapter = deps.adapters.get(a.venue);
       if (!adapter || a.venue !== venue) return fail(c, "INVALID_INPUT", "The market is not on this agent's venue.");
       const requestHash = sha256Jcs(body);
-      const b = await adapter.buildCancel({ marketId, ...(venueOrderId ? { venueOrderId } : {}), ...(clientOrderId ? { clientOrderId } : {}) }, buildCtx(c, a, STANDARD_FEE, { policyId: null, mode: "relay", requestHash, nowMs: deps.now(), closing: true }));
+      const b = await withVenueLane("safety", () => adapter.buildCancel({ marketId, ...(venueOrderId ? { venueOrderId } : {}), ...(clientOrderId ? { clientOrderId } : {}) }, buildCtx(c, a, STANDARD_FEE, { policyId: null, mode: "relay", requestHash, nowMs: deps.now(), closing: true })));
       await store(deps, b, a, "cancel", { mode: "relay", requestHash, policyId: null, leverage: 1, intent: null });
       return c.json(b);
     },
@@ -287,7 +308,16 @@ export function createOrderRoutes(getDeps: () => Promise<OrdersRouteDeps> | Orde
           unavailable.push({ venue, reason: "close-all is not available for this venue here" });
           continue;
         }
-        for (const b of await adapter.buildCloseAll(a.identity, buildCtx(c, a, STANDARD_FEE, { policyId: null, mode: "relay", requestHash, nowMs: deps.now(), closing: true }))) {
+        // one venue failing (no fresh Aster read, a book read error) never costs the owner the other venues' closes
+        // (security r2 D2-ADP-03): it is listed in unavailable instead
+        let legs: UnsignedVenuePayload[];
+        try {
+          legs = await withVenueLane("safety", () => adapter.buildCloseAll!(a.identity, buildCtx(c, a, STANDARD_FEE, { policyId: null, mode: "relay", requestHash, nowMs: deps.now(), closing: true })));
+        } catch (e) {
+          unavailable.push({ venue, reason: `close-all unavailable: ${(e instanceof Error && e.message ? e.message : "the venue could not build it here").slice(0, 200)}` });
+          continue;
+        }
+        for (const b of legs) {
           if (!b.preview.reduceOnly) throw new CapstanError("INTERNAL_ERROR", "a close-all build must be reduce-only");
           await store(deps, b, a, "close", { mode: "relay", requestHash, policyId: null, leverage: 1, intent: null });
           out.push(b);
@@ -350,7 +380,7 @@ export async function ordersEnvDeps(): Promise<OrdersRouteDeps> {
     const relayStore = pgRelayStore(db);
     const { createGovernor } = await import("@capstan/venue-client");
     const policy = dbPolicySource(db);
-    const claimDeps: ClaimDeps = { store: relayStore, venues: await relayVenues(env, createGovernor(redis, env.RELAY_EGRESS_ID ?? "local")), receipts, policy, flags: relayFlags(env), kill: memoryKillView(), now: Date.now, id: () => ulid() };
+    const claimDeps: ClaimDeps = { store: relayStore, venues: await relayVenues(env, createGovernor(redis, egressIdOf(env))), receipts, policy, flags: relayFlags(env), kill: memoryKillView(), now: Date.now, id: () => ulid() };
     const { Queue } = await import("bullmq");
     const alertsQ = new Queue(QUEUES.alertsDispatch, { connection: bull, prefix: "capstan" });
     const { tierOf, dbWalletActivity, limitsFor, lockReaderFromEnv } = await import("@capstan/plans");

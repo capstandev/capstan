@@ -3,7 +3,7 @@
 // that dedupes submits. Delegations are public data only.
 import { schema, type Db } from "@capstan/core";
 import type { Hex, OrderIntent, RiskView, UnsignedVenuePayload, VenueId } from "@capstan/schema";
-import { and, desc, eq, gte, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, lte, sql } from "drizzle-orm";
 import type { AgentUsage, BuildKind, DelegationView, GrossSince, NewOrderRow, RelayStore, StoredBuild } from "./types";
 
 export interface BuildFacts {
@@ -138,6 +138,15 @@ export function pgRelayStore(db: Db): RelayStore {
     async releaseOrder(id) {
       await db.delete(o).where(eq(o.id, id));
     },
+    async unsettledOrders(from, to, limit) {
+      const rows = await db
+        .select({ id: o.id, buildId: o.buildId, venue: o.venue, signedPayloadHash: o.signedPayloadHash, status: o.status, venueOrderId: o.venueOrderId, submittedAt: o.submittedAt })
+        .from(o)
+        .where(and(eq(o.mode, "relay"), inArray(o.status, ["pending", "unknown"]), gte(o.submittedAt, from), lte(o.submittedAt, to)))
+        .orderBy(o.submittedAt)
+        .limit(limit);
+      return rows.map((r) => ({ ...r, venue: r.venue as VenueId, signedPayloadHash: r.signedPayloadHash as Hex }));
+    },
     agentUsage: (agentRef, nowMs, since) => pgAgentUsage(db, agentRef, nowMs, since),
     async reserveAgentOrder(row, agentRef, nowMs, since, check) {
       // one transaction per reservation: the advisory lock serialises every relay process's reservations for this
@@ -188,6 +197,13 @@ export function memoryRelayStore(): RelayStore & { builds: Map<string, StoredBui
       if (r) byHash.delete(r.signedPayloadHash);
       orders.delete(id);
     },
+    async unsettledOrders(from, to, limit) {
+      return [...orders.values()]
+        .filter((r) => r.mode === "relay" && (r.status === "pending" || r.status === "unknown") && r.submittedAt >= from && r.submittedAt <= to)
+        .sort((a, b) => a.submittedAt.getTime() - b.submittedAt.getTime())
+        .slice(0, limit)
+        .map((r) => ({ id: r.id, buildId: r.buildId, venue: r.venue, signedPayloadHash: r.signedPayloadHash, status: r.status, venueOrderId: r.venueOrderId ?? null, submittedAt: r.submittedAt }));
+    },
     async agentUsage(agentRef, nowMs, w) {
       let gross = 0;
       let count = 0;
@@ -221,6 +237,22 @@ export function memoryRelayStore(): RelayStore & { builds: Map<string, StoredBui
 export const EXPOSURE_FRESH_MS = 10 * 60_000;
 
 /**
+ * The positions read behind one venue entry of a stored risk view, or null when it is not a safety input (security r2
+ * R2-RELAY-01). A 'client_read' entry is whatever the caller posted to /v1/risk/ingest in direct mode: only the query
+ * signature is checked, never the answer, and the policed agent itself can post it. So only reads the server made
+ * count. Aster entries must say who read the positions ('positionsSource', set by the positionRisk ingest) and that it
+ * was the relay; a later balance read moves 'source' and 'asOf' but not the positions, so 'positionsAsOf' is the time.
+ * Venues read server side from public account endpoints (Hyperliquid, Lighter) carry no source and count as before.
+ */
+export function positionsRead(snap: { venue: VenueId; asOf: string; source?: unknown; positionsSource?: unknown; positionsAsOf?: unknown }): { asOf: string } | null {
+  if (snap.venue === "aster" || snap.source !== undefined || snap.positionsSource !== undefined) {
+    if (snap.positionsSource !== "relay_read" || typeof snap.positionsAsOf !== "string") return null;
+    return { asOf: snap.positionsAsOf };
+  }
+  return { asOf: snap.asOf };
+}
+
+/**
  * Open exposure from risk_snapshots (security r1 R1-06): the owner's newest snapshot within EXPOSURE_FRESH_MS, summed
  * over that venue's positions. Owner-level, so other agents' positions on the account count too (over-counting only
  * refuses earlier). Null when there is no fresh snapshot or the venue is missing from it; the relay then counts every
@@ -235,14 +267,22 @@ export function dbExposure(db: Db): import("./types").ExposureSource {
         .where(and(eq(schema.riskSnapshots.owner, owner.toLowerCase()), gte(schema.riskSnapshots.ts, new Date(nowMs - EXPOSURE_FRESH_MS))))
         .orderBy(desc(schema.riskSnapshots.ts))
         .limit(1);
-      const snap = (r?.view as RiskView | undefined)?.perVenue?.find((p) => p.venue === venue);
-      const asOfMs = snap ? Date.parse(snap.asOf) : Number.NaN;
-      if (!snap || !Number.isFinite(asOfMs) || nowMs - asOfMs > EXPOSURE_FRESH_MS) return null;
-      const gross = snap.positions.reduce((n, p) => n + Math.abs(Number(p.notionalUsd)), 0);
-      if (!Number.isFinite(gross)) return null;
-      return { grossUsd: gross.toFixed(2), asOfMs };
+      return exposureFromView(r?.view as RiskView | undefined, venue, nowMs);
     },
   };
+}
+
+/** One venue's open gross from a stored risk view, or null when it is missing, stale or not a safety input. */
+export function exposureFromView(view: RiskView | undefined, venue: VenueId, nowMs: number): { grossUsd: string; asOfMs: number } | null {
+  const snap = view?.perVenue?.find((p) => p.venue === venue);
+  if (!snap) return null;
+  const read = positionsRead(snap);
+  if (!read) return null;
+  const asOfMs = Date.parse(read.asOf);
+  if (!Number.isFinite(asOfMs) || nowMs - asOfMs > EXPOSURE_FRESH_MS) return null;
+  const gross = snap.positions.reduce((n, p) => n + Math.abs(Number(p.notionalUsd)), 0);
+  if (!Number.isFinite(gross)) return null;
+  return { grossUsd: gross.toFixed(2), asOfMs };
 }
 
 /** Venue-signal refusals (spec 10 input 4) cached per owner and venue for 24 h. */

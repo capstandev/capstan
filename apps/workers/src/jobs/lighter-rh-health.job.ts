@@ -3,12 +3,12 @@
 // on their own boot check (fail closed). Only reviewed pin updates in constants move the pin.
 import { bootCheck, lighterReaderFor, LIGHTER_CONFIGS, rhcSlotReader, type BootResult, type SlotReader } from "@capstan/adapter-lighter";
 import type { JobDef, JobDeps } from "@capstan/core";
-import { createMemoryGovernor, createGovernor } from "@capstan/venue-client";
+import { egressIdOf, createMemoryGovernor, createGovernor } from "@capstan/venue-client";
 
 export const OPS_ALERT_CHANNEL = "ops.alert";
 
 export async function runRhHealth(deps: JobDeps, o: { reader?: Parameters<typeof bootCheck>[0]; rpc?: SlotReader } = {}): Promise<BootResult> {
-  const egress = process.env.CAPSTAN_EGRESS_ID ?? "local";
+  const egress = egressIdOf(process.env); // one label per host (D2-ADP-06)
   const gov = deps.redis ? createGovernor(deps.redis, egress) : createMemoryGovernor(egress);
   const reader = o.reader ?? lighterReaderFor(LIGHTER_CONFIGS.rh, gov, deps.cache);
   const r = await bootCheck(reader, o.rpc ?? rhcSlotReader());

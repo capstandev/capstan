@@ -7,6 +7,7 @@
 import { CapstanError } from "@capstan/schema";
 import { arcusWeight, asterWeight, hlExchangeWeight, hlInfoWeight, HL_INFO_PER_ITEMS, type Priority, type VenueKey } from "./budgets";
 import { currentRecorder } from "./record-context";
+import { currentVenueLane, LANE_DEADLINE_MS } from "./lane-context";
 import type { Governor } from "./governor";
 import { parseJsonLossless } from "./json";
 
@@ -59,7 +60,10 @@ export interface VenueHttp {
 export interface VenueHttpOptions {
   timeoutMs?: number;
   userAgent?: string;
+  /** Lane when the caller names none with withVenueLane (default free). */
   priority?: Priority;
+  /** Budget wait per request when the lane names none (default LANE_DEADLINE_MS for the lane). */
+  deadlineMs?: number;
   maxTries?: number;
   backoffBaseMs?: number;
   fetchImpl?: typeof fetch;
@@ -109,7 +113,11 @@ export function venueHttp(venue: VenueKey, baseUrl: string, gov: Governor, opts:
     const rec = currentRecorder();
     if (rec) rec.check(venue, method, path);
     const cost = init.cost ?? defaultCost(venue, method, path, init.query, init.json);
-    await gov.acquire(venue, cost, { priority });
+    // the caller's lane (withVenueLane) wins; every wait has a deadline and fails closed (D2-ADP-05)
+    const lane = currentVenueLane();
+    const prio: Priority = lane?.priority ?? priority;
+    const deadlineMs = lane?.deadlineMs ?? opts.deadlineMs ?? LANE_DEADLINE_MS[prio];
+    await gov.acquire(venue, cost, { priority: prio, deadlineMs });
     const headers: Record<string, string> = { "user-agent": ua, accept: "application/json" };
     let body: string | undefined;
     if (init.json !== undefined) {
@@ -135,7 +143,7 @@ export function venueHttp(venue: VenueKey, baseUrl: string, gov: Governor, opts:
     const t = (init.json as { type?: unknown } | undefined)?.type;
     if (venue.startsWith("hyperliquid") && path === "/info" && typeof t === "string" && HL_INFO_PER_ITEMS[t] && Array.isArray(parsed)) {
       const extra = hlInfoWeight(t, parsed.length) - hlInfoWeight(t, 0);
-      if (extra > 0) await gov.acquire(venue, extra, { priority });
+      if (extra > 0) await gov.acquire(venue, extra, { priority: prio, deadlineMs });
     }
     const raw = { httpStatus: res.status, headers: res.headers, text, body: parsed };
     if (rec) rec.capture(venue, method, url, init.json ?? init.form ?? null, raw);

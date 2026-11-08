@@ -4,7 +4,7 @@
 // intervals per market without notice (PTBUSDT moved 1 h -> 4 h).
 import type { MarketDataCache } from "@capstan/core";
 import { CapstanError, venueNetwork, type FundingSnapshot, type Market, type MarketEvent, type OrderBook, type Unsubscribe } from "@capstan/schema";
-import { asterWeight, createGovernor, createMemoryGovernor, isUnknownOutcome, venueHttp, venueWs, type Governor, type VenueHttp, type VenueHttpOptions, type VenueWs } from "@capstan/venue-client";
+import { egressIdOf, asterWeight, createGovernor, createMemoryGovernor, isUnknownOutcome, venueHttp, venueWs, type Governor, type VenueHttp, type VenueHttpOptions, type VenueWs } from "@capstan/venue-client";
 import type { Redis } from "ioredis";
 import { asterConfig, assertV3Path, validateAsterConfig, type AsterConfig, type AsterNetwork } from "./config";
 import {
@@ -208,9 +208,9 @@ export function asterHttp(cfg: AsterConfig, gov: Governor, opts: VenueHttpOption
   return venueHttp(cfg.governorKey, cfg.rest, gov, { userAgent: "capstan-aster", ...opts });
 }
 
-/** Egress label for the governor: the host's one static IP (never rotated), else "local". */
+/** Egress label for the governor: the host's one label, shared by every service on it (D2-ADP-06). */
 export function egressLabel(env: Record<string, string | undefined> = process.env): string {
-  return env.RELAY_EGRESS_IP?.trim() || "local";
+  return egressIdOf(env);
 }
 
 /** Reader wired from the environment: Redis governor when a client is given, else an in-process one. */

@@ -1,5 +1,5 @@
 // Aster order builds (spec 4.4 step 5, 7.3, 7.4; venue-aster.md sections 4.1 and 5). The agent key signs the exact
-// query string (Mode B). Every order carries the brand builder and a feeRate string (0.0002, or 0.0001 for the lock
+// query string (Mode B). Every opening order carries the brand builder and a feeRate string (0.0002, or 0.0001 for the lock
 // tier) that must not exceed the owner's approved maxFeeRate. Market orders are never sent as raw MARKET: they become
 // IOC LIMIT orders at the slippage bound, and the preview is the book walk at that same limit price (quote ==
 // execution).
@@ -166,6 +166,8 @@ function signerOf(ctx: BuildContext): Hex {
 export interface BuildOptions {
   /** A reduce-only close on a liquidation path: Aster pays no builder fee there, so the preview promises none. */
   liquidationPath?: boolean;
+  /** Set by the build: a reduce-only close with no builder fields. */
+  noBuilder?: boolean;
 }
 
 // ---------------------------------------------------------------- build order
@@ -174,7 +176,10 @@ export async function buildAsterOrder(intent: OrderIntent, ctx: BuildContext, de
   const market = await deps.market(intent.marketId);
   if (market.status !== "active" && !(market.status === "reduce_only" && intent.reduceOnly)) throw new CapstanError("MARKET_NOT_EXECUTABLE");
   if (intent.side !== "buy" && intent.side !== "sell") throw new CapstanError("INVALID_INPUT", "side", { field: "side" });
-  const feeRate = feeRateFor(ctx); // refuses before anything is built when above the approval
+  // a reduce-only close built with no builder fee (close-all, kill: security r2 D2-ADP-03) carries no builder fields, so
+  // it never needs a builder approval; every other order refuses before anything is built when above the approval
+  const noBuilder = intent.reduceOnly === true && ctx.builderFee === null;
+  const feeRate = noBuilder ? null : feeRateFor(ctx);
   const signer = signerOf(ctx);
   const quantity = assertStep(intent.size, market.lotSize, "size");
   const book = await deps.book(intent.marketId);
@@ -201,10 +206,12 @@ export async function buildAsterOrder(intent: OrderIntent, ctx: BuildContext, de
     ["price", price],
   ];
   if (intent.reduceOnly) params.push(["reduceOnly", "true"]);
-  params.push(["newClientOrderId", clientOrderId], ["builder", deps.builder], ["feeRate", feeRate], ["asterChain", deps.network], ["user", ctx.owner], ["signer", signer], ["nonce", nonceNumber(deps.nonceFor(signer), ctx.nowMs)]);
+  params.push(["newClientOrderId", clientOrderId]);
+  if (feeRate !== null) params.push(["builder", deps.builder], ["feeRate", feeRate]);
+  params.push(["asterChain", deps.network], ["user", ctx.owner], ["signer", signer], ["nonce", nonceNumber(deps.nonceFor(signer), ctx.nowMs)]);
   const chainId = deps.network === "Testnet" ? 714 : 1666;
   const payload: AsterOrderPayload = { method: "POST", path: "/fapi/v3/order", chainId, params, signer, clientOrderId, kind: "order" };
-  const preview = previewFor(intent, market, book, price, quantity, feeRate, deps, opts);
+  const preview = previewFor(intent, market, book, price, quantity, feeRate ?? "0", deps, noBuilder ? { ...opts, noBuilder: true } : opts);
   if (market.minNotional && Dec.cmp(d(preview.notionalUsd), d(market.minNotional)) < 0) throw new CapstanError("INVALID_INPUT", `order notional is under the venue minimum ${market.minNotional}`, { field: "size" });
   return {
     buildId: ulid(ctx.nowMs),
@@ -225,8 +232,8 @@ function previewFor(intent: OrderIntent, market: Market, book: OrderBook, price:
   const warnings: string[] = [];
   if (!w.complete) warnings.push(`only ${w.filled} of ${quantity} is available at or better than ${price}`);
   if (market.status === "reduce_only") warnings.push("market is settling: reduce-only");
-  const noFee = opts.liquidationPath === true;
-  if (noFee) warnings.push("liquidation path: no builder fee is charged");
+  const noFee = opts.liquidationPath === true || opts.noBuilder === true;
+  if (opts.liquidationPath === true) warnings.push("liquidation path: no builder fee is charged");
   const avg = w.avgPx ?? price;
   const slip = best && w.avgPx ? Math.abs(Number(str(Dec.div(Dec.mul(Dec.sub(d(w.avgPx), d(best)), d("10000"), S), d(best), 6)))) : 0;
   const fee = feeBpsOf(feeRate);
@@ -235,7 +242,10 @@ function previewFor(intent: OrderIntent, market: Market, book: OrderBook, price:
     side: intent.side,
     size: quantity,
     px: price,
-    notionalUsd: str(Dec.mul(d(quantity), d(avg), S)),
+    // a buy's unfilled remainder fills deeper, up to the built limit, or rests there, so it is priced at the limit
+    // (security r2 D2-ADP-07): policy caps compare this notional. A sell's remainder fills below the visible average,
+    // so the average stays its upper bound.
+    notionalUsd: intent.side === "buy" ? str(Dec.add(Dec.mul(d(w.filled), d(avg), S), Dec.mul(Dec.sub(d(quantity), d(w.filled)), d(price), S))) : str(Dec.mul(d(quantity), d(avg), S)),
     venueFeeBps: deps.venueFeeBps ?? ASTER_BASE_TAKER_BPS,
     builderFeeBps: noFee ? 0 : fee,
     builderFee: noFee ? null : { address: deps.builder, rawUnit: `feeRate=${feeRate}` },
@@ -292,7 +302,9 @@ export async function buildAsterCloseAll(
 ): Promise<UnsignedVenuePayload[]> {
   const snap = ctx.snapshot;
   if (!snap || snap.venue !== "aster" || snap.identity.owner.toLowerCase() !== id.owner.toLowerCase()) throw new AsterNeedsSignedRead();
-  if (ctx.nowMs - Date.parse(snap.asOf) > SNAPSHOT_MAX_AGE_MS) throw new AsterNeedsSignedRead();
+  // the positions' own read time: a later balance read moves asOf but not the positions (security r2 R2-RELAY-01)
+  const posAsOf = (snap as AccountSnapshot & { positionsAsOf?: string }).positionsAsOf ?? snap.asOf;
+  if (ctx.nowMs - Date.parse(posAsOf) > SNAPSHOT_MAX_AGE_MS) throw new AsterNeedsSignedRead();
   const out: UnsignedVenuePayload[] = [];
   for (const p of snap.positions) {
     if (Dec.isZero(d(p.size))) continue;

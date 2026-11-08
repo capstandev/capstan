@@ -64,7 +64,7 @@ describe("config", () => {
   test("arming a mainnet broadcaster needs CAPSTAN_NETWORK=mainnet", () => {
     const env = { ...envExample(), ANCHOR_SIGNER: "keystore", ANCHOR_KEYSTORE_PATH: "/k", ANCHOR_KEYSTORE_PASSWORD_FILE: "/p", ANCHOR_CHAIN_ID: "4663", ANCHOR_ARMED: "1" };
     expect(() => loadConfig("workers", env)).toThrow(/refused: ANCHOR_ARMED, ANCHOR_CHAIN_ID, CAPSTAN_NETWORK/);
-    expect(loadConfig("workers", { ...env, CAPSTAN_NETWORK: "mainnet" }).ANCHOR_ARMED).toBe(true);
+    expect(loadConfig("workers", { ...env, CAPSTAN_NETWORK: "mainnet", CAPSTAN_EGRESS_ID: "vps-1" }).ANCHOR_ARMED).toBe(true);
   });
 
   test("env-example-safe", () => {

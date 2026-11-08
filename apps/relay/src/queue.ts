@@ -43,8 +43,14 @@ export async function runRelayJob(data: RelayJobData, deps: RelayDeps, o: { reru
   }
 }
 
-export function startRelayWorker(connection: Redis, deps: RelayDeps, o: { concurrency?: number; prefix?: string } = {}): Worker<RelayJobData, RelayJobResult> {
-  return new Worker<RelayJobData, RelayJobResult>(QUEUES.relaySubmit, async (job: Job<RelayJobData>) => traceFromJob(job.data, "relay submit", () => runRelayJob(job.data, deps, { rerun: isRerun(job) })), { connection, prefix: o.prefix ?? "capstan", concurrency: o.concurrency ?? RELAY_WORKER_CONCURRENCY });
+export function startRelayWorker(connection: Redis, deps: RelayDeps, o: { concurrency?: number; prefix?: string; lockDuration?: number; stalledInterval?: number } = {}): Worker<RelayJobData, RelayJobResult> {
+  return new Worker<RelayJobData, RelayJobResult>(QUEUES.relaySubmit, async (job: Job<RelayJobData>) => traceFromJob(job.data, "relay submit", () => runRelayJob(job.data, deps, { rerun: isRerun(job) })), {
+    connection,
+    prefix: o.prefix ?? "capstan",
+    concurrency: o.concurrency ?? RELAY_WORKER_CONCURRENCY,
+    ...(o.lockDuration ? { lockDuration: o.lockDuration } : {}),
+    ...(o.stalledInterval ? { stalledInterval: o.stalledInterval } : {}),
+  });
 }
 
 export interface RelayClient {

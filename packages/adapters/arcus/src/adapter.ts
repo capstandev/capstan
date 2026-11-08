@@ -6,7 +6,7 @@
 // Execution is T2: no key path, no session key, no referral rail exists here. Capstan never collects or relays KYC.
 import type { MarketDataCache } from "@capstan/core";
 import { CapstanError, VENUE_HOSTS, venueNetwork, type FundingSnapshot, type Market, type MarketEvent, type OrderBook, type Unsubscribe, type VenueCapabilities } from "@capstan/schema";
-import { arcusWeight, createGovernor, createMemoryGovernor, venueHttp, type Governor, type VenueHttp, type VenueHttpOptions } from "@capstan/venue-client";
+import { egressIdOf, arcusWeight, createGovernor, createMemoryGovernor, venueHttp, type Governor, type VenueHttp, type VenueHttpOptions } from "@capstan/venue-client";
 import type { Redis } from "ioredis";
 import { displayNameOf, markOf, normalizeBook, normalizeFunding, normalizeMarket, type ArcusBbo, type ArcusBook, type ArcusMarket, type ArcusMarkets } from "./normalize";
 import { dataOnlyCaps, dataOnlyMethods, type DataOnlyMethods, type ReadOnlyAdapter } from "./readonly";
@@ -236,7 +236,7 @@ export function arcusHttp(cfg: ArcusConfig, gov: Governor, opts: VenueHttpOption
 export function defaultArcusAdapter(o: { redis?: Redis | null; cache?: MarketDataCache | null; env?: Record<string, string | undefined> } = {}): ArcusAdapter {
   const env = o.env ?? process.env;
   const cfg = venueNetwork("arcus", env) === "testnet" ? ARCUS_TESTNET : ARCUS_MAINNET;
-  const egress = env.RELAY_EGRESS_IP?.trim() || "local";
+  const egress = egressIdOf(env); // one label per host (D2-ADP-06)
   const gov = o.redis ? createGovernor(o.redis, egress) : createMemoryGovernor(egress);
   return createArcusAdapter(cfg, arcusHttp(cfg, gov), o.cache ?? null);
 }

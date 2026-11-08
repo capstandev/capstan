@@ -7,6 +7,7 @@
 // Redis down: the free lane refuses (fail closed); the pro lane and the exit lane fall back to an in-process window
 // (an exit is never refused only because Redis is down).
 import type { Redis } from "@capstan/core";
+import type { VenueId } from "@capstan/schema";
 import type { LaneDecision, LaneLimiter } from "./types";
 
 export const WINDOW_MS = 60_000;
@@ -14,6 +15,15 @@ export const BOT_CAP_PER_MIN = 20;
 /** Exit traffic per minute: well above any honest close pattern (a kill closes one order per market). */
 export const EXIT_PER_MIN_WALLET = 60;
 export const EXIT_PER_MIN_IP = 120;
+/**
+ * Exit caps per venue budget (security r2 R2-RELAY-02). Lighter's shared relay budget is 60 requests a minute at one a
+ * second (governor 80%, so 48), so one IP bucket may take at most half of it and one wallet a quarter; Hyperliquid
+ * and Aster budgets are weight based and far larger, so the defaults above apply.
+ */
+export const EXIT_CAPS: Partial<Record<VenueId, { wallet: number; ip: number }>> = {
+  "lighter-mainnet": { wallet: 12, ip: 24 },
+  "lighter-rh": { wallet: 12, ip: 24 },
+};
 export const DIRECT_MODE_HINT = "This wallet is over the relay limit. Use direct mode (the SDK posts to the venue itself) for automated trading.";
 
 interface Check {
@@ -25,10 +35,16 @@ interface Check {
 function checksFor(o: Parameters<LaneLimiter["take"]>[0]): Check[] {
   const w = o.wallet.toLowerCase();
   if (o.kind !== "order") {
-    return [
+    const out: Check[] = [
       { key: `relay:exit:w:${w}`, limit: EXIT_PER_MIN_WALLET, reason: "exit_wallet" },
       { key: `relay:exit:ip:${o.ipBucket}`, limit: EXIT_PER_MIN_IP, reason: "exit_ip" },
     ];
+    const v = o.venue ? EXIT_CAPS[o.venue] : undefined;
+    if (v) {
+      out.push({ key: `relay:exit:${o.venue}:w:${w}`, limit: v.wallet, reason: "exit_wallet" });
+      out.push({ key: `relay:exit:${o.venue}:ip:${o.ipBucket}`, limit: v.ip, reason: "exit_ip" });
+    }
+    return out;
   }
   const out: Check[] = [{ key: `relay:bot:${w}`, limit: BOT_CAP_PER_MIN, reason: "bot_cap" }];
   if (o.lane === "free") {

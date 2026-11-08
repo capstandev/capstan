@@ -3,12 +3,12 @@
 import { lighterConfigsFor, lighterReaderFor } from "@capstan/adapter-lighter";
 import type { MarketSource } from "@capstan/catalog";
 import { venueUrlOverride } from "@capstan/schema";
-import { createMemoryGovernor } from "@capstan/venue-client";
+import { catalogGovernor } from "./governor";
 
 export const source: MarketSource = {
   venue: "lighter-rh",
   listMarkets: () => {
     const rest = venueUrlOverride("lighter-rh", process.env); // a local stand-in venue on the fork stack (loopback only)
-    return lighterReaderFor(lighterConfigsFor(process.env)[1], createMemoryGovernor(process.env.CAPSTAN_EGRESS_ID ?? "local"), null, rest ? { rest } : {}).listMarkets();
+    return lighterReaderFor(lighterConfigsFor(process.env)[1], catalogGovernor(), null, rest ? { rest } : {}).listMarkets();
   },
 };

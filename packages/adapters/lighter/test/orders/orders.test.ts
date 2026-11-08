@@ -79,7 +79,8 @@ describe("orders", () => {
     const acct = accountSnapshot(env.cfg, id, withLong, new Date(NOW).toISOString());
     const open = acct.positions;
     expect(open.length).toBeGreaterThanOrEqual(2);
-    const reader = { getAccount: async () => acct, marketMeta: env.reader.marketMeta };
+    // a fresh book per market, read at close time (security r2 D2-ADP-04)
+    const reader = { getAccount: async () => acct, marketMeta: env.reader.marketMeta, getBook: async (m: string) => bookFromLevels(m, [["2300.00", "100"]], [["2200.00", "100"]]) };
     const nonces = new NonceTracker({ nextNonce: async () => 41, tx: async () => ({ found: false, status: null }) }, () => NOW);
     const builds = await buildCloseAll(id, { ...buildCtx(env.cfg, id), cfg: env.cfg, reader, nonces, hasher, fee: STD_FEE, integratorAccountIndex: 0 });
     expect(builds.length).toBe(open.length);

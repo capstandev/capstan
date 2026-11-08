@@ -112,6 +112,8 @@ export interface KillResult {
   closeAll?: UnsignedVenuePayload[];
   keyWiped: true;
   closeAllResults?: { marketId: string; status: string; receiptId: string | null; error?: string }[];
+  /** Lighter: the fresh key the revocation rotates the slot to (it signs the bundle's new_api_key step). */
+  replacementKeyRef?: string;
   error?: string;
 }
 
@@ -567,7 +569,14 @@ export function createClient(o: CapstanClientOptions): CapstanClient {
         if (a && keyRef && SECP.has(a.venue)) sig = (await ks.sign(keyRef, personalDigest(message))) as Hex; // self-halt with the agent key
         else if (o.walletSigner) sig = await o.walletSigner.signMessage(message);
         else throw new SdkError("INVALID_INPUT", "a Lighter agent is stopped with the owner's wallet signature");
-        const r = await api.post<{ relayBlocked: boolean; revocation?: OnboardingBundle; closeAll?: UnsignedVenuePayload[] }>(`/agents/${encodeURIComponent(agentRef)}/kill`, { sig, message, ts: issuedAt, closeAll });
+        // a Lighter revocation rotates the key slot to a fresh key made here (security r2 D2-ADP-02)
+        let replacementPubKey: string | undefined;
+        if (a && LIGHTER.has(a.venue)) {
+          const fresh = await newKey(a.venue, new Set());
+          replacementPubKey = fresh.publicPart;
+          result.replacementKeyRef = fresh.ref;
+        }
+        const r = await api.post<{ relayBlocked: boolean; revocation?: OnboardingBundle; closeAll?: UnsignedVenuePayload[] }>(`/agents/${encodeURIComponent(agentRef)}/kill`, { sig, message, ts: issuedAt, closeAll, ...(replacementPubKey ? { replacementPubKey } : {}) });
         result.serverReached = true;
         result.relayBlocked = r.relayBlocked === true;
         if (r.revocation) result.revocation = r.revocation;

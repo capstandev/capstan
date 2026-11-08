@@ -2,9 +2,9 @@
 // included (they become delisted rows). Market type comes from the venue's market_type string; spot never executes.
 import { lighterConfigsFor, lighterReaderFor } from "@capstan/adapter-lighter";
 import type { MarketSource } from "@capstan/catalog";
-import { createMemoryGovernor } from "@capstan/venue-client";
+import { catalogGovernor } from "./governor";
 
 export const source: MarketSource = {
   venue: "lighter-mainnet",
-  listMarkets: () => lighterReaderFor(lighterConfigsFor(process.env)[0], createMemoryGovernor(process.env.CAPSTAN_EGRESS_ID ?? "local"), null).listMarkets(),
+  listMarkets: () => lighterReaderFor(lighterConfigsFor(process.env)[0], catalogGovernor(), null).listMarkets(),
 };

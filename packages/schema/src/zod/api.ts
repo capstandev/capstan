@@ -176,7 +176,9 @@ export const AgentPolicyZ = z.object({
 });
 export const AgentPolicySubmitZ = z.object({ policy: AgentPolicyZ, ownerSig: SigZ });
 // POST /agents/{agentRef}/kill
-export const AgentKillZ = z.object({ sig: SigZ, message: z.string().min(1).max(2000), closeAll: z.boolean().optional() });
+// replacementPubKey: the Lighter API public key (40 bytes of hex) the owner's SDK made; a Lighter revocation rotates the
+// agent's key slot to it (security r2 D2-ADP-02). Without it Lighter rows are listed as unavailable.
+export const AgentKillZ = z.object({ sig: SigZ, message: z.string().min(1).max(2000), closeAll: z.boolean().optional(), replacementPubKey: z.string().regex(/^(0x)?[0-9a-fA-F]{80}$/).optional() });
 
 // GET /receipts/{id}
 export const ReceiptIdZ = z.object({ id: UlidZ });

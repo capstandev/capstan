@@ -9,9 +9,9 @@ export async function envAccountDeps(env: Record<string, string | undefined>, de
   const hl = await import("@capstan/adapter-hyperliquid");
   const lt = await import("@capstan/adapter-lighter");
   const aster = await import("@capstan/adapter-aster");
-  const { createGovernor, createMemoryGovernor } = await import("@capstan/venue-client");
+  const { createGovernor, createMemoryGovernor, egressIdOf } = await import("@capstan/venue-client");
   const rt = hl.createHlRuntime(env, { redis: deps.redis, cache: deps.cache });
-  const egress = env.EGRESS_ID ?? env.RELAY_EGRESS_ID ?? "local";
+  const egress = egressIdOf(env); // one label per host (D2-ADP-06)
   const gov = deps.redis ? createGovernor(deps.redis, egress) : createMemoryGovernor(egress);
   const adapters = new Map<VenueId, AccountAdapter>();
   adapters.set("hyperliquid", { caps: hl.hlCaps("0x0000000000000000000000000000000000000000"), getAccount: (id) => rt.reader.getAccount(id) });

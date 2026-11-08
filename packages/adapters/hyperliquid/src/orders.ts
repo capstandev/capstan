@@ -5,7 +5,7 @@ import { sha256 } from "@noble/hashes/sha2.js";
 import { utf8ToBytes } from "@noble/hashes/utils.js";
 import canonicalize from "canonicalize";
 import { ulid, type MarketDataCache } from "@capstan/core";
-import { CapstanError, type BuildContext, type CancelIntent, type FundingSnapshot, type Hex, type OrderBook, type OrderIntent, type OrderPreview, type UnsignedVenuePayload, type VenueIdentity } from "@capstan/schema";
+import { CapstanError, Dec, type BuildContext, type CancelIntent, type FundingSnapshot, type Hex, type OrderBook, type OrderIntent, type OrderPreview, type UnsignedVenuePayload, type VenueIdentity } from "@capstan/schema";
 import { assertNonceWindow, formatPrice, formatSize, l1Digest, toHex, type HlBuilder, type HlCancelAction, type HlCancelByCloidAction, type HlL1Action, type HlNetwork, type HlOrderAction, type HlOrderWire } from "@capstan/signer-hl";
 import type { HlMarket } from "./normalize";
 import { absStr } from "./normalize";
@@ -264,13 +264,15 @@ async function buildOne(d: HlBuildDeps, m: HlMarket, spec: WireSpec, ctx: HlBuil
   );
   if (q.status !== "ok") warnings.push(`insufficient_depth: the book fills ${q.filledSize} of ${size} at the limit`);
   if (q.estLiqPx) warnings.push("estLiqPx is computed, not venue-reported");
-  const notional = q.avgFillPx && q.avgFillPx !== "0" ? q.avgFillPx : limit;
+  // a buy's part the visible book does not fill is priced at the built limit, where it fills deeper or rests (security
+  // r2 D2-ADP-07, review-r1:7 F7): policy caps compare this notional, never the partial average over the whole size
+  const notionalUsd = notionalOf(spec.side, size, q.filledSize, q.avgFillPx, limit);
   const preview: HlOrderPreview = {
     marketId: m.id,
     side: spec.side,
     size,
     px: limit,
-    notionalUsd: mulStrSafe(size, notional),
+    notionalUsd,
     venueFeeBps: q.venueFeeBps,
     builderFeeBps: builder ? builder.f / 10 : 0,
     builderFee: builder ? { address: builder.b, rawUnit: `f=${builder.f}` } : null,
@@ -312,6 +314,26 @@ async function buildOne(d: HlBuildDeps, m: HlMarket, spec: WireSpec, ctx: HlBuil
   };
   if (ctx.mode === "direct") out.direct = { postUrl: d.cfg.exchangeUrl, body: { action, nonce, signature: "<signature>", vaultAddress: null, expiresAfter } };
   return out;
+}
+
+const decimals = (x: string) => (x.includes(".") ? x.length - x.indexOf(".") - 1 : 0);
+const trimDec = (x: string) => (x.includes(".") ? x.replace(/0+$/, "").replace(/\.$/, "") : x);
+
+/**
+ * Preview notional (D2-ADP-07): a buy's filled part at its walk average plus the rest at the built limit (it fills
+ * deeper up to the limit or rests there). A sell's remainder fills below the visible average, so the average over the
+ * whole size stays its upper bound.
+ */
+export function notionalOf(side: "buy" | "sell", size: string, filled: string | null | undefined, avg: string | null | undefined, limit: string): string {
+  if (!avg || avg === "0" || !filled || Dec.isZero(Dec.parse(filled, decimals(filled)))) return mulStrSafe(size, limit);
+  if (side === "sell") return mulStrSafe(size, avg);
+  const sc = Math.max(decimals(size), decimals(filled));
+  const rest = Dec.sub(Dec.parse(size, sc), Dec.parse(filled, sc));
+  if (Dec.cmp(rest, Dec.parse("0", sc)) <= 0) return mulStrSafe(size, avg);
+  const x = mulStrSafe(filled, avg);
+  const y = mulStrSafe(trimDec(Dec.toString(rest)), limit);
+  const out = Math.max(decimals(x), decimals(y));
+  return trimDec(Dec.toString(Dec.add(Dec.parse(x, out), Dec.parse(y, out))));
 }
 
 function mulStrSafe(a: string, b: string): string {

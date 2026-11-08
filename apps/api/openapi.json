@@ -150,6 +150,10 @@
                   },
                   "closeAll": {
                     "type": "boolean"
+                  },
+                  "replacementPubKey": {
+                    "type": "string",
+                    "pattern": "^(0x)?[0-9a-fA-F]{80}$"
                   }
                 },
                 "required": [

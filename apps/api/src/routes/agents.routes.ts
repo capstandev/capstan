@@ -7,6 +7,7 @@
 //   message changes nothing and answers the same kill state.
 // The kill stops Capstan's relay only; it cannot remove the key from the venue. The answer says so.
 import { createDb, createQueue, createRedis, redisNonceStore, schema, type Db, type NonceStore, type RouteSpec } from "@capstan/core";
+import { withVenueLane } from "@capstan/venue-client";
 import { activePolicyFor, buildKillResponse, killNonceKey, PolicyStoreError, redisKillSwitch, storePolicy, verifyKillAuth, type KillAdapter, type KillSwitch } from "@capstan/policy";
 import { drafts, jcs, type ReceiptDraft } from "@capstan/receipts";
 import { AgentKillZ, AgentPolicySubmitZ, errorBody, type AgentPolicy, type Hex, type VenueId } from "@capstan/schema";
@@ -105,7 +106,8 @@ export function createAgentRoutes(getDeps: () => Promise<AgentRouteDeps> | Agent
         const receipt = await deps.receipts.issue(
           drafts.agentKill({ owner, agentRef, venue: dg.venue as VenueId, policyId: policy?.policyId ?? null, requestHash: hashOf({ agentRef, sig, message, closeAll }), eligibilityDecisionId: KILL_ELIGIBILITY_ID }),
         );
-        const res = await buildKillResponse(agentRef, { adapters: deps.adapters, db: deps.db, closeAll, now: () => nowMs });
+        // revocation and close-all reads run in the safety lane (D2-ADP-05)
+        const res = await withVenueLane("safety", () => buildKillResponse(agentRef, { adapters: deps.adapters, db: deps.db, closeAll, now: () => nowMs, ...(parsed.data.replacementPubKey ? { replacementPubKey: parsed.data.replacementPubKey } : {}) }));
         return c.json({ ...res, by, alreadyKilled, receiptId: receipt.receiptId, ...(receipt.queued ? { receiptQueued: receipt.queued } : {}) });
       },
     },

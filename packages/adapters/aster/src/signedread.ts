@@ -87,7 +87,15 @@ export function redisAccountStore(redis: Redis): AccountSnapshotStore {
 
 export interface AsterAccountSnapshot extends AccountSnapshot {
   venue: "aster";
+  /** Who made the newest read that changed this snapshot. */
   source: "client_read" | "relay_read";
+  /**
+   * Who made the read the positions came from, and when (security r2 R2-RELAY-01). A balance read after a positions
+   * read changes source and asOf but not the positions, so safety inputs (the relay's gross cap) use these instead.
+   * Absent until a positionRisk read lands.
+   */
+  positionsSource?: "client_read" | "relay_read";
+  positionsAsOf?: string;
 }
 
 export function memoryAccountStore(now: () => number = Date.now): AccountSnapshotStore {
@@ -269,7 +277,7 @@ export async function ingestSignedRead(body: IngestBody, deps: IngestDeps): Prom
   let openOrders = prev?.openOrders ?? null;
   if (kind === "positionRisk") {
     if (!Array.isArray(answer)) throw new CapstanError("INVALID_INPUT", "positionRisk answer must be an array", { field: "snapshot" });
-    snapshot = { ...snapshot, positions: positionsFrom(answer as AsterPositionRow[], deps.marginAssetOf, asOf) };
+    snapshot = { ...snapshot, positions: positionsFrom(answer as AsterPositionRow[], deps.marginAssetOf, asOf), positionsSource: source, positionsAsOf: asOf };
   } else if (kind === "balance") {
     if (!Array.isArray(answer)) throw new CapstanError("INVALID_INPUT", "balance answer must be an array", { field: "snapshot" });
     let eq = d("0");

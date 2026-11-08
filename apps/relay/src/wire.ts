@@ -10,7 +10,7 @@ import { createReceiptService, pgReceiptStore, validateDraft, type ReceiptDraft 
 import { venueNetwork, venueUrlOverride, type Hex, type Receipt, type VenueId } from "@capstan/schema";
 import { dbWalletActivity, limitsFor, tierOf, viemLockReader, type LockReader, type Tier } from "@capstan/plans";
 import { tracedFetch } from "@capstan/telemetry";
-import { createGovernor, venueHttp, type Governor } from "@capstan/venue-client";
+import { createGovernor, egressIdOf, venueHttp, type Governor } from "@capstan/venue-client";
 import { Queue, QueueEvents, Worker } from "bullmq";
 import { priorityDispatcher, RELAY_MAX_OPEN_JOBS } from "./dispatch";
 import { relayFlags, type SwitchableFlags } from "./flags";
@@ -18,7 +18,7 @@ import { redisKillView, type RedisKillView } from "./kill";
 import { redisLaneLimiter } from "./lanes";
 import { dbExposure, pgRelayStore, redisVenueSignals } from "./stores";
 import type { RelayDeps, RelayVenue } from "./types";
-import { asterRelayVenue, hlRelayVenue, lighterRelayVenue, sha256Jcs } from "./venues";
+import { asterRelayVenue, hlLookup, hlRelayVenue, lighterLookup, lighterRelayVenue, sha256Jcs } from "./venues";
 
 /** A governor that grants at once but forwards venue feedback (429, 418, used-weight) to the real one. */
 export function passThroughGovernor(real: Governor): Governor {
@@ -47,12 +47,12 @@ export async function relayVenues(env: Record<string, string | undefined>, gov: 
   const cache = memoryMarketDataCache();
   // the pipeline checks delegation state itself; the adapter's own check would also block direct-mode claims
   const hl = createHlAdapter(hlCfg, { http: hlHttp, cache, reader: createHlReader(hlCfg, hlHttp, cache), agentState: () => "active" });
-  out.set("hyperliquid", hlRelayVenue(hl, { governorKey: hlKey }));
+  out.set("hyperliquid", hlRelayVenue(hl, { governorKey: hlKey, lookup: hlLookup(hlHttp) }));
   for (const cfg of lighterConfigsFor(env)) {
     const venue = cfg.venue;
     const http = venueHttp(cfg.governorKey, venueUrlOverride(venue, env) ?? cfg.rest, pass, { userAgent: "capstan-relay", fetchImpl: tracedFetch(venue) });
     const a = createLighterAdapter(cfg, { http, cache: null, execution: env.LIGHTER_EXECUTION === "1" });
-    out.set(venue, lighterRelayVenue(venue, a, { governorKey: cfg.governorKey, l1Of: (b) => b.owner }));
+    out.set(venue, lighterRelayVenue(venue, a, { governorKey: cfg.governorKey, l1Of: (b) => b.owner, lookup: lighterLookup(http) }));
   }
   if (env.CAPSTAN_RUNNER === "vps") {
     const aster = await import("@capstan/adapter-aster");
@@ -185,7 +185,7 @@ export async function relayRuntime(cfg: ConfigFor<"relay">, env: Record<string, 
   const db = createDb(cfg.DATABASE_URL, { max: 8 });
   const redis = createRedis(cfg.REDIS_URL);
   const bull = createRedis(cfg.REDIS_URL, { forBullmq: true });
-  const governor = createGovernor(redis, cfg.RELAY_EGRESS_ID);
+  const governor = createGovernor(redis, egressIdOf(env)); // one label per host (D2-ADP-06)
   const kill = redisKillView(redis);
   const flags = relayFlags(env, { log: (c) => log?.("relay flag changed", { ...c }) });
   let receipts: RelayDeps["receipts"];
