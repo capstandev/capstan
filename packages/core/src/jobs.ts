@@ -13,6 +13,8 @@ export interface JobDeps {
   log: Logger;
   now: () => Date;
   publish?: (channel: string, payload: unknown) => Promise<void>;
+  /** The worker's lock token for the running job (needed to move it back to delayed). */
+  token?: string;
 }
 
 export interface JobDef {

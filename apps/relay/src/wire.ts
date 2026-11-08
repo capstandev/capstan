@@ -3,7 +3,7 @@
 // submit, never two). Aster submits are signed calls: they are wired only on the VPS (CAPSTAN_RUNNER=vps).
 import { createAdapter as createHlAdapter, createHlReader, HL_MAINNET, HL_TESTNET } from "@capstan/adapter-hyperliquid";
 import { createLighterAdapter, lighterConfigsFor } from "@capstan/adapter-lighter";
-import { createDb, createRedis, loadConfig, memoryMarketDataCache, QUEUES, ulid, type ConfigFor, type Db, type Redis } from "@capstan/core";
+import { createDb, createRedis, enqueuePolicyBreach, loadConfig, memoryMarketDataCache, QUEUES, ulid, type ConfigFor, type Db, type Redis } from "@capstan/core";
 import { decide } from "@capstan/eligibility";
 import { activePolicyFor } from "@capstan/policy";
 import { createReceiptService, pgReceiptStore, type ReceiptDraft } from "@capstan/receipts";
@@ -150,8 +150,8 @@ export async function relayRuntime(cfg: ConfigFor<"relay">, env: Record<string, 
     flags,
     alerts: {
       async policyBreach(e) {
-        // same work shape as the alerts-dispatch producers (apps/workers/src/alerts/producers.ts)
-        await alertsQ.add("alerts-dispatch", { source: "policy_breach", owner: e.owner.toLowerCase(), agentRef: e.agentRef, field: e.field }, { removeOnComplete: 1000, removeOnFail: 5000 });
+        // the shared producer: same work shape and BullMQ priority as every other alert producer (R1-8-03)
+        await enqueuePolicyBreach(alertsQ, { owner: e.owner, agentRef: e.agentRef, field: e.field });
       },
     },
     dispatch: priorityDispatcher(8),

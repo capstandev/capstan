@@ -2,14 +2,20 @@
 // the market data cache, write it to funding_ticks at the minute (a re-run in the same minute updates the same row),
 // compute the next 8 settlements, cache md:forecast:<marketId> for 120 s and publish PUBSUB.funding(asset) when the
 // forecast changed. Funding is observed and changes hourly; a forecast is an estimate.
+// History is hourly (R1-8-05): the funding_hourly continuous aggregate for full hours older than RECENT_RAW_MS, and the
+// last few hours of funding_ticks bucketed by hour in SQL. A market gets at most 7 x 24 + 5 points whatever the tick
+// density or uptime, so a run never pulls 7 days of raw ticks onto the shared workers event loop.
 import { PUBSUB, type Db, type JobDef, type JobDeps, type MarketDataCache } from "@capstan/core";
 import { forecast, normalise, type Forecast, type FundingTick } from "@capstan/quote";
 import { db as schema, type CanonicalAsset, type FundingSnapshot, type Market } from "@capstan/schema";
 import { rowToMarket } from "@capstan/catalog";
-import { and, gte, inArray, isNotNull, sql } from "drizzle-orm";
+import { isNotNull, sql } from "drizzle-orm";
 
 export const FORECAST_TTL_MS = 120_000;
 export const HISTORY_WINDOW_MS = 7 * 86_400_000;
+/** Ticks newer than (this hour - 3 h) are bucketed from funding_ticks: the aggregate policy materialises up to 1 h back
+ * and runs hourly, so older full hours are in funding_hourly. */
+export const RECENT_RAW_MS = 3 * 3_600_000;
 export const forecastKey = (marketId: string) => `md:forecast:${marketId}`;
 
 export interface ForecastKv {
@@ -68,12 +74,12 @@ export async function runFundingTick(d: FundingTickDeps): Promise<FundingTickRep
     report.ticksWritten += chunk.length;
   }
 
-  const hist = await d.db
-    .select({ ts: schema.fundingTicks.ts, marketId: schema.fundingTicks.marketId, ratePerHour: schema.fundingTicks.ratePerHour })
-    .from(schema.fundingTicks)
-    .where(and(inArray(schema.fundingTicks.marketId, markets.map((m) => m.id)), gte(schema.fundingTicks.ts, new Date(now.getTime() - HISTORY_WINDOW_MS))));
   const byMarket = new Map<string, FundingTick[]>();
-  for (const h of hist) byMarket.set(h.marketId, [...(byMarket.get(h.marketId) ?? []), { ts: h.ts, marketId: h.marketId, ratePerHour: String(h.ratePerHour) }]);
+  for (const h of await hourlyHistory(d.db, markets.map((m) => m.id), now)) {
+    let list = byMarket.get(h.marketId);
+    if (!list) byMarket.set(h.marketId, (list = []));
+    list.push(h);
+  }
 
   for (const m of markets) {
     const f = snaps.get(m.id) ?? null;
@@ -89,6 +95,22 @@ export async function runFundingTick(d: FundingTickDeps): Promise<FundingTickRep
     }
   }
   return report;
+}
+
+/** Hourly funding history of the markets over the last 7 days (at most 7 x 24 + 5 rows per market). */
+export async function hourlyHistory(db: Db, marketIds: string[], now: Date): Promise<FundingTick[]> {
+  if (!marketIds.length) return [];
+  const since = new Date(now.getTime() - HISTORY_WINDOW_MS).toISOString();
+  const cut = new Date(now.getTime() - (now.getTime() % 3_600_000) - RECENT_RAW_MS).toISOString();
+  const ids = sql.join(marketIds.map((id) => sql`${id}`), sql`, `);
+  const rows = (await db.execute(sql`
+    SELECT market_id, bucket AS ts, rate_per_hour FROM funding_hourly
+      WHERE market_id IN (${ids}) AND bucket >= ${since}::timestamptz AND bucket < ${cut}::timestamptz
+    UNION ALL
+    SELECT market_id, time_bucket('1 hour', ts) AS ts, avg(rate_per_hour) AS rate_per_hour FROM funding_ticks
+      WHERE market_id IN (${ids}) AND ts >= ${cut}::timestamptz
+      GROUP BY market_id, time_bucket('1 hour', ts)`)) as unknown as { market_id: string; ts: Date | string; rate_per_hour: string | number }[];
+  return rows.map((r) => ({ marketId: r.market_id, ts: typeof r.ts === "string" ? new Date(r.ts) : r.ts, ratePerHour: String(r.rate_per_hour) }));
 }
 
 export function redisKv(redis: { get(k: string): Promise<string | null>; set(k: string, v: string, px: "PX", ms: number): Promise<unknown> }): ForecastKv {

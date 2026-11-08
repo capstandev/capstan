@@ -61,6 +61,9 @@ export interface Running {
   stop(o?: { graceMs?: number }): Promise<{ forced: boolean }>;
 }
 
+/** Job schedulers that once lived on a queue and moved away: removed from the old queue at start. */
+export const MOVED_SCHEDULERS: Partial<Record<JobDef["queue"], string[]>> = { alertsDispatch: ["ops-alerts"] }; // R1-8-03
+
 /**
  * Start one Worker per queue that dispatches by job name. Several jobs share a queue (reconcile-daily hosts many), and
  * BullMQ hands any job on a queue to any worker on it, so a worker per job name would complete other jobs' runs
@@ -85,21 +88,24 @@ export async function startJobs(jobs: JobDef[], deps: JobDeps, connection: Redis
     const q = createQueue(key, connection, prefix);
     queues.push(q);
     for (const job of group) if (job.schedule) await upsertSchedule(q, job.name, job.schedule);
+    // schedulers a job left behind when it moved to another queue (a name with no handler here would fail every run)
+    for (const id of MOVED_SCHEDULERS[key] ?? []) await q.removeJobScheduler(id);
     const handlers = new Map(group.map((j) => [j.name, j]));
     const w = new Worker(
       QUEUES[key],
-      async (bj) => {
+      async (bj, token) => {
         const job = handlers.get(bj.name);
         if (!job) throw new RunnerError(`no handler for job ${bj.name} on queue ${QUEUES[key]} in this worker`);
         // one CONSUMER span per run (continuing the producer's trace when the job carries one) and run counters
-        const run = traceFromJob(bj.data as { traceparent?: unknown } | null, `job ${job.name}`, () => job.handler(bj, { ...deps, log: deps.log.child({ job: job.name }) }));
+        const run = traceFromJob(bj.data as { traceparent?: unknown } | null, `job ${job.name}`, () => job.handler(bj, { ...deps, log: deps.log.child({ job: job.name }), ...(token ? { token } : {}) }));
         active.add(run);
         try {
           const r = await run;
           SERVICE_METRICS.jobRuns.inc(job.name);
           return r;
         } catch (e) {
-          SERVICE_METRICS.jobFailures.inc(job.name);
+          // a job moved back to delayed on purpose (DelayedError) is not a failure
+          if ((e as Error)?.name !== "DelayedError") SERVICE_METRICS.jobFailures.inc(job.name);
           throw e;
         } finally {
           active.delete(run);

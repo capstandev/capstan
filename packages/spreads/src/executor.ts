@@ -38,7 +38,14 @@ export interface ExecutorPorts {
   build(intent: OrderIntent, venue: VenueId): Promise<UnsignedVenuePayload>;
   sign(p: UnsignedVenuePayload): Promise<SignedEnvelope>;
   submit(env: SignedEnvelope): Promise<SubmitResult>;
+  /**
+   * The venue's own read of an order. `done` must mean the venue confirmed the order is final (filled, cancelled or
+   * rejected). A read that cannot confirm that (no reader for the venue, order not found yet, a bad answer) must say
+   * done false, never "filled 0, done": the executor then never retries or flattens on top of it.
+   */
   fillOf(venue: VenueId, venueOrderId: string): Promise<{ filled: string; avgPx: string | null; done: boolean }>;
+  /** False for a venue whose fills this host cannot read: the executor then sends nothing at all (R1-8-01). */
+  canReadFill?(venue: VenueId): boolean;
   post(ev: ExecutorEvent): Promise<void>;
   now(): number;
   sleep(ms: number): Promise<void>;
@@ -155,6 +162,14 @@ export async function execute(p: SpreadPlan, ports: ExecutorPorts): Promise<Exec
   const lotB = lotOfLeg(p, "b", ports);
   const slip = p.maxLegSlippageBps;
   const ioc = (leg: SpreadPlan["legA"], size: Dec, which: string, reduceOnly = false, side: "buy" | "sell" = leg.side): OrderIntent => ({ marketId: leg.marketId, side, size: s(size), type: "market", tif: "ioc", reduceOnly, clientOrderId: legClientOrderId(p.planId, which, leg.venue), maxSlippageBps: slip });
+
+  // a leg whose fill cannot be read here would be guessed at; refuse the plan before any order is sent (R1-8-01)
+  for (const L of [p.legA, p.legB]) {
+    if (ports.canReadFill && !ports.canReadFill(L.venue)) {
+      await post({ kind: "failed", data: { reason: `fills on ${L.venue} cannot be read here, so nothing was sent` } });
+      return done("failed", ZERO, ZERO, ZERO);
+    }
+  }
 
   // ---- leg A
   const aSize = floorLot(d(p.legA.size), lotA);

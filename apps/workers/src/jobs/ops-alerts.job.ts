@@ -118,7 +118,7 @@ export async function runOpsAlerts(deps: JobDeps, o: OpsAlertsOptions = {}) {
 
 export const job: JobDef = {
   name: "ops-alerts",
-  queue: "alertsDispatch",
+  queue: "opsAlerts", // its own queue: user webhooks can never delay a page to the team (R1-8-03)
   schedule: { every: 15_000 },
   concurrency: 1,
   handler: (_job, deps) => runOpsAlerts(deps),

@@ -245,10 +245,13 @@ export function Spreads({ deps = {} }: { deps?: SpreadsDeps }) {
   );
 }
 
-/** The SDK's executor over this session's client (fills read on Hyperliquid; other venues report no fill). */
-function defaultExecute(s: ReturnType<typeof useSession>) {
+/**
+ * The SDK's executor over this session's client. Fills are read on Hyperliquid only; a plan with a leg on a venue
+ * whose fill cannot be read here is refused before any order is sent, and an unread fill is never a no-fill (R1-8-01).
+ */
+export function defaultExecute(s: ReturnType<typeof useSession>) {
   return async (planId: string, log: (e: ExecutorEvent) => void) => {
-    const { executeSpreadPlan, createApi } = await import("../../lib/capstan");
+    const { executeSpreadPlan, createApi, venueFillReader } = await import("../../lib/capstan");
     if (!s.client || !s.connected) throw new Error("Connect your wallet to do this.");
     const owner = s.connected.owner;
     const base = createApi(s.cfg.apiBase, s.cfg.fetch ?? fetch);
@@ -256,17 +259,8 @@ function defaultExecute(s: ReturnType<typeof useSession>) {
       if (path.endsWith("/events")) log(body as ExecutorEvent);
       return base.post<T>(path, body);
     } };
-    const hl = s.cfg.venueHosts?.hyperliquid ?? "https://api.hyperliquid.xyz";
-    const r = await executeSpreadPlan(planId, s.client, api, {
-      async fillOf(venue, venueOrderId) {
-        if (venue !== "hyperliquid") return { filled: "0", avgPx: null, done: true };
-        const res = await (s.cfg.fetch ?? fetch)(`${hl.replace(/\/$/, "")}/info`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ type: "orderStatus", user: owner, oid: Number(venueOrderId) }) });
-        const j = (await res.json()) as { order?: { order?: { sz?: string; origSz?: string; limitPx?: string }; status?: string } };
-        const o = j.order?.order;
-        const filled = o?.origSz && o?.sz ? String(Number(o.origSz) - Number(o.sz)) : "0";
-        return { filled, avgPx: o?.limitPx ?? null, done: j.order?.status !== "open" };
-      },
-    });
+    const reader = venueFillReader({ owner, fetch: s.cfg.fetch ?? fetch, hyperliquidHost: s.cfg.venueHosts?.hyperliquid ?? "https://api.hyperliquid.xyz" });
+    const r = await executeSpreadPlan(planId, s.client, api, reader);
     return { status: r.status };
   };
 }

@@ -4,7 +4,7 @@
 // of a signed refusal receipt. Builds live 30 s in order_builds. Submit enqueues relay-submit and waits up to 10 s.
 // No amend route exists: an amendment is a cancel build plus a new order build, signed twice (DECISIONS #54).
 import { recordFunnel } from "@capstan/telemetry";
-import { createDb, createRedis, schema, ulid, type Db, type RouteSpec } from "@capstan/core";
+import { createDb, createRedis, enqueuePolicyBreach, QUEUES, schema, ulid, type Db, type RouteSpec } from "@capstan/core";
 import { checkPolicy } from "@capstan/policy";
 import { draft, type ReceiptDraft } from "@capstan/receipts";
 import {
@@ -345,7 +345,7 @@ export async function ordersEnvDeps(): Promise<OrdersRouteDeps> {
     const policy = dbPolicySource(db);
     const claimDeps: ClaimDeps = { store: relayStore, venues: await relayVenues(env, createGovernor(redis, env.RELAY_EGRESS_ID ?? "local")), receipts, policy, flags: relayFlags(env), kill: memoryKillView(), now: Date.now, id: () => ulid() };
     const { Queue } = await import("bullmq");
-    const alertsQ = new Queue("alerts-dispatch", { connection: bull, prefix: "capstan" });
+    const alertsQ = new Queue(QUEUES.alertsDispatch, { connection: bull, prefix: "capstan" });
     const { tierOf, dbWalletActivity, limitsFor, lockReaderFromEnv } = await import("@capstan/plans");
     // the real CPSTLock reader (found on the fork run, todo 40: a hard-coded zero lock meant locking never gave the
     // 1 bp builder fee or the holder lane on an order build)
@@ -359,7 +359,8 @@ export async function ordersEnvDeps(): Promise<OrdersRouteDeps> {
       policy,
       usage: relayStore.agentUsage,
       issue: async (d) => ({ receiptId: (await receipts.issue(d)).receiptId }),
-      alerts: { policyBreach: async (e) => void (await alertsQ.add("alerts-dispatch", { source: "policy_breach", owner: e.owner.toLowerCase(), agentRef: e.agentRef, field: e.field }, { removeOnComplete: 1000, removeOnFail: 5000 })) },
+      // the shared producer sets the alert queue priority (R1-8-03): a refusal never jumps ahead of liquidation alerts
+      alerts: { policyBreach: (e) => enqueuePolicyBreach(alertsQ, { owner: e.owner, agentRef: e.agentRef, field: e.field }) },
       feeOf: async (owner, apiKeyId) => (await tier(owner, apiKeyId))?.builderFee ?? STANDARD_FEE,
       laneOf: async (owner, apiKeyId) => {
         const t = await tier(owner, apiKeyId);

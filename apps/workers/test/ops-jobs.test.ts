@@ -27,7 +27,7 @@ const env = () => ({ ALERTS_ARMED: "1", ALERTS_TOKEN_FILE: join(dir, "token"), A
 
 describe("ops jobs", () => {
   test("definitions", () => {
-    expect(alertsJob).toMatchObject({ name: "ops-alerts", queue: "alertsDispatch", schedule: { every: 15_000 }, concurrency: 1 });
+    expect(alertsJob).toMatchObject({ name: "ops-alerts", queue: "opsAlerts", schedule: { every: 15_000 }, concurrency: 1 });
     expect(retentionJob).toMatchObject({ name: "log-retention", queue: "reconcileDaily", schedule: { pattern: "15 2 * * *" }, concurrency: 1 });
   });
 

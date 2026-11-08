@@ -20,5 +20,5 @@ export type { Receipt } from "../../../packages/schema/src/receipt";
 export type { SpreadPlan } from "../../../packages/schema/src/spread";
 export { SPREAD_RISK_LABEL } from "../../../packages/schema/src/spread";
 export type { AgentPolicy } from "../../../packages/schema/src/policy";
-export { executeSpreadPlan, type ExecutorEvent } from "../../../packages/sdk/src/spreads";
+export { executeSpreadPlan, venueFillReader, type ExecutorEvent } from "../../../packages/sdk/src/spreads";
 export { createApi, type Api } from "../../../packages/sdk/src/api";

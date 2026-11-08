@@ -9,6 +9,8 @@ export type GuardResult = { ok: true; ip: string; family: 4 | 6; host: string; p
 export type Resolver = (host: string) => Promise<string[]>;
 
 export const ALLOWED_PORTS = [443, 8443] as const;
+/** A webhook host's name lookup gets this long (R1-8-03): an attacker's resolver cannot hold a worker slot. */
+export const LOOKUP_TIMEOUT_MS = 2000;
 
 export const systemResolver: Resolver = async (host) => (await dns.lookup(host, { all: true, verbatim: true })).map((a) => a.address);
 
@@ -114,7 +116,7 @@ export function isPublicIp(ip: string): boolean {
   return false;
 }
 
-export async function guardUrl(url: string, resolver: Resolver = systemResolver): Promise<GuardResult> {
+export async function guardUrl(url: string, resolver: Resolver = systemResolver, o: { lookupTimeoutMs?: number } = {}): Promise<GuardResult> {
   let u: URL;
   try {
     u = new URL(url);
@@ -131,10 +133,14 @@ export async function guardUrl(url: string, resolver: Resolver = systemResolver)
   let addrs: string[];
   if (isIP(literal)) addrs = [literal];
   else {
+    let timer: ReturnType<typeof setTimeout> | undefined;
     try {
-      addrs = await resolver(host);
+      const ms = Math.max(0, o.lookupTimeoutMs ?? LOOKUP_TIMEOUT_MS);
+      addrs = await Promise.race([resolver(host), new Promise<never>((_, rej) => (timer = setTimeout(() => rej(new Error("lookup timeout")), ms)))]);
     } catch {
       return { ok: false, reason: "the host does not resolve" };
+    } finally {
+      clearTimeout(timer);
     }
   }
   if (!addrs.length) return { ok: false, reason: "the host does not resolve" };

@@ -4,8 +4,10 @@
 import { schema, type Db, type JobDef } from "@capstan/core";
 import type { CapstanRiskView } from "@capstan/risk";
 import { and, eq, isNotNull } from "drizzle-orm";
+import { DelayedError, type Job } from "bullmq";
 import { readFileSync } from "node:fs";
-import { dispatch, expiryAlerts, liqAlerts, policyBreachAlert, secretDeriver, unhedgedAlert, type AlertEvent, type AlertWork, type DispatchDeps } from "../alerts";
+import { dispatch, expiryAlerts, JOB_BUDGET_MS, liqAlerts, policyBreachAlert, secretDeriver, unhedgedAlert, type AlertEvent, type AlertWork, type DispatchDeps } from "../alerts";
+import { OWNER_BUSY_DELAY_MS, redisOwnerLock, redisSlowStreak, type OwnerLock } from "../alerts/owner-limits";
 
 export function alertsFor(w: AlertWork, delegations: (typeof schema.delegations.$inferSelect)[], now: Date): AlertEvent[] {
   switch (w.source) {
@@ -40,6 +42,27 @@ export function alertKeyFromEnv(env: Record<string, string | undefined> = proces
   return k;
 }
 
+/** Sources a wallet can cause itself: one of them runs at a time per owner (R1-8-03); risk and expiry work never wait. */
+export const OWNER_SERIAL_SOURCES: readonly AlertWork["source"][] = ["plan", "policy_breach"];
+
+/**
+ * Run an owner's caller-triggerable alert only while no other one of the same owner runs, so one wallet holds at most
+ * one worker slot. When the owner is busy the job goes back as delayed (same priority) and the slot is freed at once.
+ */
+export async function oneAtATimePerOwner<T>(j: Pick<Job, "moveToDelayed">, w: AlertWork, lock: OwnerLock, token: string | undefined, run: () => Promise<T>, now = Date.now): Promise<T> {
+  if (!OWNER_SERIAL_SOURCES.includes(w.source) || !("owner" in w)) return run();
+  const held = await lock.take(w.owner, JOB_BUDGET_MS + 5000);
+  if (!held) {
+    await j.moveToDelayed(now() + OWNER_BUSY_DELAY_MS, token);
+    throw new DelayedError();
+  }
+  try {
+    return await run();
+  } finally {
+    await held.release();
+  }
+}
+
 export const job: JobDef = {
   name: "alerts-dispatch",
   queue: "alertsDispatch",
@@ -49,8 +72,11 @@ export const job: JobDef = {
     if (!deps.db) throw new Error("alerts-dispatch needs a database");
     const raw = j.data as Partial<AlertWork> | undefined;
     const w: AlertWork = raw && typeof raw === "object" && "source" in raw && raw.source ? (raw as AlertWork) : { source: "expiry_scan" };
-    const r = await runAlertsDispatch(w, { db: deps.db, now: deps.now, secretOf: secretDeriver(alertKeyFromEnv()) });
-    deps.log.info("alerts-dispatch", { source: w.source, ...r });
-    return r;
+    const run = async () => {
+      const r = await runAlertsDispatch(w, { db: deps.db!, now: deps.now, secretOf: secretDeriver(alertKeyFromEnv()), ...(deps.redis ? { slow: redisSlowStreak(deps.redis) } : {}) });
+      deps.log.info("alerts-dispatch", { source: w.source, ...r });
+      return r;
+    };
+    return deps.redis ? oneAtATimePerOwner(j, w, redisOwnerLock(deps.redis), deps.token, run) : run();
   },
 };

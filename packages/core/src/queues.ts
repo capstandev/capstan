@@ -15,7 +15,8 @@ export const QUEUES = {
   spreadScan: "spread-scan",
   reconcileDaily: "reconcile-daily",
   x402Settle: "x402-settle",
-  alertsDispatch: "alerts-dispatch",
+  alertsDispatch: "alerts-dispatch", // user webhook alerts only
+  opsAlerts: "ops-alerts", // the team's ops alerts, never behind user webhook work (R1-8-03)
   quoteBatch: "quote-batch", // reserved, not used in v1 (quotes run in-process)
 } as const;
 

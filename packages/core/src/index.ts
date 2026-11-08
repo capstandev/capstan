@@ -4,6 +4,7 @@ export * from "./db";
 export * from "./migrate";
 export * from "./redis";
 export * from "./queues";
+export * from "./alert-queue";
 export * from "./jobs";
 export * from "./routes";
 export * from "./ulid";
