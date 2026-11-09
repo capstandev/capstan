@@ -129,27 +129,37 @@ export function receiptRetryQueue(connection: Redis, o: { prefix?: string; delay
   };
 }
 
-/** Receipts when the relay holds no key (RECEIPT_SIGNER=none): queue for receipt-sign (refusals on receipt-sign-refusal), wait, read the stored row. */
-export function queuedReceipts(connection: Redis, db: Db, o: { waitMs?: number; prefix?: string } = {}): RelayDeps["receipts"] {
+/** Job names the workers runner dispatches on (apps/workers receipt-sign.job.ts and receipt-sign-refusal.job.ts). */
+export const RECEIPT_JOB_NAMES = { main: "receipt-sign", refusal: "receipt-sign-refusal" } as const;
+
+/**
+ * Receipts when the relay holds no key (RECEIPT_SIGNER=none): queue for receipt-sign (refusals on receipt-sign-refusal),
+ * wait, read the stored row. A refusal waits at most `refusalWaitMs` (gate G-1): a stranger can trigger refusals, so a
+ * refused request is never held for the full receipt wait. The job stays queued with its retries, so the refusal is
+ * still signed; the caller refuses at once and the error simply carries no receipt id.
+ */
+export function queuedReceipts(connection: Redis, db: Db, o: { waitMs?: number; refusalWaitMs?: number; prefix?: string } = {}): RelayDeps["receipts"] {
   const prefix = o.prefix ?? "capstan";
   // two queues (security r1 F4): refusals, which strangers can trigger, never share worker slots with order receipts
   const lanes = {
-    main: { q: new Queue(QUEUES.receiptSign, { connection, prefix }), events: new QueueEvents(QUEUES.receiptSign, { connection: connection.duplicate(), prefix }) },
-    refusal: { q: new Queue(QUEUES.receiptSignRefusal, { connection, prefix }), events: new QueueEvents(QUEUES.receiptSignRefusal, { connection: connection.duplicate(), prefix }) },
+    // each lane adds its jobs under the name its worker handles: the runner dispatches by job name, and a refusal
+    // added as "receipt-sign" on the refusal queue had no handler, so no refusal was ever signed (gate G-1)
+    main: { name: RECEIPT_JOB_NAMES.main, waitMs: o.waitMs ?? 10_000, q: new Queue(QUEUES.receiptSign, { connection, prefix }), events: new QueueEvents(QUEUES.receiptSign, { connection: connection.duplicate(), prefix }) },
+    refusal: { name: RECEIPT_JOB_NAMES.refusal, waitMs: o.refusalWaitMs ?? 1_500, q: new Queue(QUEUES.receiptSignRefusal, { connection, prefix }), events: new QueueEvents(QUEUES.receiptSignRefusal, { connection: connection.duplicate(), prefix }) },
   };
   const store = pgReceiptStore(db);
   return {
     async issue(d: ReceiptDraft): Promise<Receipt> {
-      const { q, events } = d.action === "refusal" ? lanes.refusal : lanes.main;
+      const { name, waitMs, q, events } = d.action === "refusal" ? lanes.refusal : lanes.main;
       await events.waitUntilReady();
       const jobId = receiptJobId(d);
       // retried with backoff (security r1 R1-07): a slow or briefly down receipt-sign never loses the receipt
-      const job = await q.add("receipt-sign", { draft: d }, { jobId, removeOnComplete: 1000, removeOnFail: 5000, attempts: 8, backoff: { type: "exponential", delay: 2000 } });
+      const job = await q.add(name, { draft: d }, { jobId, removeOnComplete: 1000, removeOnFail: 5000, attempts: 8, backoff: { type: "exponential", delay: 2000 } });
       // the same id was used before and that job gave up: run it again rather than failing for good
       if (await job.isFailed().catch(() => false)) await job.retry().catch(() => undefined);
       let out: { receiptId: string };
       try {
-        out = (await job.waitUntilFinished(events, o.waitMs ?? 10_000)) as { receiptId: string };
+        out = (await job.waitUntilFinished(events, waitMs)) as { receiptId: string };
       } catch (e) {
         throw Object.assign(new Error(`receipt-sign did not answer: ${(e as Error).message}`), { receiptJob: jobId });
       }

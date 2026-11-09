@@ -8,7 +8,17 @@ import { loadServiceSigner } from "../anchor/context";
 
 export { validateDraft };
 
-let svc: Promise<ReceiptService> | null = null;
+// one service per database handle: a process that runs the job against a second handle (a new pool, a test) never
+// signs through a service bound to a closed one
+const services = new WeakMap<object, Promise<ReceiptService>>();
+const serviceFor = (deps: JobDeps): Promise<ReceiptService> => {
+  if (!deps.db) return makeService(deps);
+  const hit = services.get(deps.db);
+  if (hit) return hit;
+  const p = makeService(deps).catch((e) => (deps.db && services.delete(deps.db), Promise.reject(e)));
+  services.set(deps.db, p);
+  return p;
+};
 async function makeService(deps: JobDeps): Promise<ReceiptService> {
   if (!deps.db) throw new Error("receipt-sign needs a database");
   const signer = await loadServiceSigner(loadConfig("workers"), "RECEIPT");
@@ -21,7 +31,7 @@ export const job: JobDef = {
   concurrency: 4,
   async handler(j, deps) {
     const draft = validateDraft((j.data as { draft?: unknown })?.draft);
-    const s = await (svc ??= makeService(deps).catch((e) => ((svc = null), Promise.reject(e))));
+    const s = await serviceFor(deps);
     const r = await s.issue(draft);
     return { receiptId: r.receiptId };
   },

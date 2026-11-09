@@ -175,8 +175,10 @@ export async function s4(ctx: Ctx): Promise<Row[]> {
   const rc = await receiptOf(sub.receiptId);
   const rows: Row[] = [{ id: "S4", scenario: "direct mode: SDK posts to the venue itself, then claims", ref: "POST /v1/receipts/claim", gas: "-", result: rc.action === "order.claim" && sub.order.status === "open" ? "pass" : "fail", receipt: sub.receiptId, check: `${rc.action}, order ${sub.order.status} ${sub.order.venueOrderId}` }];
   // a tampered claim: another order's venue answer presented for this build -> refused with a refusal receipt
-  const cb2 = await client.buildOrder(intentOf({ limitPx: "73000" }), "hyperliquid", "direct");
-  const env = await client.signer.sign(cb2.build);
+  const intent2 = intentOf({ limitPx: "73000" });
+  const cb2 = await client.buildOrder(intent2, "hyperliquid", "direct");
+  // the user's own intent: without it the SDK signs reduce-only orders only (a5bd83c, review-r1:1 F1)
+  const env = await client.signer.sign(cb2.build, intent2);
   const forged = { status: "ok", response: { type: "order", data: { statuses: [{ resting: { oid: 1 } }] } } };
   const tamperedEnv = { ...env, signedBody: { ...(env.signedBody as Record<string, unknown>), nonce: Number((env.signedBody as { nonce: number }).nonce) + 1 } };
   const claimBody = { buildId: cb2.build.buildId, signedEnvelope: tamperedEnv, venueResponse: forged };
@@ -202,8 +204,9 @@ export async function s8(ctx: Ctx): Promise<Row[]> {
   await ensureMarkets(ctx);
   const u = await onboardUser(ctx);
   // a signed order prepared before the kill, as an agent would have in flight
-  const cb = await u.client.buildOrder(intentOf({ limitPx: "72000" }), "hyperliquid", "relay");
-  const env = await u.client.signer.sign(cb.build);
+  const intent = intentOf({ limitPx: "72000" });
+  const cb = await u.client.buildOrder(intent, "hyperliquid", "relay");
+  const env = await u.client.signer.sign(cb.build, intent); // with the user's intent, as an agent holding one would
   const t0 = Date.now();
   const k = await u.client.kill(u.agentRef);
   const killMs = Date.now() - t0;

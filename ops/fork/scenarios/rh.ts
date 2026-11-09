@@ -7,7 +7,7 @@ import { mkdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { encodeAbiParameters, encodeFunctionData, keccak256, parseAbi, type Hex } from "viem";
 import { setTokenBalance } from "../../../packages/x402/test/helpers/chain";
-import { ERC20_ABI, FORGE, freshWallet, PORTS, RHC, rhc, ROOT, run, send, setBalance, USDG, walletClient, type Row } from "../lib";
+import { contractArtifact, ERC20_ABI, FORGE, freshWallet, PORTS, RHC, rhc, ROOT, run, send, setBalance, USDG, walletClient, type Row } from "../lib";
 import type { Ctx } from "../every-tx";
 
 export async function s7(ctx: Ctx): Promise<Row[]> {
@@ -46,7 +46,7 @@ export async function s11(ctx: Ctx): Promise<Row[]> {
   const sqrt = USDG.toLowerCase() < d.cpst.toLowerCase() ? 10_000_000n << 96n : (1n << 96n) / 10_000_000n;
   const rows: Row[] = [];
   const init = await send(ctx.operator, PM, encodeFunctionData({ abi: PM_ABI, functionName: "initialize", args: [key, sqrt] }));
-  const art = JSON.parse(readFileSync(join(ROOT, "contracts/out/BurnFixture.sol/LiquidityAdder.json"), "utf8")) as { bytecode: { object: Hex } };
+  const art = contractArtifact("BurnFixture.sol", "LiquidityAdder"); // builds the test fixtures in a fresh clone
   const wc = walletClient(ctx.operator);
   const h = await wc.deployContract({ abi: ADDER_ABI, bytecode: art.bytecode.object, args: [] });
   const adder = (await rhc.waitForTransactionReceipt({ hash: h })).contractAddress!;

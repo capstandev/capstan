@@ -13,6 +13,8 @@ export const job: JobDef = {
   concurrency: 1,
   async handler(_job, deps) {
     const c = await context(deps);
-    return indexRoots(c.deploymentBlock, { rpc: c.rpc, db: c.db, anchor: c.anchor, maxRange: 2000, publish: deps.publish, log: deps.log });
+    const r = await indexRoots(c.deploymentBlock, { rpc: c.rpc, db: c.db, anchor: c.anchor, maxRange: 2000, publish: deps.publish, log: deps.log });
+    // BullMQ stores the return value as JSON, which has no bigint: a bigint here marked every run failed (gate G-5)
+    return { to: Number(r.to), found: r.found };
   },
 };

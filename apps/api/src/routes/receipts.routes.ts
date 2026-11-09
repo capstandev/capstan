@@ -181,9 +181,14 @@ function semaphore(n: number) {
  * only (never the receipt bodies) and cached: an anchored hour for good (it can never change), the open hour for
  * OPEN_HOUR_TREE_TTL_MS. A posted chain root is cached for good too; an empty answer for EMPTY_ROOT_TTL_MS.
  */
-export function dbReceiptDeps(db: Db, o: { signers: Array<Hex | SignerWindow>; readRoot?: ReceiptRouteDeps["readRoot"]; latestHour?: ReceiptRouteDeps["latestHour"]; now?: () => number; limits?: { maxCachedLeaves?: number; maxTreeBuilds?: number } }): ReceiptRouteDeps {
+export function dbReceiptDeps(db: Db, o: { signers: Array<Hex | SignerWindow>; readRoot?: ReceiptRouteDeps["readRoot"]; latestHour?: ReceiptRouteDeps["latestHour"]; now?: () => number; limits?: { maxCachedLeaves?: number; maxTreeBuilds?: number }; forkChain?: boolean }): ReceiptRouteDeps {
   const store = pgReceiptStore(db);
   const now = o.now ?? Date.now;
+  // a fork chain (ops/fork) is snapshotted and reverted, so a posted root can go away and be posted again with more
+  // leaves: there nothing read from the chain is cached and no hour tree is pinned
+  const fork = o.forkChain === true;
+  const emptyTtl = fork ? 0 : EMPTY_ROOT_TTL_MS;
+  const postedTtl = fork ? 0 : Number.POSITIVE_INFINITY;
   const trees = lruCache<number, HourTree>(MAX_CACHED_HOURS, { weigh: (t) => Math.max(1, t.index.size), maxWeight: o.limits?.maxCachedLeaves ?? MAX_CACHED_LEAVES });
   const builds = semaphore(o.limits?.maxTreeBuilds ?? MAX_TREE_BUILDS);
   const hourTree = (hourEpoch: number, fresh = false) =>
@@ -193,7 +198,7 @@ export function dbReceiptDeps(db: Db, o: { signers: Array<Hex | SignerWindow>; r
       const [row] = await db.select().from(schema.receiptRoots).where(eq(schema.receiptRoots.hourEpoch, hourEpoch)).limit(1);
       const isPosted = row !== undefined && row.status === "posted";
       const posted: HourTree["posted"] = !isPosted ? null : (row!.root as string).toLowerCase() === tree.root.toLowerCase() ? (row!.root as Hex) : "mismatch";
-      return { value: { index: new Map(leaves.map((l, i) => [l.id, i])), tree, posted }, ttlMs: isPosted && leaves.length <= PIN_MAX_LEAVES ? Number.POSITIVE_INFINITY : OPEN_HOUR_TREE_TTL_MS };
+      return { value: { index: new Map(leaves.map((l, i) => [l.id, i])), tree, posted }, ttlMs: isPosted && leaves.length <= PIN_MAX_LEAVES && !fork ? Number.POSITIVE_INFINITY : OPEN_HOUR_TREE_TTL_MS };
     }), fresh);
   const roots = lruCache<number, Hex | null>(4 * MAX_CACHED_HOURS);
   const ZERO_ROOT = /^0x0*$/;
@@ -202,11 +207,11 @@ export function dbReceiptDeps(db: Db, o: { signers: Array<Hex | SignerWindow>; r
         roots(h, now(), async () => {
           const r = await o.readRoot!(h);
           // a posted root never changes (the anchor only appends hours); "not posted" is asked again soon
-          return { value: r, ttlMs: r && !ZERO_ROOT.test(r) ? Number.POSITIVE_INFINITY : EMPTY_ROOT_TTL_MS };
+          return { value: r, ttlMs: r && !ZERO_ROOT.test(r) ? postedTtl : emptyTtl };
         })
     : undefined;
   const latestCache = lruCache<0, number | null>(1);
-  const latestHour = o.latestHour ? () => latestCache(0, now(), async () => ({ value: await o.latestHour!(), ttlMs: EMPTY_ROOT_TTL_MS })) : undefined;
+  const latestHour = o.latestHour ? () => latestCache(0, now(), async () => ({ value: await o.latestHour!(), ttlMs: emptyTtl })) : undefined;
   return {
     get: (id) => store.get(id),
     async proof(id) {
@@ -243,12 +248,21 @@ let resolved: Promise<ReceiptRouteDeps> | null = null;
  * chain (contracts/deployments, DEPLOYMENTS), never from a free env value, and the RPC's eth_chainId is checked
  * before any answer is used. Only a local network (CAPSTAN_NETWORK=local) may name ANCHOR_ADDRESS and ANCHOR_CHAIN_ID.
  * Returns null when the anchor is not deployed: /verify then never reads valid.
+ *
+ * A fork stack (ops/fork, CAPSTAN_FORK_DEPLOYMENTS) adds its throwaway record to DEPLOYMENTS through loadConfig; that
+ * path refuses a chain with a committed record and any RPC that is not loopback, so it never applies on a real host.
+ * For such a record `fork` is true and the caller reads the chain on every check (gate 2026-11-08 S3, S13: an empty
+ * answer was kept 30 s, so a root posted seconds after a first /verify still read not_posted, and a root the fork
+ * reverted and posted again stayed cached for good). The address still comes only from DEPLOYMENTS; ANCHOR_ADDRESS
+ * stays local-network only.
  */
-export async function anchorReaderFromEnv(env: Record<string, string | undefined>): Promise<{ readRoot: NonNullable<ReceiptRouteDeps["readRoot"]>; latestHour: NonNullable<ReceiptRouteDeps["latestHour"]> } | null> {
+export async function anchorReaderFromEnv(env: Record<string, string | undefined>): Promise<{ readRoot: NonNullable<ReceiptRouteDeps["readRoot"]>; latestHour: NonNullable<ReceiptRouteDeps["latestHour"]>; fork: boolean } | null> {
   const network = env.CAPSTAN_NETWORK ?? "local";
   const local = network === "local";
   const chainId = network === "mainnet" ? CHAINS.rhc.chainId : network === "testnet" ? CHAINS.rhcTestnet.chainId : Number(env.ANCHOR_CHAIN_ID ?? LOCAL_CHAIN_ID);
-  const deployed = DEPLOYMENTS[chainId]?.contracts.CapstanReceiptAnchor?.address;
+  const record = DEPLOYMENTS[chainId] as (typeof DEPLOYMENTS)[number] & { fork?: boolean } | undefined;
+  const deployed = record?.contracts.CapstanReceiptAnchor?.address;
+  const fork = record?.fork === true && !!deployed;
   const address = (deployed ?? (local ? env.ANCHOR_ADDRESS : undefined)) as Hex | undefined;
   const rpcUrl = env.ANCHOR_RPC_URL ?? (network === "mainnet" ? CHAINS.rhc.publicRpc : network === "testnet" ? CHAINS.rhcTestnet.publicRpc : undefined);
   if (!address || !/^0x[0-9a-fA-F]{40}$/.test(address) || !rpcUrl) return null;
@@ -261,6 +275,7 @@ export async function anchorReaderFromEnv(env: Record<string, string | undefined
       if (id !== chainId) throw new Error(`anchor RPC serves chain ${id}, not ${chainId}`);
     })).catch((e) => ((checked = null), Promise.reject(e)));
   return {
+    fork,
     async readRoot(h) {
       await checkChain();
       const [root] = (await client.readContract({ address, abi, functionName: "rootOf", args: [BigInt(h)] })) as readonly [Hex, number, bigint];
@@ -278,8 +293,14 @@ async function envDeps(): Promise<ReceiptRouteDeps> {
   if (!env.DATABASE_URL) throw new Error("receipt routes need DATABASE_URL");
   const db = createDb(env.DATABASE_URL, { max: 4 });
   const signers = (env.RECEIPT_SIGNERS ?? "").split(",").map((s) => s.trim()).filter((s): s is Hex => /^0x[0-9a-fA-F]{40}$/.test(s));
-  const anchor = await anchorReaderFromEnv(env);
-  return dbReceiptDeps(db, { signers, ...(anchor ?? {}) });
+  return receiptDepsWith(db, signers, await anchorReaderFromEnv(env));
+}
+
+/** The route deps for an anchor reader: a fork record's reader is never answered from a cache. */
+export function receiptDepsWith(db: Db, signers: Array<Hex | SignerWindow>, anchor: Awaited<ReturnType<typeof anchorReaderFromEnv>>): ReceiptRouteDeps {
+  if (!anchor) return dbReceiptDeps(db, { signers });
+  const { fork, readRoot, latestHour } = anchor;
+  return dbReceiptDeps(db, { signers, readRoot, latestHour, ...(fork ? { forkChain: true } : {}) });
 }
 
 export const routes: RouteSpec[] = createReceiptRoutes(() => (resolved ??= envDeps()));

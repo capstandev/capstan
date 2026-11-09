@@ -27,11 +27,30 @@ type SweepDeps = Pick<RelayDeps, "store" | "venues" | "receipts" | "now" | "log"
 /** The envelope stand-in for a receipt draft: the row's payload hash is the receipt's, never one recomputed here. */
 const stubEnvelope = (b: StoredBuild, payloadHash: Hex): SignedEnvelope => ({ buildId: b.build.buildId, venue: b.venue, encoding: b.build.encoding, signedBody: null, signature: "0x", signerRef: "", payloadHash }) as unknown as SignedEnvelope;
 
+/** Pages one sweep may read (limit rows each); the next sweep starts from the oldest row again. */
+export const SWEEP_MAX_PAGES = 50;
+
+type SweepRow = Awaited<ReturnType<SweepDeps["store"]["unsettledOrders"]>>[number];
+
+/**
+ * Every unsettled row in the window, page by page (gate G-3): one fixed page of the oldest rows let 200 unknown rows
+ * that cannot be looked up (Aster) hide every newer pending row for up to 24 h.
+ */
+async function* unsettledRows(deps: SweepDeps, from: Date, to: Date, limit: number): AsyncGenerator<SweepRow> {
+  let after: { submittedAt: Date; id: string } | undefined;
+  for (let page = 0; page < SWEEP_MAX_PAGES; page++) {
+    const rows = await deps.store.unsettledOrders(from, to, limit, after);
+    yield* rows;
+    const last = rows.at(-1);
+    if (rows.length < limit || !last) return;
+    after = { submittedAt: last.submittedAt, id: last.id };
+  }
+}
+
 export async function sweepPendingOrders(deps: SweepDeps, o: { limit?: number } = {}): Promise<SweepResult> {
   const now = deps.now();
-  const rows = await deps.store.unsettledOrders(new Date(now - SWEEP_MAX_AGE_MS), new Date(now - SWEEP_MIN_AGE_MS), o.limit ?? 200);
   const out: SweepResult = { checked: 0, settled: 0, markedUnknown: 0, receipts: 0 };
-  for (const row of rows) {
+  for await (const row of unsettledRows(deps, new Date(now - SWEEP_MAX_AGE_MS), new Date(now - SWEEP_MIN_AGE_MS), o.limit ?? 200)) {
     out.checked++;
     try {
       const b = await deps.store.getBuild(row.buildId);

@@ -130,6 +130,17 @@ export function run(cmd: string[], o: { cwd?: string; env?: Record<string, strin
   return out;
 }
 
+/**
+ * A compiled contract artifact from contracts/out. Test fixtures (contracts/test, e.g. BurnFixture's LiquidityAdder)
+ * are only there after a full `forge build`, which a fresh clone has never run (the deploy scripts compile src only),
+ * so a missing artifact builds the contracts once, tests included.
+ */
+export function contractArtifact(file: string, name: string): { bytecode: { object: Hex }; abi: unknown[] } {
+  const path = join(ROOT, "contracts/out", file, `${name}.json`);
+  if (!existsSync(path)) run([FORGE, "build"], { cwd: join(ROOT, "contracts") });
+  return JSON.parse(readFileSync(path, "utf8")) as { bytecode: { object: Hex }; abi: unknown[] };
+}
+
 /** A throwaway keystore for this run (random password in a chmod 600 file under ops/fork/.state). */
 export function runKeystore(dir: string, name: string): { path: string; passwordFile: string; address: Hex } {
   mkdirSync(dir, { recursive: true, mode: 0o700 });

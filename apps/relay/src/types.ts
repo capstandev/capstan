@@ -62,9 +62,10 @@ export interface RelayStore {
   updateOrder(id: string, patch: { status: string; venueOrderId?: string | null }): Promise<void>;
   /**
    * Relay order rows with no venue answer yet (status pending or unknown) submitted between `from` and `to`, oldest
-   * first (security r2 R2-RELAY-03: the pending-order sweep reconciles them).
+   * first by (submittedAt, id) (security r2 R2-RELAY-03: the pending-order sweep reconciles them). `after` reads the
+   * page after that row, so the sweep pages through all of them (gate G-3).
    */
-  unsettledOrders(from: Date, to: Date, limit: number): Promise<{ id: string; buildId: string; venue: VenueId; signedPayloadHash: Hex; status: string; venueOrderId: string | null; submittedAt: Date }[]>;
+  unsettledOrders(from: Date, to: Date, limit: number, after?: { submittedAt: Date; id: string }): Promise<{ id: string; buildId: string; venue: VenueId; signedPayloadHash: Hex; status: string; venueOrderId: string | null; submittedAt: Date }[]>;
   /** Remove an order row when nothing was sent (lane or budget refusal), so the same payload may be tried again. */
   releaseOrder(id: string): Promise<void>;
   /**

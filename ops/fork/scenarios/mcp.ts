@@ -7,7 +7,9 @@ import type { Hex } from "@capstan/schema";
 import { runAgent } from "../../../apps/mcp/examples/agent-host";
 import { API, freshWallet, PORTS, RHC, stateAddr, type Row } from "../lib";
 import type { Ctx } from "../every-tx";
-import { api, BTC, ensureMarkets, forkPins, userFetch } from "./money";
+import { hourEpochOf } from "@capstan/receipts";
+import { revert, snapshot } from "../lib";
+import { api, BTC, closeHourAndAnchor, ensureMarkets, forkPins, userFetch } from "./money";
 
 export async function s13(ctx: Ctx): Promise<Row[]> {
   await ensureMarkets(ctx);
@@ -24,7 +26,19 @@ export async function s13(ctx: Ctx): Promise<Row[]> {
   const sig = await wallet.signMessage({ message });
   const key = await api<{ key: string }>("POST", "/account/keys", { owner, message, sig });
   if (key.status !== 201) throw new Error(`owner API key: ${key.status} ${JSON.stringify(key.body)}`);
-  const run = await runAgent({
+  // the receipt's hour is closed on the fork clock and anchored before the MCP verify, as S3 does for the API, and the
+  // chain goes back afterwards (the hour is anchored again at its real end)
+  let snap: Hex | null = null;
+  let anchored = "nothing posted";
+  let run: Awaited<ReturnType<typeof runAgent>>;
+  try {
+    run = await runAgent({
+    beforeVerify: async (receipt) => {
+      snap = await snapshot();
+      const h = hourEpochOf(receipt.ts);
+      const posted = await closeHourAndAnchor(ctx, h);
+      anchored = posted.map((p) => `${p.hourEpoch} ${p.status}`).join(", ") || "nothing posted";
+    },
     mcpUrl: `http://127.0.0.1:${PORTS.mcp}/mcp`,
     bearer: key.body.key,
     owner,
@@ -38,11 +52,17 @@ export async function s13(ctx: Ctx): Promise<Row[]> {
     pins: mergePins(PINS, pinned),
     approvedMaxBps: 3,
   });
+  } finally {
+    if (snap) {
+      await revert(snap);
+      await ctx.resetAnchorHistory();
+    }
+  }
   const legs = run.quote.legs as { marketId: string; status: string }[];
   const fee = run.receipt.builder as { feeBps?: number; address?: string } | undefined;
   return [
     { id: "S13", scenario: "MCP capstan_quote", ref: "tools/call capstan_quote", gas: "-", result: legs.some((l) => l.marketId === BTC && l.status === "ok") ? "pass" : "fail", receipt: "-", check: legs.map((l) => `${l.marketId} ${l.status}`).join(", ") },
     { id: "S13", scenario: "MCP build, local check and sign, capstan_submit", ref: `build ${run.build.buildId}`, gas: "-", result: run.receipt.action === "order.submit" && fee?.feeBps === 2 && fee.address?.toLowerCase() === stateAddr("builder").toLowerCase() ? "pass" : "fail", receipt: run.submit.receiptId, check: `${run.receipt.action}, builder ${fee?.feeBps} bps` },
-    { id: "S13", scenario: "MCP capstan_verify_receipt", ref: "tools/call capstan_verify_receipt", gas: "-", result: run.verify.valid === true && run.verify.checks.signature === true && run.verify.checks.proof === true ? "pass" : "fail", receipt: run.submit.receiptId, check: JSON.stringify(run.verify.checks) },
+    { id: "S13", scenario: "MCP capstan_verify_receipt", ref: "tools/call capstan_verify_receipt", gas: "-", result: run.verify.valid === true && Object.values(run.verify.checks).every((x) => x === true) ? "pass" : "fail", receipt: run.submit.receiptId, check: `${JSON.stringify(run.verify.checks)}; anchored ${anchored}` },
   ];
 }

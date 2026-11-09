@@ -29,6 +29,8 @@ export interface AgentHostOptions {
   approvedMaxBps: number;
   nowMs?: number;
   log?: (line: string) => void;
+  /** Runs after the receipt is read and before capstan_verify_receipt (a fork run closes and anchors the hour here). */
+  beforeVerify?: (receipt: Receipt) => Promise<void>;
 }
 
 export interface AgentRun {
@@ -73,6 +75,7 @@ export async function runAgent(o: AgentHostOptions): Promise<AgentRun> {
     const submit = structured<AgentRun["submit"]>(await call("capstan_submit", { buildId: build.buildId, signedEnvelope: env }), "submit");
     // 5 the receipt and its check
     const receipt = structured<Receipt>(await call("capstan_get_receipt", { receiptId: submit.receiptId }), "receipt");
+    if (o.beforeVerify) await o.beforeVerify(receipt);
     const verify = structured<AgentRun["verify"]>(await call("capstan_verify_receipt", { receiptId: submit.receiptId }), "verify");
     log(`receipt ${receipt.receiptId}: builder ${receipt.builder ? `${receipt.builder.address} ${receipt.builder.feeBps} bps` : "none"}, valid ${verify.valid}`);
     return { quote, build, submit, receipt, verify };

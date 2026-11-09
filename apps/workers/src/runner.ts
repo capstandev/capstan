@@ -61,6 +61,16 @@ export interface Running {
   stop(o?: { graceMs?: number }): Promise<{ forced: boolean }>;
 }
 
+/**
+ * A job's return value as BullMQ can store it (JSON). A bigint anywhere in it made BullMQ mark a run failed after the
+ * handler had done its work (gate G-5), so real failures hid among false ones: bigints become decimal strings.
+ */
+export function jsonSafe(v: unknown): unknown {
+  if (typeof v === "bigint") return v.toString();
+  if (v === null || typeof v !== "object") return v;
+  return JSON.parse(JSON.stringify(v, (_k, x) => (typeof x === "bigint" ? x.toString() : x)));
+}
+
 /** Job schedulers that once lived on a queue and moved away: removed from the old queue at start. */
 export const MOVED_SCHEDULERS: Partial<Record<JobDef["queue"], string[]>> = { alertsDispatch: ["ops-alerts"] }; // R1-8-03
 
@@ -102,7 +112,7 @@ export async function startJobs(jobs: JobDef[], deps: JobDeps, connection: Redis
         try {
           const r = await run;
           SERVICE_METRICS.jobRuns.inc(job.name);
-          return r;
+          return jsonSafe(r);
         } catch (e) {
           // a job moved back to delayed on purpose (DelayedError) is not a failure
           if ((e as Error)?.name !== "DelayedError") SERVICE_METRICS.jobFailures.inc(job.name);

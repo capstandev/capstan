@@ -71,7 +71,9 @@ export class NonceTracker {
   next(accountIndex: number, apiKeyIndex: number): number {
     const s = this.state(accountIndex, apiKeyIndex);
     if (s.unknown.size) throw new CapstanError("INVALID_INPUT", `key ${accountIndex}:${apiKeyIndex} has a tx with an unknown outcome; resolve it before signing again`);
-    const n = s.next;
+    // never hand out a nonce a live build still holds (a refresh can move `next` below fresh reservations, gate G-2)
+    let n = s.next;
+    while (s.inFlight.has(n)) n++;
     checkNonce(n);
     s.next = n + 1;
     s.inFlight.set(n, this.now());
@@ -94,7 +96,9 @@ export class NonceTracker {
    * Before handing out a nonce (security r2 D2-ADP-01): when a nonce was given back out of order, or one was handed out
    * longer ago than RESERVATION_TTL_MS, read the venue's nextNonce. Reservations below it landed (or were consumed) and
    * are dropped. A reservation at or above it that is past its build life was never sent, so nothing after it can
-   * land: signing restarts from the venue's nextNonce. Nothing changes while an outcome is unknown.
+   * land: signing restarts from the venue's nextNonce. Only stale reservations are dropped (gate G-2): a fresh one is
+   * still held by a live build that may yet be sent, so next() skips past it rather than handing its nonce out again.
+   * Nothing changes while an outcome is unknown.
    */
   async refresh(accountIndex: number, apiKeyIndex: number): Promise<void> {
     const s = this.state(accountIndex, apiKeyIndex);
@@ -106,7 +110,7 @@ export class NonceTracker {
     for (const n of [...s.inFlight.keys()]) if (n < venueNext) s.inFlight.delete(n);
     if (s.gap || stale.some((n) => n >= venueNext)) {
       s.next = venueNext;
-      s.inFlight.clear();
+      for (const n of stale) s.inFlight.delete(n);
     } else s.next = Math.max(s.next, venueNext);
     s.gap = false;
   }
