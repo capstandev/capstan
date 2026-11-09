@@ -183,6 +183,10 @@ export function createMcpApp(deps: McpAppDeps): Hono {
   if (deps.payments) deps = { ...deps, payments: { ...deps.payments, resourceServer: guardedVerify(deps.payments.resourceServer, now) } };
   app.get("/health", (c) => c.json({ ok: true, service: "mcp" }));
   app.all("/mcp", async (c) => {
+    // The SDK transport checks Origin only when the allow-list is non-empty, so the hosted default (MCP_ALLOWED_ORIGINS
+    // unset) served a browser page on any origin. An Origin header (a browser) must be listed; agents send none.
+    const origin = c.req.header("origin");
+    if (origin !== undefined && !deps.allowedOrigins.includes(origin)) return c.json(rpcRefusal(-32000, "This origin is not allowed. Agents call without an Origin header."), 403);
     const bearer = c.req.header("authorization");
     const ip = deps.clientIpOf ? deps.clientIpOf(c) : defaultIp(c);
     // r1 F-1: limits per IP bucket before any server is built or any payment is checked

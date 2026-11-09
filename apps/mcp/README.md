@@ -5,6 +5,12 @@ A Model Context Protocol server for Capstan, the non-custodial multi-venue perps
 `https://api.get-capstan.com/mcp` (the host name is configuration); locally `bun apps/mcp/src/index.ts` serves
 `/mcp` on `MCP_PORT`.
 
+Who may call: the Host header must be in `MCP_ALLOWED_HOSTS` (the public api host and loopback). A request with an
+`Origin` header (a browser page) is refused with 403 unless that exact origin is in `MCP_ALLOWED_ORIGINS`; the hosted
+server lists none. Agents and the `capstan-mcp` stdio bridge send no Origin. Each client IP may send
+`MCP_RATE_LIMIT_PER_MIN` JSON-RPC messages a minute (default 60, a batch counts each message); more answer 429 with
+`Retry-After`.
+
 Read-only unless a write tool is called. No tool accepts a key. Builds return unsigned payloads; your host signs them
 locally with the Capstan SDK, and the server only ever receives the signed envelope.
 
