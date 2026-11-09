@@ -33,6 +33,17 @@ CHECK_CMD=/opt/capstan-release/bin/check-update.sh
 PUBLISH_CMD=/opt/capstan-release/bin/publish-public.sh
 GHREL_CMD=sudo -n /usr/local/sbin/capstan-release-ghrelease
 NOTIFY_CMD=sudo -n /usr/local/sbin/capstan-release-notify
+# Team post per release: poster $RR_HOME/posters/<tag>.png plus notes $RR_HOME/notes/<tag>.txt (both staged by the
+# runner), sent by bin/announce-telegram.sh as root (the token file is root-only). Marked announced only on success;
+# owed posts are retried one per pass, given up after ANNOUNCE_MAX_PASSES with one alert. ANNOUNCE_DRY_RUN=1 renders
+# the parts into $RR_HOME/announce/<tag>.dry/ and sends nothing. Empty ANNOUNCE_CMD = the old text-only post.
+ANNOUNCE_CMD=sudo -n /usr/local/sbin/capstan-release-announce
+ANNOUNCE_DRY_RUN=0
+ANNOUNCE_MAX_PASSES=30
+# Per call: tries, first backoff (doubles), longest wait (a 429 waits Telegram's retry_after up to this).
+ANNOUNCE_TRIES=4
+ANNOUNCE_BACKOFF_S=2
+ANNOUNCE_BACKOFF_MAX_S=60
 PUBLIC_CI_CHECK_CMD=/opt/capstan-release/bin/public-ci-green.sh
 HEALTHCHECK_CMD=
 SYSTEMCTL=sudo -n /bin/systemctl

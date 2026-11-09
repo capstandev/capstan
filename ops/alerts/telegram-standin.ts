@@ -3,8 +3,9 @@
 // can be proven end to end without a real bot, a real group or a network. It never forwards anything anywhere.
 //
 // In a test:   const s = startTelegramStandin({ port: 24740 }); ... s.calls ... s.stop();
-// From a shell: bun ops/alerts/telegram-standin.ts --port 24742 --record /path/calls.jsonl
-//   (one JSON line per call; the token in the path is replaced by its length, never written out)
+// From a shell: bun ops/alerts/telegram-standin.ts --port 24742 --record /path/calls.jsonl [--script 429:1,500]
+//   (one JSON line per call; the token in the path is replaced by its length, never written out; --script answers
+//   the first calls with these statuses, in order, "429:N" meaning a 429 with retry_after N, then 200 for the rest)
 
 export type StandinMethod = "sendMessage" | "sendPhoto";
 
@@ -40,6 +41,18 @@ export interface TelegramStandin {
   script(...replies: ScriptedReply[]): void;
   reset(): void;
   stop(): void;
+}
+
+/** Parse a --script value ("429:1,500,200") into scripted replies. Throws on anything that is not a status. */
+export function parseScript(spec: string): ScriptedReply[] {
+  if (spec.trim() === "") return [];
+  return spec.split(",").map((part) => {
+    const m = /^\s*([1-5][0-9][0-9])(?::([0-9]+))?\s*$/.exec(part);
+    if (!m) throw new Error(`bad --script entry: ${part}`);
+    const reply: ScriptedReply = { status: Number(m[1]) };
+    if (m[2] !== undefined) reply.retryAfter = Number(m[2]);
+    return reply;
+  });
 }
 
 const PATH = /^\/bot([^/]+)\/([A-Za-z]+)$/;
@@ -111,7 +124,9 @@ if (import.meta.main) {
   };
   const port = Number(arg("--port") ?? 0);
   const record = arg("--record");
+  const scripted = parseScript(arg("--script") ?? "");
   const s = startTelegramStandin({ port, onCall: (c) => record && appendFileSync(record, JSON.stringify(c) + "\n") });
+  if (scripted.length > 0) s.script(...scripted);
   process.stdout.write(`telegram stand-in listening on ${s.url}\n`);
   const stop = () => (s.stop(), process.exit(0));
   process.on("SIGTERM", stop);

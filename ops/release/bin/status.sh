@@ -12,6 +12,9 @@ if [ ! -f "$RR_SCHEDULE" ]; then echo "schedule: none"; exit 0; fi
 la=$(rr_sched_header launch_at); echo "launch_at: ${la:-not set}"
 total=$(rr_sched_rows | wc -l | tr -d ' ')
 echo "updates: $total; released $(rr_count_status released); publish owed $(rr_count_status publish_pending); held $(rr_count_status held); pending $(rr_count_status pending)"
+if [ -s "$RR_HOME/announce.tsv" ]; then
+  echo "team posts: $(awk -F '\t' '{ c[$2]++ } END { printf "announced %d; owed %d; dry run %d; given up %d", c["announced"], c["owed"], c["dry_run"], c["gave_up"] }' "$RR_HOME/announce.tsv")"
+fi
 for n in $(rr_sched_rows | cut -f1); do
   [ "$(rr_state_get "$n" 2)" = "held" ] && echo "  HELD Update $n: $(rr_title_of "$n") ($(rr_state_get "$n" 5))"
 done

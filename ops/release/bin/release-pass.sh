@@ -1,7 +1,8 @@
 #!/bin/bash
 # One pass of the release runner: release at most one due update, then exit. The systemd timer starts a pass every
 # minute. Order of one release: gate -> apply on private main -> push private -> deploy (auto-rollback) -> post-release
-# checks -> public copy -> GitHub Release -> team post. Nothing public happens before the deploy is healthy.
+# checks -> public copy -> GitHub Release -> team post (poster and notes). Nothing public happens before the deploy
+# is healthy.
 #
 # Rules this file proves (tests in ../test):
 # - Not armed (flag file plus CAPSTAN_RELEASE_RUNNER=1) or paused: nothing runs, nothing is posted.
@@ -10,6 +11,8 @@
 # - A failed deploy or check rolls back and holds; a failed rollback writes PAUSE and alerts.
 # - A crash mid-release is adopted from the journal by the next pass; the public copy is never made twice.
 # - The public copy and the Release are side channels: their failure never blocks the next update.
+# - The team post (ANNOUNCE_CMD: poster plus notes) is marked announced only when it went out; until then it is owed
+#   and retried one per pass, never blocking the next update. ANNOUNCE_DRY_RUN=1 renders it and sends nothing.
 set -u
 . "$(cd "$(dirname "$0")/.." && pwd -P)/lib/common.sh"
 rr_init
@@ -96,12 +99,70 @@ publish() { # publish n sha title: side channel, never blocks a release
   return 1
 }
 
+# ---------- team post: announce.tsv rows "n<TAB>status<TAB>tries<TAB>at"; owed, announced, dry_run, gave_up ----------
+ANN="$RR_HOME/announce.tsv"
+[ -f "$ANN" ] || : > "$ANN"
+ann_get() { awk -F '\t' -v n="$1" -v c="$2" '$1==n { v=$c } END { print v }' "$ANN"; }
+ann_set() { # ann_set n status tries
+  awk -F '\t' -v n="$1" '$1!=n' "$ANN" > "$ANN.tmp.$$"
+  printf '%s\t%s\t%s\t%s\n' "$1" "$2" "$3" "$(rr_now)" >> "$ANN.tmp.$$"
+  mv "$ANN.tmp.$$" "$ANN"
+}
+
+# announce n sha title: post the update's poster and notes; marked announced only when the post went out.
+announce() {
+  local n="$1" sha="$2" title="$3" tag head body notes_f tries rc
+  tag=$(rr_tag_of "$n"); head="Update $n is live: $title"
+  if [ -z "$(rr_conf_get ANNOUNCE_CMD)" ]; then # no announcer configured: the old text-only post, not tracked
+    rr_notify "" 0 "$head" "$head. Released $(rr_epoch_to_iso "$(rr_now)"). The post for X is in the kit."
+    return 0
+  fi
+  [ -n "$(ann_get "$n" 2)" ] || ann_set "$n" owed 0
+  case "$(ann_get "$n" 2)" in announced|dry_run|gave_up) return 0 ;; esac
+  body="Released $(rr_epoch_to_iso "$(rr_now)"). The post for X is in the kit."
+  notes_f="$RR_HOME/notes/$tag.txt"
+  if [ -s "$notes_f" ]; then body="$body
+
+$(cat "$notes_f")"; fi
+  tries=$(( $(ann_get "$n" 3) + 1 ))
+  if [ "$(rr_conf_get ANNOUNCE_DRY_RUN 0)" = "1" ]; then
+    printf '%s' "$body" | rr_run ANNOUNCE_CMD --dry-run "$tag" "$head" >> "$RR_LOG" 2>&1; rc=$?
+    if [ "$rc" -eq 0 ]; then ann_set "$n" dry_run "$tries"; rr_journal "$n" "$sha" announce_dry_run; else ann_set "$n" owed "$tries"; fi
+    rr_log "update $n: team post dry run (rc $rc); nothing sent"
+    return 0
+  fi
+  printf '%s' "$body" | rr_run ANNOUNCE_CMD "$tag" "$head" >> "$RR_LOG" 2>&1; rc=$?
+  if [ "$rc" -eq 0 ]; then
+    ann_set "$n" announced "$tries"; rr_journal "$n" "$sha" announced; rr_log "update $n: announced"
+  elif [ "$tries" -ge "$(rr_conf_get ANNOUNCE_MAX_PASSES 30)" ]; then
+    ann_set "$n" gave_up "$tries"; rr_journal "$n" "$sha" announce_gave_up
+    rr_log "update $n: team post failed $tries passes in a row (rc $rc); given up"
+    rr_notify "announce-$n" 86400 "TEAM POST FAILED Update $n" "Update $n is live, but its post with the poster did not reach this group after $tries tries. Repost it by hand from the kit."
+  else
+    ann_set "$n" owed "$tries"; rr_journal "$n" "$sha" announce_failed
+    rr_log "update $n: team post not sent (rc $rc, try $tries); owed, retried next pass"
+  fi
+  return 0
+}
+
+# Retry a team post that a failed send or a crash left owed (one per pass).
+retry_owed_announce() {
+  local n
+  for n in $(awk -F '\t' '$2=="owed" { print $1 }' "$ANN"); do
+    case "$(rr_state_get "$n" 2)" in released|publish_pending) ;; *) continue ;; esac
+    announce "$n" "$(rr_state_get "$n" 5)" "$(rr_title_of "$n")"
+    return 0
+  done
+}
+
 finish_release() { # finish_release n applied_sha title attempts
   local n="$1" sha="$2" title="$3" att="$4"
+  # owed before anything else: a crash between here and the post still leaves it to retry_owed_announce
+  [ -z "$(rr_conf_get ANNOUNCE_CMD)" ] || [ -n "$(ann_get "$n" 2)" ] || ann_set "$n" owed 0
   if publish "$n" "$sha" "$title"; then rr_state_set "$n" released "$att" "$sha"
   else rr_state_set "$n" publish_pending "$att" "$sha"; fi
   rr_journal "$n" "$sha" released
-  rr_notify "" 0 "Update $n is live: $title" "Update $n is live: $title. Released $(rr_epoch_to_iso "$(rr_now)"). The post for X is in the kit."
+  announce "$n" "$sha" "$title" # after the public copy and the GitHub Release
   rr_log "update $n: released ($sha)"
 }
 
@@ -225,6 +286,7 @@ main() {
   if [ "$(rr_now)" -lt "$launch" ]; then rr_log "pass: before launch"; exit 0; fi
   adopt_crashed
   retry_owed_publish
+  retry_owed_announce
   n=$(next_due)
   if [ -n "$n" ]; then release_one "$n"; else rr_log "pass: nothing due"; fi
   public_ci_tick

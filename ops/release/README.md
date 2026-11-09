@@ -11,7 +11,11 @@ Linux bash 5.
 3. **Deploy** (`DEPLOY_CMD`, with health checks); **check** production by content (`bin/check-update.sh` runs the
    update's own check, which was recorded as failing on production before the release).
 4. Only then the **public copy** (`bin/publish-public.sh`), the **GitHub Release** (`bin/ghrelease.sh`, poster
-   attached when staged) and **one team post** ("Update N is live").
+   attached when staged) and **one team post** ("Update N is live"): `bin/announce-telegram.sh` sends the staged
+   poster `posters/<tag>.png` with the notes `notes/<tag>.txt` as its caption (`sendPhoto`; past 1,024 characters the
+   rest follows as messages), retries with backoff (Telegram's `retry_after` on a 429), and falls back to text only
+   with a "Poster missing" line. The release is marked announced only when the post went out; until then it is owed
+   and retried one per pass. `ANNOUNCE_DRY_RUN=1` (or `announce-telegram.sh --dry-run`) renders it and sends nothing.
 
 | Failure | What happens |
 | --- | --- |
@@ -21,6 +25,7 @@ Linux bash 5.
 | Rollback fails | `PAUSE` file written, alert, update marked held (never left half done) |
 | Crash or reboot mid-release | The next pass reads the journal and finishes or redoes it; the public copy is never made twice |
 | Public copy or Release fails | The update stays live; it is retried later; later updates are not blocked |
+| Team post fails | The update stays live; the post is owed and retried each pass (no part twice); one alert after `ANNOUNCE_MAX_PASSES` |
 | Main moved under the queue | That update is held with one "queue needs a rebase" alert |
 
 Alerts are keyed by cause (one alert, then at most an hourly reminder). An unarmed runner posts nothing.

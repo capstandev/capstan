@@ -63,6 +63,7 @@ CHECK_CMD=$T/fake/check
 PUBLISH_CMD=$T/fake/publish
 GHREL_CMD=$T/fake/ghrel
 NOTIFY_CMD=$T/fake/notify
+ANNOUNCE_CMD=$T/fake/announce
 SYSTEMCTL=$T/fake/systemctl
 EOF
   export RR_CONF="$T/release.conf" CAPSTAN_RELEASE_RUNNER=1 RR_NOW=0
@@ -110,6 +111,12 @@ EOF
   cat > "$T/fake/notify" <<EOF
 #!/bin/bash
 printf '%s|%s\n' "\$1" "\$(cat)" >> "$T/notify.log"
+EOF
+  cat > "$T/fake/announce" <<EOF
+#!/bin/bash
+[ -f "$T/fail-announce" ] && { cat > /dev/null; exit 1; }
+d=""; [ "\$1" = "--dry-run" ] && { d="dry "; shift; }
+body=\$(cat); printf '%s%s|%s\n' "\$d" "\$2" "\$body" >> "$T/notify.log"; printf '%s%s %s\n' "\$d" "\$1" "\$2" >> "$T/announce.log"
 EOF
   cat > "$T/fake/systemctl" <<EOF
 #!/bin/bash
