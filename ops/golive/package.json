@@ -1,0 +1,11 @@
+{
+  "name": "@capstan/ops-golive",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Venue go-live kits: per venue, the owner's testnet proof and first tiny mainnet trade (dry run by default)",
+  "dependencies": {
+    "@capstan/schema": "workspace:*",
+    "@capstan/sdk": "workspace:*"
+  }
+}

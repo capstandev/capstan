@@ -16,6 +16,7 @@
     "packages/signers/*",
     "ops/usage",
     "ops/fork",
+    "ops/golive",
     "ops/mainnet",
     "ops/testnet"
   ],

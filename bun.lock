@@ -188,6 +188,14 @@
         "viem": "2.57.14",
       },
     },
+    "ops/golive": {
+      "name": "@capstan/ops-golive",
+      "version": "0.0.0",
+      "dependencies": {
+        "@capstan/schema": "workspace:*",
+        "@capstan/sdk": "workspace:*",
+      },
+    },
     "ops/mainnet": {
       "name": "@capstan/ops-mainnet",
       "version": "0.0.0",
@@ -541,6 +549,8 @@
     "@capstan/mcp": ["@capstan/mcp@workspace:apps/mcp"],
 
     "@capstan/ops-fork": ["@capstan/ops-fork@workspace:ops/fork"],
+
+    "@capstan/ops-golive": ["@capstan/ops-golive@workspace:ops/golive"],
 
     "@capstan/ops-mainnet": ["@capstan/ops-mainnet@workspace:ops/mainnet"],
 

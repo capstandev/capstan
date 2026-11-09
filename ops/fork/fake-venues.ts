@@ -4,10 +4,13 @@
 // /exchange post exactly as the venue does (user-signed EIP-712 for approvals, the L1 phantom agent for orders) and
 // refuses orders from an agent nobody approved. GET /__state and POST /__control let the scenario runner read what
 // the venue saw and force a failure (S9 forces the Lighter-RH leg to fail).
-// Usage: bun ops/fork/fake-venues.ts [--hl 22420] [--lighter-rh 22421] [--lighter 22422]
+// The Aster stand-in (optional port) serves the recorded exchangeInfo and premiumIndex and records every order post;
+// the go-live kits (ops/golive) read it in their dry-run tests.
+// Usage: bun ops/fork/fake-venues.ts [--hl 22420] [--lighter-rh 22421] [--lighter 22422] [--aster PORT]
 import { l1Digest, recoverSigner, userSignedDigest, type HlL1Action, type HlNetwork, type HlUserAction } from "@capstan/signer-hl";
 import type { FakeHandler } from "@capstan/venue-client";
 import { fx, route, USER_A } from "../../packages/adapters/hyperliquid/test/helpers";
+import { exchangeInfo as asterExchangeInfo, premiumIndexAll as asterPremiumIndex } from "../../packages/adapters/aster/test/helpers";
 import { fxRecord, type FxVenue } from "../../packages/adapters/lighter/test/helpers";
 
 type Hex = `0x${string}`;
@@ -212,10 +215,31 @@ export function lighterRoutes(venue: FxVenue, ctl: { failTx: boolean; sent: unkn
   return routes;
 }
 
-export function startFakeVenues(ports: { hl: number; lighterRh: number; lighter: number }, network: HlNetwork = "Mainnet") {
+/** Aster V3 stand-in: public market reads from the recorded fixtures; every order or signed post is recorded. */
+export function asterRoutes(ctl: { failTx: boolean; sent: unknown[] }): Record<string, FakeHandler> {
+  const record: FakeHandler = async (r) => {
+    ctl.sent.push(`${r.method} ${new URL(r.url).pathname} ${await r.text()}`);
+    if (ctl.failTx) return Response.json({ code: -2010, msg: "order rejected by the venue (forced failure on the fork stack)" }, { status: 400 });
+    return Response.json({ orderId: 7_000_001, status: "FILLED", executedQty: "0", avgPrice: "0" });
+  };
+  return {
+    "GET /fapi/v3/exchangeInfo": () => Response.json(asterExchangeInfo()),
+    "GET /fapi/v3/premiumIndex": (r) => {
+      const sym = new URL(r.url).searchParams.get("symbol");
+      const rows = asterPremiumIndex();
+      return Response.json(sym ? (rows.find((x) => x.symbol === sym) ?? { code: -1121, msg: "Invalid symbol." }) : rows);
+    },
+    "POST /fapi/v3/order": record,
+    "DELETE /fapi/v3/order": record,
+    "POST /fapi/v3/batchOrders": record,
+  };
+}
+
+export function startFakeVenues(ports: { hl: number; lighterRh: number; lighter: number; aster?: number }, network: HlNetwork = "Mainnet") {
   const hl = hlState(network);
   const rh = { failTx: false, sent: [] as unknown[] };
   const lm = { failTx: false, sent: [] as unknown[] };
+  const as = { failTx: false, sent: [] as unknown[] };
   const serve = (port: number, routes: Record<string, FakeHandler>, name: string) => {
     const answer = (req: Request) => answerFor(req, routes, name);
     return Bun.serve({
@@ -232,11 +256,11 @@ export function startFakeVenues(ports: { hl: number; lighterRh: number; lighter:
   };
   async function answerFor(req: Request, routes: Record<string, FakeHandler>, name: string): Promise<Response> {
         const u = new URL(req.url);
-        if (u.pathname === "/__state") return Response.json(name === "hl" ? { orders: Object.fromEntries(hl.orders), agents: Object.fromEntries(hl.agents), builderFee: Object.fromEntries(hl.builderFee), posts: hl.exchangePosts.length, failOrders: hl.failOrders } : { failTx: (name === "rh" ? rh : lm).failTx, sent: (name === "rh" ? rh : lm).sent.length });
+        if (u.pathname === "/__state") return Response.json(name === "hl" ? { orders: Object.fromEntries(hl.orders), agents: Object.fromEntries(hl.agents), builderFee: Object.fromEntries(hl.builderFee), posts: hl.exchangePosts.length, failOrders: hl.failOrders } : (({ failTx, sent }) => ({ failTx, sent: sent.length }))(name === "rh" ? rh : name === "aster" ? as : lm));
         if (u.pathname === "/__control" && req.method === "POST") {
           const c = (await req.json()) as { failOrders?: number; failTx?: boolean };
           if (name === "hl" && typeof c.failOrders === "number") hl.failOrders = c.failOrders;
-          if (name !== "hl" && typeof c.failTx === "boolean") (name === "rh" ? rh : lm).failTx = c.failTx;
+          if (name !== "hl" && typeof c.failTx === "boolean") (name === "rh" ? rh : name === "aster" ? as : lm).failTx = c.failTx;
           return Response.json({ ok: true });
         }
         const h = routes[`${req.method} ${u.pathname}`] ?? routes[u.pathname];
@@ -244,7 +268,8 @@ export function startFakeVenues(ports: { hl: number; lighterRh: number; lighter:
         return h(req);
   }
   const s = [serve(ports.hl, hlRoutes(hl), "hl"), serve(ports.lighterRh, lighterRoutes("lighter-466324", rh), "rh"), serve(ports.lighter, lighterRoutes("lighter-304", lm), "lighter")];
-  return { hl, rh, lm, urls: s.map((x) => `http://127.0.0.1:${x.port}`), stop: () => s.forEach((x) => x.stop(true)) };
+  if (ports.aster !== undefined) s.push(serve(ports.aster, asterRoutes(as), "aster"));
+  return { hl, rh, lm, as, urls: s.map((x) => `http://127.0.0.1:${x.port}`), stop: () => s.forEach((x) => x.stop(true)) };
 }
 
 if (import.meta.main) {
@@ -252,8 +277,9 @@ if (import.meta.main) {
     const i = process.argv.indexOf(k);
     return i > 0 ? Number(process.argv[i + 1]) : d;
   };
-  const v = startFakeVenues({ hl: arg("--hl", 22420), lighterRh: arg("--lighter-rh", 22421), lighter: arg("--lighter", 22422) });
-  console.log(`fake-venues: hyperliquid ${v.urls[0]}, lighter-rh ${v.urls[1]}, lighter ${v.urls[2]}`);
+  const aster = process.argv.includes("--aster") ? arg("--aster", 0) : undefined;
+  const v = startFakeVenues({ hl: arg("--hl", 22420), lighterRh: arg("--lighter-rh", 22421), lighter: arg("--lighter", 22422), ...(aster === undefined ? {} : { aster }) });
+  console.log(`fake-venues: hyperliquid ${v.urls[0]}, lighter-rh ${v.urls[1]}, lighter ${v.urls[2]}${v.urls[3] ? `, aster ${v.urls[3]}` : ""}`);
   const stop = () => (v.stop(), process.exit(0));
   process.on("SIGTERM", stop);
   process.on("SIGINT", stop);
