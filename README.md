@@ -1,12 +1,13 @@
 # Capstan
 
-Non-custodial API, TypeScript SDK and MCP server for perpetual futures across several venues: Hyperliquid (core and
+Capstan is a non-custodial multi-venue perps API, TypeScript SDK and MCP server. It covers Hyperliquid (core and
 HIP-3 markets), Lighter (mainnet and the Robinhood Chain deployment) and Aster, with Variational and Arcus as
-read-only data feeds. Two small contracts run on Robinhood Chain (chain ID `4663`).
+read-only data feeds. Three small contracts run on Robinhood Chain (mainnet `4663`, testnet `46630`).
 
-Capstan never holds user keys or funds. Orders are built server-side, checked and signed on the user's own device by
-the SDK, then relayed or sent directly to the venue. Every routed action gets a signed receipt, and hourly Merkle
-roots of the receipts are anchored on-chain. Collateral stays on each venue: there is no cross-venue margin.
+Capstan never holds user keys or funds, and no venue authorization asks for withdrawals. Orders are built server-side,
+checked and signed on the user's own device by the SDK, then relayed or sent directly to the venue. Every routed
+action gets a signed receipt, and hourly Merkle roots of the receipts are anchored on-chain. Collateral stays on each
+venue: there is no cross-venue margin.
 
 Status: pre-release. No contract is deployed yet and the code has not had an external audit.
 
@@ -30,6 +31,13 @@ packages/
   receipts/       JCS canonicalisation, signing, Merkle trees, proofs
   catalog/        canonical-asset map and equivalence records
   x402/           client and server helpers (Permit2 + EIP-3009)
+  policy/         agent policy typed data, shared policy check, kill switch, revocation bundles
+  quote/          quote engine: best-venue routing, staleness and depeg guards, funding forecast
+  risk/           per-venue account snapshots, exposure, liquidation ladders under a fixed banner
+  spreads/        funding-rate spread scanner, planner and client-side executor
+  tiers/          plans and tiers: free, pay-as-you-go, pro credits, CPST lock tiers
+  telemetry/      traces, Prometheus metrics, log redaction, ops alerts
+  venue-client/   shared venue HTTP and WebSocket client, per-egress budget governor
 contracts/        Foundry: CapstanReceiptAnchor, CPSTLock, CPST
 web/              website and dashboard (Vite, its own install and tests: `cd web && bun run test`)
 ops/              CI checks, deploy scripts, server scripts, dashboards, alerts, runbooks
@@ -105,6 +113,30 @@ All config comes from environment variables. `.env.example` lists every variable
 Each service validates only its own variables at boot and names any missing one (never a value). Variables named
 like a raw key are refused. Never commit `.env` files or keys; `.gitignore` refuses them.
 
+## API routes
+
+All routes are under `/v1` and are defined in `apps/api/src/routes/<area>.routes.ts`. The OpenAPI document is served at
+`/openapi.json`.
+
+| Area | Routes |
+| --- | --- |
+| Health and meta | `/health`, `/openapi.json`, `/venues` |
+| Markets | `/markets`, `/markets/:id/book`, `/funding`, `/funding/forecast`, `/history/funding` |
+| Quotes | `/quote` |
+| Orders | `/orders/build`, `/orders/cancel/build`, `/orders/close-all/build`, `/orders/submit` (builds return an unsigned payload; no amend route) |
+| Positions and risk | `/positions`, `/risk`, `/risk/snapshot`, `/risk/liq-heatmap`, `/risk/ingest` |
+| Receipts | `/receipts`, `/receipts/:id`, `/receipts/:id/proof`, `/receipts/:id/verify`, `/receipts/claim` |
+| Onboarding | `/onboarding/preflight`, `/onboarding/build`, `/onboarding/submit` |
+| Agents | `/agents/policy`, `/agents/:agentRef/kill` |
+| Spreads | `/spreads/scan`, `/spreads/plan`, `/spreads/:id`, `/spreads/:id/ack`, `/spreads/:id/events` |
+| Account | `/account`, `/account/keys`, `/credits`, `/credits/topup/<pack>`, `/alerts/webhooks`, `/alerts/webhooks/:id` |
+| Eligibility | `/eligibility` |
+
+## Verify a receipt
+
+`GET /v1/receipts/:id/proof` returns the hour's Merkle proof and root once that root is anchored (`anchored` says whether it is on chain yet). `GET /v1/receipts/:id/verify`
+runs the full public check (signature, leaf and proof). The website has a verify page for it.
+
 ## Deploy the contracts from a fresh clone
 
 The deploy is owner-run and goes in one order: CPST (whole supply to the brand Safe), then CPSTLock, then
@@ -152,6 +184,11 @@ check). `.github/workflows/invariants.yml` runs the key-identifier rule
 (`ops/ci/check-key-identifiers.ts`), the banned-word list (`ops/ci/check-banned-words.ts`), the deployment-file and
 vector-file checks and the public guard. The fast checks also run in the pre-commit hook
 (`git config core.hooksPath .githooks`).
+
+## Website
+
+The `web/` folder is the Capstan website and dashboard at https://get-capstan.com. It is a static Vite build with its own
+install and tests, deployed on Vercel (`web/vercel.json`). See `web/README.md` for its layout.
 
 ## License
 
