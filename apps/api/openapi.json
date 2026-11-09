@@ -7,7 +7,7 @@
   },
   "servers": [
     {
-      "url": "https://api.capstan.finance"
+      "url": "https://api.get-capstan.com"
     }
   ],
   "paths": {

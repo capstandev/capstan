@@ -2,7 +2,7 @@
 // capstan-mcp: a stdio bridge to the hosted Capstan MCP server, for MCP clients that only speak stdio.
 // It holds no key and asks for none: every tool is the hosted server's, and every write tool returns an UNSIGNED
 // payload that your own wallet or the capstan-sdk signs. It forwards each JSON-RPC message from stdin to
-// CAPSTAN_MCP_URL (default https://api.capstan.finance/mcp) and writes each answer to stdout, one per line.
+// CAPSTAN_MCP_URL (default https://api.get-capstan.com/mcp) and writes each answer to stdout, one per line.
 // Settings: CAPSTAN_MCP_URL (https only, or http on 127.0.0.1 for testing), CAPSTAN_API_KEY (optional bearer).
 import { createInterface } from "node:readline";
 
@@ -13,7 +13,7 @@ const die = (msg) => { process.stderr.write(`capstan-mcp: ${msg}\n`); process.ex
 if (process.argv.includes("--version")) { process.stdout.write(`${VERSION}\n`); process.exit(0); }
 for (const k of Object.keys(process.env)) if (KEYLIKE.test(k)) die(`refusing to start: ${k} is set. capstan-mcp never takes a key; unset it.`);
 let url;
-try { url = new URL(process.env.CAPSTAN_MCP_URL || "https://api.capstan.finance/mcp"); } catch { die("CAPSTAN_MCP_URL is not a URL"); }
+try { url = new URL(process.env.CAPSTAN_MCP_URL || "https://api.get-capstan.com/mcp"); } catch { die("CAPSTAN_MCP_URL is not a URL"); }
 const local = url.hostname === "127.0.0.1" || url.hostname === "localhost";
 if (url.protocol !== "https:" && !(url.protocol === "http:" && local)) die("CAPSTAN_MCP_URL must be https (http only on 127.0.0.1)");
 const apiKey = process.env.CAPSTAN_API_KEY || "";

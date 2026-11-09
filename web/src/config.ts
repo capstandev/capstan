@@ -77,7 +77,7 @@ export function configFromEnv(env: Env): AppConfig {
   const chain = testnet ? RHC_TESTNET : RHC_MAINNET;
   return {
     profile,
-    apiBase: str("VITE_API_BASE") ?? (dev ? LOCAL_API : "https://api.capstan.finance/v1"),
+    apiBase: str("VITE_API_BASE") ?? (dev ? LOCAL_API : "https://api.get-capstan.com/v1"),
     network: testnet ? "testnet" : "mainnet",
     rpcUrl: str("VITE_RPC_URL") ?? chain.rpc,
     tokenChainId: chain.chainId,

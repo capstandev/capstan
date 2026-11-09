@@ -2,7 +2,7 @@
 
 A Model Context Protocol server for Capstan, the non-custodial multi-venue perps API. It speaks Streamable HTTP
 (protocol `2025-11-25`), stateless: every request gets its own server, no session id is kept. Hosted at
-`https://api.capstan.finance/mcp` (the host name is configuration); locally `bun apps/mcp/src/index.ts` serves
+`https://api.get-capstan.com/mcp` (the host name is configuration); locally `bun apps/mcp/src/index.ts` serves
 `/mcp` on `MCP_PORT`.
 
 Read-only unless a write tool is called. No tool accepts a key. Builds return unsigned payloads; your host signs them

@@ -4,7 +4,7 @@
 #
 # Owner, from the Mac (bash 3.2): copies ops/server to the host, then runs it there with sudo (asks for your sudo
 # password on the server, nothing else):
-#   /bin/bash ops/server/provision.sh <ssh-host-alias> [--egress-ip <server public IP>] [--domain capstan.finance]
+#   /bin/bash ops/server/provision.sh <ssh-host-alias> [--egress-ip <server public IP>] [--domain get-capstan.com]
 # On the server (what the Mac step runs):
 #   sudo /bin/bash /tmp/capstan-provision/server/provision.sh --local [--egress-ip IP] [--domain D]
 #

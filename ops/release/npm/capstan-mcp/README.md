@@ -10,11 +10,11 @@ or the `capstan-sdk` signs it on your machine. It refuses to start when a key-li
 { "mcpServers": { "capstan": { "command": "npx", "args": ["-y", "capstan-mcp"] } } }
 ```
 
-Clients that speak Streamable HTTP can use the hosted endpoint directly: `https://api.capstan.finance/mcp`.
+Clients that speak Streamable HTTP can use the hosted endpoint directly: `https://api.get-capstan.com/mcp`.
 
 | Setting | Default | Use |
 | --- | --- | --- |
-| `CAPSTAN_MCP_URL` | `https://api.capstan.finance/mcp` | The hosted server (https only) |
+| `CAPSTAN_MCP_URL` | `https://api.get-capstan.com/mcp` | The hosted server (https only) |
 | `CAPSTAN_API_KEY` | none | Optional `cpst_...` API key for credits and higher limits. Never a wallet key. |
 
 The tool list is the hosted server's own (`tools/list`): markets, funding, quotes, onboarding and order builds,

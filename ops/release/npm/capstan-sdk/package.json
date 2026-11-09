@@ -8,9 +8,9 @@
   "exports": { ".": "./dist/capstan-sdk.js" },
   "files": ["dist/capstan-sdk.js", "dist/worker.mjs", "artifacts/lighter-signer.wasm", "artifacts/wasm_exec.js", "artifacts/SHA256SUMS"],
   "engines": { "node": ">=20" },
-  "homepage": "https://capstan.finance/docs",
-  "repository": { "type": "git", "url": "git+https://github.com/capstan-xyz/capstan.git", "directory": "ops/release/npm/capstan-sdk" },
-  "bugs": { "url": "https://github.com/capstan-xyz/capstan/security/advisories/new" },
+  "homepage": "https://get-capstan.com/docs",
+  "repository": { "type": "git", "url": "git+https://github.com/capstandev/capstan.git", "directory": "ops/release/npm/capstan-sdk" },
+  "bugs": { "url": "https://github.com/capstandev/capstan/security/advisories/new" },
   "keywords": ["perps", "hyperliquid", "lighter", "aster", "non-custodial", "sdk", "robinhood-chain", "receipts"],
   "sideEffects": false,
   "scripts": {

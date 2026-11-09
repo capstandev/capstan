@@ -54,7 +54,7 @@ The fork site pass: `FORK_WEB=dist bash ops/fork/up.sh` (move every port with `F
 | Variable | Default | Meaning |
 | --- | --- | --- |
 | `VITE_PROFILE` | `live` | `fork` points at the local stack and an anvil fork, shows "Local test network" and refuses writes from chain 4663 |
-| `VITE_API_BASE` | `http://127.0.0.1:22210/v1` in dev, `https://api.capstan.finance/v1` in a build | Capstan API base |
+| `VITE_API_BASE` | `http://127.0.0.1:22210/v1` in dev, `https://api.get-capstan.com/v1` in a build | Capstan API base |
 | `VITE_NETWORK` | `mainnet` (`testnet` on the fork profile) | SDK pins and token chain |
 | `VITE_RPC_URL` | Robinhood Chain public RPC | Anchor reads on the verify page |
 | `VITE_WALLETCONNECT_PROJECT_ID` | unset | The Reown AppKit picker (WalletConnect and browser wallets). Unset: EIP-6963 injected wallets only. `VITE_REOWN_PROJECT_ID` is read too |

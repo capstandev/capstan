@@ -17,7 +17,7 @@ npm install capstan-sdk
 import { createClient, fileKeyStore, eip1193Wallet } from "capstan-sdk";
 
 const capstan = createClient({
-  apiBase: "https://api.capstan.finance",
+  apiBase: "https://api.get-capstan.com",
   network: "mainnet",
   keystore: fileKeyStore("./capstan-keys.json", askPassphrase), // your own hidden prompt
   walletSigner: eip1193Wallet(window.ethereum),

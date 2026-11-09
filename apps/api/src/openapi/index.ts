@@ -62,7 +62,7 @@ export function generateOpenApi(specs: Pick<RouteSpec, "method" | "path" | "auth
   return {
     openapi: OPENAPI_VERSION,
     info: { title: "Capstan API", version: API_VERSION, description: "Non-custodial multi-venue perps API. Every write endpoint returns an unsigned payload; nothing accepts a private key. Each venue liquidates independently." },
-    servers: [{ url: "https://api.capstan.finance" }],
+    servers: [{ url: "https://api.get-capstan.com" }],
     paths,
     components: {
       securitySchemes: {
