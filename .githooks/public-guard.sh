@@ -43,7 +43,8 @@ while IFS= read -r f; do
     web/public/assets/*.mp4) ;;
     *.pdf|*.mp4|*.mov|*.docx|*.key|*.pem) flag "$f: private file type";;
     docs/*|*/docs/*|plans/*|*/plans/*|todos/*|*/todos/*|*RESUME*|*STATUS.md) flag "$f: private path";;
-    .env.example) ;;
+    # the env templates: variable names and public production values only (web/.env.example lists the site's VITE_*)
+    .env.example|web/.env.example) ;;
     .env|.env.*|*/.env|*/.env.*) flag "$f: env file must not be committed";;
   esac
 done <<< "$files"

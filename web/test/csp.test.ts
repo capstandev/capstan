@@ -40,4 +40,17 @@ describe("security headers on every page", () => {
       expect({ f, inline: inline.length, handlers: (html.match(/\son[a-z]+="/g) ?? []).length }).toEqual({ f, inline: 0, handlers: 0 });
     }
   }, 120_000);
+
+  test("the built scripts write no inline event handler attributes into the page (blocked by script-src-attr)", async () => {
+    // 2026-11-08 (tracker 82): the owner's app.js and bloop-views.js drew images with onerror="..." fallbacks, which the
+    // CSP refuses on every page; they now carry data-fallback-src and one delegated error listener swaps the image.
+    const dist = await buildOnce();
+    const found: string[] = [];
+    for (const d of ["assets", "_app"]) {
+      for (const f of readdirSync(join(dist, d)).filter((n) => /\.m?js$/.test(n))) {
+        for (const m of readFileSync(join(dist, d, f), "utf8").matchAll(/<[a-z][^<>]*\son(?:error|load|click|mouseover|focus|input|change|submit)=\\?["'`]/g)) found.push(`${d}/${f}: ${m[0].slice(-60)}`);
+      }
+    }
+    expect(found).toEqual([]);
+  }, 120_000);
 });

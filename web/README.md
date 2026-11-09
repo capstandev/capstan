@@ -59,6 +59,25 @@ The fork site pass: `FORK_WEB=dist bash ops/fork/up.sh` (move every port with `F
 | `VITE_RPC_URL` | Robinhood Chain public RPC | Anchor reads on the verify page |
 | `VITE_WALLETCONNECT_PROJECT_ID` | unset | The Reown AppKit picker (WalletConnect and browser wallets). Unset: EIP-6963 injected wallets only. `VITE_REOWN_PROJECT_ID` is read too |
 
+Production values for every variable are in `.env.example` (entered in the Vercel project, never committed).
+
+## Deploy (Vercel)
+
+`vercel.json` holds the whole host setup; the Vercel project uses Root Directory `web/`.
+
+- Install: `installCommand` installs the workspace root first, then `web/`. The site imports the SDK, schema and
+  receipts sources from `packages/`, and their dependencies live in the root install; a `web/`-only install fails the
+  typecheck.
+- Ignored build: `ignoreCommand` runs `scripts/ignore-build.sh`. It builds only when `web/` or a path the build reads
+  changed since the last deployment (`VERCEL_GIT_PREVIOUS_SHA`); the list is `scripts/build-inputs.ts`. With no
+  previous sha, a sha the shallow clone does not hold, or any git error, it builds.
+- Headers: `assets/` and `_app/` (every name content-hashed) are `immutable` for a year; pages are `max-age=0,
+  must-revalidate`. Pages carry the CSP (scripts from this origin only, `frame-ancestors 'none'`), `X-Frame-Options
+  DENY`, `nosniff`, a referrer policy and a permissions policy. `test/vercel-browser.test.ts` loads every built page
+  under those exact headers in headless Chromium.
+- Pre-launch: the last header rule sends `X-Robots-Tag: noindex, nofollow` on every path. JSON has no comments, so
+  the note lives here: **remove that rule on launch day**, and only then.
+
 ## Rules the tests hold
 
 - The risk disclaimer is on the home, markets, quotes, risk, pricing and docs pages, the dashboard and every quote widget.

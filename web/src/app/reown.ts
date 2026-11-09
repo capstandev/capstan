@@ -7,6 +7,7 @@ import { createAppKit } from "@reown/appkit";
 import { arbitrum, arbitrumSepolia, base, defineChain, mainnet } from "@reown/appkit/networks";
 import type { AppConfig } from "../config";
 import type { Eip1193Provider } from "../lib/capstan";
+import { openWhenReady } from "./reown-open";
 
 const robinhoodChain = defineChain({
   id: 4663,
@@ -49,6 +50,6 @@ export function openReown(projectId: string, cfg: Pick<AppConfig, "profile">): P
       else if (opened && !k.getIsConnectedState()) done(() => reject(new Error("The wallet picker was closed before a wallet connected.")));
     });
     tryResolve();
-    void k.open();
+    void openWhenReady(k).catch((e: unknown) => done(() => reject(e instanceof Error ? e : new Error(String(e)))));
   });
 }

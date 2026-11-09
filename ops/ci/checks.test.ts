@@ -231,6 +231,16 @@ function guard(files: Record<string, string>): { code: number; out: string } {
   return { code: p.status ?? -1, out: `${p.stdout}${p.stderr}` };
 }
 
+describe("env files", () => {
+  test("env-example-only: the root and web/ .env.example pass; every other env file still fails", () => {
+    expect(guard({ ".env.example": "A=1\n", "web/.env.example": "VITE_NETWORK=mainnet\n" }).code).toBe(0);
+    for (const f of ["web/.env", "web/.env.local", ".env.production", "apps/api/.env.example"]) {
+      const r = guard({ [f]: "A=1\n" });
+      expect({ f, code: r.code, flagged: r.out.includes(`${f}: env file must not be committed`) }).toEqual({ f, code: 1, flagged: true });
+    }
+  });
+});
+
 describe("fixture allowlist", () => {
   const hex = "0x" + "ab12".repeat(16);
   test("fixture-allowlist-narrow", () => {
