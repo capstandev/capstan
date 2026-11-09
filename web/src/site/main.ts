@@ -36,6 +36,8 @@ async function start() {
     case "verify":
     case "status":
     case "legal":
+    case "roadmap":
+    case "changelog":
     case "404": {
       const el = document.getElementById("cap-live");
       if (el) (await import("./react")).mountPage(page, el, cfg);

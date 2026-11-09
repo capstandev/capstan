@@ -8,9 +8,9 @@ import { dirname, join, relative, resolve } from "node:path";
 const WEB = resolve(import.meta.dir, "..");
 const REPO = resolve(WEB, "..");
 
-/** Read by path, not imported: sync-openapi.ts, check-dist.ts, the tsconfig chain, and the root install (vercel.json
+/** Read by path, not imported: sync-openapi.ts, sync-releases.ts (CHANGELOG.md), check-dist.ts, the tsconfig chain, and the root install (vercel.json
  *  installCommand installs the workspace root, so its manifest and lockfile change what the packages build with). */
-export const READ_BY_PATH = ["apps/api/openapi.json", "apps/mcp/README.md", ".githooks/public-guard.denylist", "tsconfig.base.json", "package.json", "bun.lock"];
+export const READ_BY_PATH = ["apps/api/openapi.json", "apps/mcp/README.md", ".githooks/public-guard.denylist", "tsconfig.base.json", "package.json", "bun.lock", "CHANGELOG.md"];
 
 const SPEC = /(?:\bfrom\s*|\bimport\s*\(\s*|\bimport\s+|new URL\(\s*)["']([^"']+)["']/g;
 

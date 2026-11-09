@@ -1,13 +1,16 @@
 // Every page and screen with the data it needs to render statically. The copy check (scripts/check-copy.ts) and the
 // claims test render this list, so copy hidden behind a live flag or behind data (the token box) is checked too.
 import type { ReactNode } from "react";
+import type { ChangelogEntry } from "../scripts/sync-releases";
 import { configFromEnv, type AppConfig } from "./config";
 import openapi from "./generated/openapi.json";
 import mcpTools from "./generated/mcp-tools.json";
 import type { LiveFlags } from "./live";
 import type { ContractsJson } from "./lib/contracts";
 import { ApiDocs, type McpToolRow, type OpenApiDoc } from "./pages/ApiDocs";
+import { Changelog } from "./pages/Changelog";
 import { Legal } from "./pages/Legal";
+import { Roadmap } from "./pages/Roadmap";
 import { Status } from "./pages/Status";
 import { Verify } from "./pages/Verify";
 import { Route, Routes } from "react-router";
@@ -29,6 +32,13 @@ export interface Renderable {
   element: ReactNode;
   config: AppConfig;
 }
+
+/** A changelog with one of each entry kind, so the labels around released entries are rendered and checked. */
+export const SAMPLE_CHANGELOG: ChangelogEntry[] = [
+  { kind: "fix", n: null, line: "Example fix line.", date: "2026-01-02" },
+  { kind: "bonus", n: 1, line: "Example bonus line.", date: "2026-01-02" },
+  { kind: "update", n: 1, line: "Example update line.", date: "2026-01-01" },
+];
 
 /** A contracts.json with a CPST address, so the token box copy is rendered and checked. Example values only. */
 export const SAMPLE_CONTRACTS: ContractsJson = {
@@ -67,6 +77,9 @@ export function siteRenderables(_live: LiveFlags): Renderable[] {
     page("status", "/status", <Status />),
     page("verify", "/verify", <Verify />),
     page("legal", "/legal", <Legal />),
+    page("roadmap", "/roadmap", <Roadmap />),
+    page("changelog", "/changelog", <Changelog />),
+    page("changelog with entries", "/changelog", <Changelog entries={SAMPLE_CHANGELOG} />),
     page("quote widget", "/quotes", <SessionProvider><QuoteTable /></SessionProvider>),
     page("docs on the fork profile", "/docs", <ApiDocs doc={openapi as unknown as OpenApiDoc} tools={mcpTools as McpToolRow[]} />, fork),
     ...DASH_NAV.map((n) => page(`dashboard ${n.label}`, n.to, <Routes><Route path="/app/*" element={<Dashboard />} /></Routes>)),

@@ -14,8 +14,8 @@ export const SITE_PAGES = readdirSync(WEB)
   .map((f) => f.replace(/\.html$/, ""))
   .sort();
 export const SITE_PATHS = SITE_PAGES.filter((p) => p !== "404").map((p) => (p === "index" ? "/" : `/${p}`));
-/** The pages whose whole body is this repo's own React (the owner's design around them): docs, status, verify, legal. */
-export const LIVE_PAGE_PATHS = ["/docs", "/status", "/verify", "/legal"];
+/** The pages whose whole body is this repo's own React (the owner's design around them): docs, status, verify, legal, roadmap, changelog. */
+export const LIVE_PAGE_PATHS = ["/docs", "/status", "/verify", "/legal", "/roadmap", "/changelog"];
 
 export function chromiumPath(): string | null {
   const env = process.env.CAPSTAN_CHROMIUM;

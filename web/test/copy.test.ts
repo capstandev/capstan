@@ -34,6 +34,9 @@ describe("copy", () => {
     expect(copyProblems(j("The fir", "st perps API with signed receipts (U)."), "ok")).toEqual([]);
     expect(copyProblems("Each venue liquidates independently. Nothing here is shared margin.", "banner")).toEqual([]);
     expect(copyProblems("Your receipts, newest first.", "order")).toEqual([]);
+    // the /changelog empty line is an ordinal, not a claim; the exception is that sentence only
+    expect(copyProblems("No releases yet. The first update ships at launch.", "changelog")).toEqual([]);
+    expect(copyProblems("The first update to do this.", "changelog").map((p) => p.rule)).toEqual(["'first' needs '(U)' in the same sentence"]);
     expect(tickerProblems("Lock $CPST on Robinhood Chain for perks.")).toEqual([]);
     expect(copyProblems("Hedge failure policy At-risk. Legging risk is yours.", "hedge")).toEqual([]);
     // the banner allowlist is exact: a near copy still fails

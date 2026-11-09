@@ -129,4 +129,43 @@ describe.skipIf(skip)("the production build under the vercel.json headers", () =
     expect(out.boot).toEqual({ ok: true, error: undefined });
     expect(out.problems).toEqual([]);
   }, 180_000);
+
+  test("/roadmap and /changelog serve 200 by clean URL and render under the CSP at 1440 and 390 px", async () => {
+    const out = await withSite(async (base, page, problems) => {
+      const seen: Record<string, unknown>[] = [];
+      for (const width of [1440, 390]) {
+        await page.setViewportSize({ width, height: 900 });
+        for (const path of ["/roadmap", "/changelog"]) {
+          const res = await page.goto(base + path, { waitUntil: "load" });
+          await waitForPreloader(page);
+          await page.waitForSelector("#cap-live article", { timeout: 10_000 });
+          seen.push({
+            path,
+            width,
+            status: res?.status(),
+            csp: (res?.headers()["content-security-policy"] ?? "").includes("script-src 'self'"),
+            ...(await page.evaluate(() => ({
+              vw: window.innerWidth,
+              sw: document.documentElement.scrollWidth,
+              h1: document.querySelector("#cap-live h1")?.textContent,
+              cards: document.querySelectorAll("#cap-live [data-update]").length,
+              planned: document.querySelectorAll('#cap-live [data-badge="planned"]').length,
+              live: document.querySelectorAll('#cap-live [data-badge="live"]').length,
+              empty: document.querySelector("[data-changelog-empty]")?.textContent ?? null,
+              footer: [...document.querySelectorAll(".bl-footer a")].map((a) => a.getAttribute("href")).filter((h) => h === "roadmap.html" || h === "changelog.html"),
+            }))),
+          });
+        }
+      }
+      return { seen, problems };
+    });
+    // the build-time data: before launch CHANGELOG.md has no released entry, so every badge reads "planned"
+    const rel = JSON.parse(readFileSync(join(import.meta.dir, "../src/generated/releases.json"), "utf8")) as { updates: { live: boolean }[]; changelog: unknown[] };
+    const live = rel.updates.filter((u) => u.live).length;
+    for (const width of [1440, 390]) {
+      expect(out.seen.find((x) => x.path === "/roadmap" && x.width === width)).toEqual({ path: "/roadmap", width, status: 200, csp: true, vw: width, sw: width, h1: "Roadmap", cards: 72, planned: 72 - live, live, empty: null, footer: ["roadmap.html", "changelog.html"] });
+      expect(out.seen.find((x) => x.path === "/changelog" && x.width === width)).toEqual({ path: "/changelog", width, status: 200, csp: true, vw: width, sw: width, h1: "Changelog", cards: 0, planned: 0, live: 0, empty: rel.changelog.length ? null : "No releases yet. The first update ships at launch.", footer: ["roadmap.html", "changelog.html"] });
+    }
+    expect(out.problems).toEqual([]);
+  }, 240_000);
 });

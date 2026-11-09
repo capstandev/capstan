@@ -12,6 +12,8 @@ import { RiskPanel } from "../app/screens/RiskPanel";
 import { SessionProvider, useSession, type SessionDeps } from "../app/session";
 import { ApiDocs } from "../pages/ApiDocs";
 import { Legal } from "../pages/Legal";
+import { Roadmap } from "../pages/Roadmap";
+import { Changelog } from "../pages/Changelog";
 import { Status } from "../pages/Status";
 import { Verify } from "../pages/Verify";
 import type { RiskView } from "../lib/capstan";
@@ -130,7 +132,7 @@ function NotFoundPage() {
   );
 }
 
-/** docs, verify, status, legal and 404: the old site's pages inside the owner's page head and footer. */
+/** docs, verify, status, legal, roadmap, changelog and 404: the old site's pages inside the owner's page head and footer. */
 export function mountPage(page: string, el: HTMLElement, cfg: AppConfig) {
   const body =
     page === "docs" ? (
@@ -141,6 +143,10 @@ export function mountPage(page: string, el: HTMLElement, cfg: AppConfig) {
       <Status />
     ) : page === "legal" ? (
       <Legal />
+    ) : page === "roadmap" ? (
+      <Roadmap />
+    ) : page === "changelog" ? (
+      <Changelog />
     ) : (
       <NotFoundPage />
     );

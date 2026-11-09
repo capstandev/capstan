@@ -1,0 +1,510 @@
+{
+ "about": "Release queue export for /roadmap: number, title, one plain line and planned slot (day, and place in that day at one update an hour). Regenerate from the release plan after any queue change; the server queue is the truth.",
+ "cadenceMinutes": 60,
+ "updates": [
+  {
+   "n": 1,
+   "title": "MCP landing page for people who open the agent address",
+   "line": "The MCP endpoint now explains itself to people who open it in a browser, with setup steps and the tool list.",
+   "day": 1,
+   "slot": 1
+  },
+  {
+   "n": 2,
+   "title": "Health shows the running commit and how fresh each part is",
+   "line": "Health now reports the running commit and the age of every data feed and job.",
+   "day": 1,
+   "slot": 2
+  },
+  {
+   "n": 3,
+   "title": "Contracts page with every address and its verified source",
+   "line": "New contracts page: every deployed address with explorer and Sourcify links.",
+   "day": 1,
+   "slot": 3
+  },
+  {
+   "n": 4,
+   "title": "Public USDG peg reading",
+   "line": "New public USDG peg reading with its source and age.",
+   "day": 1,
+   "slot": 4
+  },
+  {
+   "n": 5,
+   "title": "Rate-limit headers on every answer",
+   "line": "Every answer now carries RateLimit headers.",
+   "day": 1,
+   "slot": 5
+  },
+  {
+   "n": 6,
+   "title": "MCP tool capstan_venues",
+   "line": "New MCP tool capstan_venues.",
+   "day": 1,
+   "slot": 6
+  },
+  {
+   "n": 7,
+   "title": "Security headers on the API host",
+   "line": "Stricter security headers on the API.",
+   "day": 1,
+   "slot": 7
+  },
+  {
+   "n": 8,
+   "title": "Market changes feed",
+   "line": "New feed of market listings, delistings and reduce-only moves.",
+   "day": 1,
+   "slot": 8
+  },
+  {
+   "n": 9,
+   "title": "Per-venue status endpoint",
+   "line": "New per-venue status: data age, budget headroom, last error class.",
+   "day": 1,
+   "slot": 9
+  },
+  {
+   "n": 10,
+   "title": "SDK keeps your agents after a page reload",
+   "line": "The SDK now restores your agents after a browser reload.",
+   "day": 1,
+   "slot": 10
+  },
+  {
+   "n": 11,
+   "title": "Quote table readable on phones",
+   "line": "Quotes are now readable on phones, one card per venue.",
+   "day": 1,
+   "slot": 11
+  },
+  {
+   "n": 12,
+   "title": "Spread scan says why a pair was left out",
+   "line": "Spread scans now list excluded pairs and the reason, and one odd market no longer holds up the rest.",
+   "day": 1,
+   "slot": 12
+  },
+  {
+   "n": 13,
+   "title": "Close-all carries on past one venue and cancels resting orders",
+   "line": "Close-all now carries on past a venue it cannot read and cancels resting orders before closing.",
+   "day": 1,
+   "slot": 13
+  },
+  {
+   "n": 14,
+   "title": "MCP tool capstan_book",
+   "line": "New MCP tool capstan_book.",
+   "day": 1,
+   "slot": 14
+  },
+  {
+   "n": 15,
+   "title": "Content-Security-Policy for the website",
+   "line": "The website and dashboard now send a strict Content-Security-Policy, and the dashboard is built and tested on every commit.",
+   "day": 1,
+   "slot": 15
+  },
+  {
+   "n": 16,
+   "title": "Alert when anchoring falls behind",
+   "line": "Ops now get an alert when receipt anchoring fails or falls behind, and every anchored hour is recounted.",
+   "day": 1,
+   "slot": 16
+  },
+  {
+   "n": 17,
+   "title": "List of posted anchor roots",
+   "line": "New list of anchored hourly roots with their transactions.",
+   "day": 1,
+   "slot": 17
+  },
+  {
+   "n": 18,
+   "title": "Receipts show their anchor",
+   "line": "Receipts now carry their anchor transaction once posted.",
+   "day": 1,
+   "slot": 18
+  },
+  {
+   "n": 19,
+   "title": "Status page shows data age and the peg",
+   "line": "Status page now shows venue data age and the USDG peg.",
+   "day": 1,
+   "slot": 19
+  },
+  {
+   "n": 20,
+   "title": "Public payment rail state",
+   "line": "New public view of which payment rails are on, and a rail that misses one read now comes back by itself.",
+   "day": 1,
+   "slot": 20
+  },
+  {
+   "n": 21,
+   "title": "Request id on every answer",
+   "line": "Every answer and error now carries a request id.",
+   "day": 1,
+   "slot": 21
+  },
+  {
+   "n": 22,
+   "title": "SDK waits politely on rate limits",
+   "line": "The SDK now retries rate-limited reads after Retry-After.",
+   "day": 1,
+   "slot": 22
+  },
+  {
+   "n": 23,
+   "title": "Sitemap and robots for the website",
+   "line": "The website now has a sitemap and robots file.",
+   "day": 1,
+   "slot": 23
+  },
+  {
+   "n": 24,
+   "title": "Builder fee reconciliation metric",
+   "line": "Fee reconciliation now reports metrics and mismatches.",
+   "day": 1,
+   "slot": 24
+  },
+  {
+   "n": 25,
+   "title": "Error catalog",
+   "line": "New error catalog with a plain explanation for every code.",
+   "day": 2,
+   "slot": 1
+  },
+  {
+   "n": 26,
+   "title": "MCP errors explain themselves",
+   "line": "MCP errors now carry the code and a link to its explanation.",
+   "day": 2,
+   "slot": 2
+  },
+  {
+   "n": 27,
+   "title": "Each service gets its own database login",
+   "line": "Each service now has its own database login with only the access it needs.",
+   "day": 2,
+   "slot": 3
+  },
+  {
+   "n": 28,
+   "title": "Quotes use the funding forecast when it is fresh",
+   "line": "Quotes now use the funding forecast when it is fresh and say which source they used; forecasts say when their data was last seen.",
+   "day": 2,
+   "slot": 4
+  },
+  {
+   "n": 29,
+   "title": "Your tier and limits in one call",
+   "line": "New /v1/limits: your tier, limits and credits.",
+   "day": 2,
+   "slot": 5
+  },
+  {
+   "n": 30,
+   "title": "SDK helpers for limits and errors",
+   "line": "SDK: limits() and errorInfo() helpers.",
+   "day": 2,
+   "slot": 6
+  },
+  {
+   "n": 31,
+   "title": "Dashboard shows your tier and limits",
+   "line": "Dashboard now shows your tier and limits.",
+   "day": 2,
+   "slot": 7
+  },
+  {
+   "n": 32,
+   "title": "New locks count within a block",
+   "line": "Lock tier changes now apply within about one block.",
+   "day": 2,
+   "slot": 8
+  },
+  {
+   "n": 33,
+   "title": "Download all your receipts",
+   "line": "Export all your receipts as one file.",
+   "day": 2,
+   "slot": 9
+  },
+  {
+   "n": 34,
+   "title": "SDK saves and checks your receipt export",
+   "line": "SDK: save your receipts and verify every one offline.",
+   "day": 2,
+   "slot": 10
+  },
+  {
+   "n": 35,
+   "title": "Verify page takes a file",
+   "line": "The verify page now checks a whole receipt file.",
+   "day": 2,
+   "slot": 11
+  },
+  {
+   "n": 36,
+   "title": "Lock Whale monthly call credits",
+   "line": "Lock Whale owners now get $10 of premium-call credits each month.",
+   "day": 2,
+   "slot": 12
+  },
+  {
+   "n": 37,
+   "title": "Machine-readable price list",
+   "line": "New machine-readable price list for paid routes, and every paid route now charges exactly what the list says.",
+   "day": 2,
+   "slot": 13
+  },
+  {
+   "n": 38,
+   "title": "MCP resources for the disclaimer, venues and prices",
+   "line": "MCP now offers the disclaimer, venues and prices as resources.",
+   "day": 2,
+   "slot": 14
+  },
+  {
+   "n": 39,
+   "title": "Pricing page reads the live price list",
+   "line": "Pricing page now reads the live price list.",
+   "day": 2,
+   "slot": 15
+  },
+  {
+   "n": 40,
+   "title": "More webhooks for lock tiers",
+   "line": "Webhooks are now capped at 5, or 20 for lock tiers.",
+   "day": 2,
+   "slot": 16
+  },
+  {
+   "n": 41,
+   "title": "Send a test event to your webhook",
+   "line": "Webhooks can now be tested with one call.",
+   "day": 2,
+   "slot": 17
+  },
+  {
+   "n": 42,
+   "title": "MCP rate limit per caller",
+   "line": "MCP calls are now limited per caller, and each paid tool call runs once per payment.",
+   "day": 2,
+   "slot": 18
+  },
+  {
+   "n": 43,
+   "title": "Status page lists anchored roots",
+   "line": "Status page now lists the last day of anchored roots.",
+   "day": 2,
+   "slot": 19
+  },
+  {
+   "n": 44,
+   "title": "Choose your liquidation alert distance",
+   "line": "Liquidation alerts now take your own distance and watch every position you hold.",
+   "day": 2,
+   "slot": 20
+  },
+  {
+   "n": 45,
+   "title": "Webhook delivery log",
+   "line": "New delivery log for each webhook.",
+   "day": 2,
+   "slot": 21
+  },
+  {
+   "n": 46,
+   "title": "Receipt checks in plain words",
+   "line": "Receipt verification now explains each check and says when a receipt is not anchored yet.",
+   "day": 2,
+   "slot": 22
+  },
+  {
+   "n": 47,
+   "title": "Copy-ready samples in the docs",
+   "line": "Docs now have copy-ready samples for every route.",
+   "day": 2,
+   "slot": 23
+  },
+  {
+   "n": 48,
+   "title": "Liquidation heatmap bucket size",
+   "line": "Heatmap now takes a bucket size and counts each position once.",
+   "day": 2,
+   "slot": 24
+  },
+  {
+   "n": 49,
+   "title": "Receipt claims checked against the venue",
+   "line": "Receipt claims are now checked against the venue's own order record.",
+   "day": 3,
+   "slot": 1
+  },
+  {
+   "n": 50,
+   "title": "Onboarding checks every step before you sign",
+   "line": "Onboarding now checks every step before you sign, and Lighter onboarding includes the eligibility declaration.",
+   "day": 3,
+   "slot": 2
+  },
+  {
+   "n": 51,
+   "title": "Burn plans check a reference rate",
+   "line": "Burn plans now check the pool rate against a 30-minute average and keep demo files apart.",
+   "day": 3,
+   "slot": 3
+  },
+  {
+   "n": 52,
+   "title": "Alert when a market you hold goes reduce-only",
+   "line": "New alert when a market you hold goes reduce-only.",
+   "day": 3,
+   "slot": 4
+  },
+  {
+   "n": 53,
+   "title": "Lighter orders build reliably",
+   "line": "Lighter order builds now use the venue's own next nonce and follow the market review.",
+   "day": 3,
+   "slot": 5
+  },
+  {
+   "n": 54,
+   "title": "SDK watch helpers for live channels",
+   "line": "SDK: live watch helpers for risk, receipts and plans, and each spread plan now runs once.",
+   "day": 3,
+   "slot": 6
+  },
+  {
+   "n": 55,
+   "title": "Prometheus alert rules",
+   "line": "New monitoring alert rules for the service.",
+   "day": 3,
+   "slot": 7
+  },
+  {
+   "n": 56,
+   "title": "Each payment unlocks exactly one answer",
+   "line": "Each payment now unlocks exactly one paid answer.",
+   "day": 3,
+   "slot": 8
+  },
+  {
+   "n": 57,
+   "title": "Preview an order without building it",
+   "line": "Order builds can now be previewed without storing anything.",
+   "day": 3,
+   "slot": 9
+  },
+  {
+   "n": 58,
+   "title": "Command line receipt check",
+   "line": "New command line receipt checker.",
+   "day": 3,
+   "slot": 10
+  },
+  {
+   "n": 59,
+   "title": "README: verify a receipt in three commands",
+   "line": "README now shows how to verify a receipt yourself.",
+   "day": 3,
+   "slot": 11
+  },
+  {
+   "n": 60,
+   "title": "Root indexer catches up after downtime",
+   "line": "The root index now fills gaps after a restart and lists only roots that are final on chain.",
+   "day": 3,
+   "slot": 12
+  },
+  {
+   "n": 61,
+   "title": "Each order build is relayed once",
+   "line": "Each order build is now relayed at most once, and a kill applies up to the moment of sending.",
+   "day": 3,
+   "slot": 13
+  },
+  {
+   "n": 62,
+   "title": "SDK checks the contract addresses too",
+   "line": "SDK now refuses if the API serves different contract addresses.",
+   "day": 3,
+   "slot": 14
+  },
+  {
+   "n": 63,
+   "title": "Weekly restore test of the backups",
+   "line": "Backups are now restore-tested every week.",
+   "day": 3,
+   "slot": 15
+  },
+  {
+   "n": 64,
+   "title": "Payment service settles only for Capstan and recovers stuck payments",
+   "line": "The payment service now settles only Capstan's own payments and recovers payments held up by a network outage.",
+   "day": 3,
+   "slot": 16
+  },
+  {
+   "n": 65,
+   "title": "Published eligibility rules",
+   "line": "Eligibility rules are now published with the age of the location data, and applied the same way at every step.",
+   "day": 3,
+   "slot": 17
+  },
+  {
+   "n": 66,
+   "title": "Agent limits count the worst case",
+   "line": "Agent limits now count the largest order the signature allows, and the order ticket labels server estimates.",
+   "day": 3,
+   "slot": 18
+  },
+  {
+   "n": 67,
+   "title": "Security policy covers the whole stack",
+   "line": "SECURITY.md now covers the website and operations, with accepted limits and review history.",
+   "day": 3,
+   "slot": 19
+  },
+  {
+   "n": 68,
+   "title": "Stored data stays bounded",
+   "line": "Stored data now stays bounded: unused quotes, probes and idle anonymous keys are cleared.",
+   "day": 3,
+   "slot": 20
+  },
+  {
+   "n": 69,
+   "title": "Credits are spent only on answers that succeed",
+   "line": "Call credits are now spent only on answers that succeed.",
+   "day": 3,
+   "slot": 21
+  },
+  {
+   "n": 70,
+   "title": "The newest agent policy you signed wins",
+   "line": "Agent policies now carry a sequence, so the newest one you signed always applies.",
+   "day": 3,
+   "slot": 22
+  },
+  {
+   "n": 71,
+   "title": "Dashboard keeps your session after reload",
+   "line": "Dashboard keeps your agents after a reload.",
+   "day": 3,
+   "slot": 23
+  },
+  {
+   "n": 72,
+   "title": "Public usage counts",
+   "line": "Usage counts are now public.",
+   "day": 3,
+   "slot": 24
+  }
+ ]
+}

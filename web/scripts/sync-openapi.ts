@@ -1,9 +1,11 @@
 // Copies the generated API description (apps/api/openapi.json, written by `bun run openapi` at the repo root) and the
 // MCP tool table (apps/mcp/README.md, section "Tools") into src/generated/, so /docs renders exactly what ships.
+// Also writes the /roadmap and /changelog data (scripts/sync-releases.ts).
 // Runs before every dev server, build and test run. Usage: bun scripts/sync-openapi.ts
 import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { syncReleases } from "./sync-releases";
 
 export const WEB_ROOT = join(import.meta.dir, "..");
 export const REPO_ROOT = join(WEB_ROOT, "..");
@@ -46,7 +48,7 @@ export function parseMcpTools(readme: string): McpTool[] {
   return rows;
 }
 
-export function syncGenerated(): { openapiSha256: string; tools: number } {
+export function syncGenerated(): { openapiSha256: string; tools: number; releases: ReturnType<typeof syncReleases> } {
   mkdirSync(GENERATED, { recursive: true });
   const spec = readFileSync(OPENAPI_SOURCE);
   JSON.parse(spec.toString("utf8")); // refuse a broken file
@@ -55,10 +57,10 @@ export function syncGenerated(): { openapiSha256: string; tools: number } {
   writeFileSync(join(GENERATED, "mcp-tools.json"), `${JSON.stringify(tools, null, 2)}\n`);
   const openapiSha256 = sha256(spec);
   writeFileSync(join(GENERATED, "openapi.sha256.json"), `${JSON.stringify({ source: "apps/api/openapi.json", sha256: openapiSha256 })}\n`);
-  return { openapiSha256, tools: tools.length };
+  return { openapiSha256, tools: tools.length, releases: syncReleases() };
 }
 
 if (import.meta.main) {
   const r = syncGenerated();
-  console.log(`sync-openapi: openapi.json sha256 ${r.openapiSha256.slice(0, 12)}, ${r.tools} MCP tools`);
+  console.log(`sync-openapi: openapi.json sha256 ${r.openapiSha256.slice(0, 12)}, ${r.tools} MCP tools; releases: ${r.releases.updates} updates (${r.releases.live} live), ${r.releases.entries} changelog entries`);
 }

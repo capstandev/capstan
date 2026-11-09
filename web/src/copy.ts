@@ -148,6 +148,26 @@ export const STATUS_COPY = {
   off: "Paused",
 } as const;
 
+/** /roadmap: titles and lines come from the release plan (web/data/roadmap.json); these are the labels only. */
+export const ROADMAP_COPY = {
+  title: "Roadmap",
+  day: (d: number) => `Day ${d}`,
+  update: (n: number) => `Update ${n}`,
+  slot: (d: number, s: number) => `Planned slot: Day ${d}, slot ${s}`,
+  live: "LIVE",
+  planned: "planned",
+} as const;
+
+/** /changelog: entries come from CHANGELOG.md; these are the labels only. */
+export const CHANGELOG_COPY = {
+  title: "Changelog",
+  empty: "No releases yet. The first update ships at launch.",
+  update: (n: number) => `Update ${n}`,
+  bonus: (n: number) => `Bonus update ${n}`,
+  fix: "Fix",
+  undated: "Date not recorded",
+} as const;
+
 export const VERIFY_COPY = {
   title: "Verify a receipt",
   intro: "Paste a receipt id or the receipt JSON. The check runs in your browser: the signature, the Merkle leaf, the proof and the hourly root posted on Robinhood Chain.",

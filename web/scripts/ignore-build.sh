@@ -4,7 +4,7 @@
 # no previous deployment, a previous sha the clone does not hold, or any git error all mean "build".
 # WATCH is every path the web build reads: web/ itself plus scripts/build-inputs.ts's list (test/vercel.test.ts keeps
 # the two equal). Paths are relative to the repository root.
-WATCH="web apps/api apps/relay apps/api/openapi.json apps/mcp/README.md packages/adapters/aster packages/adapters/hyperliquid packages/adapters/lighter packages/core packages/eligibility packages/policy packages/receipts packages/schema packages/sdk packages/signers/aster packages/signers/hl packages/signers/lighter-wasm packages/spreads packages/telemetry packages/tiers packages/venue-client .githooks/public-guard.denylist tsconfig.base.json package.json bun.lock"
+WATCH="web apps/api apps/relay apps/api/openapi.json apps/mcp/README.md packages/adapters/aster packages/adapters/hyperliquid packages/adapters/lighter packages/core packages/eligibility packages/policy packages/receipts packages/schema packages/sdk packages/signers/aster packages/signers/hl packages/signers/lighter-wasm packages/spreads packages/telemetry packages/tiers packages/venue-client .githooks/public-guard.denylist tsconfig.base.json package.json bun.lock CHANGELOG.md"
 
 base="${VERCEL_GIT_PREVIOUS_SHA:-}"
 if [ -z "$base" ]; then

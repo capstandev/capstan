@@ -7,12 +7,13 @@ build, deployable as is (Vercel config in `vercel.json`).
 
 | Path | What it is |
 | --- | --- |
-| `*.html` | One file per page: the owner's pages (index, how-it-works, developers, markets, quotes, risk, use-cases, the three case pages, pricing, about, contact, terms, privacy, dashboard) plus docs, verify, status, legal and 404 |
+| `*.html` | One file per page: the owner's pages (index, how-it-works, developers, markets, quotes, risk, use-cases, the three case pages, pricing, about, contact, terms, privacy, dashboard) plus docs, verify, status, legal, roadmap, changelog and 404 |
+| `data/roadmap.json` | The release queue export for /roadmap (number, title, one plain line, planned day and slot), made from the release plan. `scripts/sync-releases.ts` joins it with the repo's CHANGELOG.md at build time: an update reads LIVE only when its `Update N:` entry is released there, otherwise "planned"; /changelog lists the released entries newest first |
 | `public/` | The owner's styles, scripts, component bundles, images and mascot videos, as supplied (kept word for word) |
 | `site-src/` | The owner's editable sources for the component bundles in `public/assets/` (`site-src/package.json` has the esbuild commands) |
 | `src/site/` | The live wiring: `main.ts` (the one module every page loads), `data.ts` (API reads and the view states), `feature.ts` (markets, quotes, risk and pricing pages), `dashboard.tsx` (the owner's dashboard views), `react.tsx` (React screens inside the owner's pages), `live.css`, `fonts.css` |
 | `src/app/`, `src/pages/` | The SDK flow screens (connect, onboarding, quote, order ticket, risk, receipts, policy and kill, spreads) and the docs, verify, status and legal pages, mounted inside the owner's design |
-| `scripts/` | `hash-public.ts` (content-hashed names for every public file after the build), `check-dist.ts`, `serve-dist.ts`, `sync-openapi.ts`, `check-copy.ts` |
+| `scripts/` | `hash-public.ts` (content-hashed names for every public file after the build), `check-dist.ts`, `serve-dist.ts`, `sync-openapi.ts`, `sync-releases.ts` (the /roadmap and /changelog data), `check-copy.ts` |
 
 The owner's scripts draw each page (`app.js`, `bloop-views.js`); `src/site/main.ts` then puts live values into the
 owner's markup and mounts the live views. Where the owner wrote a line for the not-connected state ("not live",

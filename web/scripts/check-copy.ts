@@ -1,7 +1,8 @@
 // check:copy (todo 38 R3): the repo's banned-word checker over web/, then the site copy rules on the text every page
 // actually renders (static render of each page, with every live flag off and on, plus index.html):
 //   - the banned list (ops/ci/banned-words.txt, exact allowed sentences excepted)
-//   - no "official"; no "first" unless the same sentence carries "(U)"
+//   - no "official"; no "first" unless the same sentence carries "(U)" (the ordinal "the first update ships at launch"
+//     on /changelog is not a claim)
 //   - no VPN or workaround wording; no wording that suggests margin is pooled across venues
 //   - the ticker only as "$CPST on Robinhood Chain"
 //   - every hedge word with "Legging risk is yours" on the same line
@@ -49,7 +50,7 @@ const sentences = (t: string) => t.split(/(?<=[.!?])\s+|\n+/).map((s) => s.repla
 
 const EXTRA: { rule: string; test: (s: string) => boolean }[] = [
   { rule: "no 'official'", test: (s) => /\bofficial(ly)?\b/i.test(s) },
-  { rule: "'first' needs '(U)' in the same sentence", test: (s) => /\bfirst\b/i.test(s.replace(/\b(newest|oldest|latest|earliest) first\b/gi, "")) && !s.includes("(U)") },
+  { rule: "'first' needs '(U)' in the same sentence", test: (s) => /\bfirst\b/i.test(s.replace(/\b(newest|oldest|latest|earliest) first\b/gi, "").replace(/\bthe first update ships at launch\b/gi, "")) && !s.includes("(U)") },
   { rule: "no VPN or workaround wording", test: (s) => /\bvpns?\b|\bwork-?arounds?\b|\bget around\b|\bbypass(es|ing)?\b/i.test(s) },
   // written split so this file passes the banned-word scan it is part of
   { rule: "no pooled-margin wording", test: (s) => new RegExp(["\\bcross[- ]?mar", "gin|\\bshared[- ]coll", "ateral\\b"].join(""), "i").test(s) },

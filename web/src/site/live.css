@@ -97,6 +97,12 @@
 .cap-live .disclaimer * { font-size: 14px; }
 .cap-live .disclaimer h2 { font-size: 16px; margin: 0 0 6px; }
 .cap-live .cap-connected { font-weight: 700; }
+/* /roadmap and /changelog: one card per update or entry; the state is a plain word, not a decoration */
+.cap-live .cap-roadmap .card, .cap-live .cap-changelog .card { overflow-wrap: anywhere; }
+.cap-live .cap-roadmap .card h3 { margin-top: 0; }
+.cap-live .cap-changelog .card h2 { font-size: 16px; margin: 0 0 4px; }
+.cap-live .cap-release-meta { display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: baseline; margin: 4px 0 0; font-weight: 700; }
+.cap-live .cap-release-state { font-weight: 800; }
 .cap-live-page .bl-wrap { text-align: left; }
 .cap-live-page .cap-live .page > h1 { text-align: left; }
 
