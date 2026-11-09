@@ -47,7 +47,7 @@ describe("api mount", () => {
     const { app, routes } = await createApp();
     const res = await app.request("/v1/health");
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ ok: true, service: "api" });
+    expect(await res.json()).toMatchObject({ ok: true, service: "api", degraded: false });
     expect(routes.find((r) => r.path === "/health")).toMatchObject({ auth: "public", file: "health.routes.ts" });
     const dup = routesDir({ "a.routes.ts": route('auth: "public",'), "b.routes.ts": route('auth: "public",') });
     await expect(createApp({ routesDir: dup })).rejects.toThrow("b.routes.ts: duplicate route GET /thing");

@@ -15,3 +15,4 @@ export * from "./signed-message";
 export * from "./testing";
 export * from "./fork";
 export * from "./ip";
+export * from "./health";

@@ -9,6 +9,7 @@ import { createPaymentWrapper } from "@x402/mcp";
 import { getConnInfo } from "hono/bun";
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 import { Hono } from "hono";
+import { healthBody, healthResponse, releaseVersion } from "@capstan/core";
 import { z } from "zod";
 import { SERVICE_METRICS, type RequestLogSink } from "@capstan/telemetry";
 import { ipBucket } from "@capstan/core";
@@ -35,6 +36,8 @@ export interface McpAppDeps {
   /** Wrap a tool handler (tests count server instances with it). */
   wrap?: (tool: ToolDef, handler: (args: unknown, extra: unknown) => Promise<unknown>) => (args: unknown, extra: unknown) => Promise<unknown>;
   payments?: McpPayments;
+  /** GET /health and GET /mcp/health (ops/uptime): the release version and the cached dependency probe. */
+  health?: { version?: string; probe?: { failing(): Promise<string[]> } };
   /** The caller's address (default: the first X-Forwarded-For entry, else the socket). */
   clientIpOf?: (c: import("hono").Context) => string | null;
   /** request_logs rows (service mcp, route = JSON-RPC method) for the usage report; client ids hashed, never stored raw. */
@@ -181,7 +184,20 @@ export function createMcpApp(deps: McpAppDeps): Hono {
   const perMin = deps.rateLimit?.perMin ?? MCP_RATE_LIMIT_PER_MIN;
   const paidPerMin = deps.rateLimit?.paidPerMin ?? MCP_PAID_PER_MIN;
   if (deps.payments) deps = { ...deps, payments: { ...deps.payments, resourceServer: guardedVerify(deps.payments.resourceServer, now) } };
-  app.get("/health", (c) => c.json({ ok: true, service: "mcp" }));
+  const healthVersion = deps.health?.version ?? releaseVersion();
+  app.get("/health", async () => healthResponse(await healthBody("mcp", healthVersion, deps.health?.probe)));
+  // The outside monitor's path: Caddy sends /mcp* here, so this proves the public route reaches this process. The Host
+  // the request arrived with must also pass the transport's DNS-rebinding list, or every hosted call would get a 403
+  // while this answers (r1:9 F-3); that shows as degraded with "host" in failing.
+  app.get("/mcp/health", async (c) => {
+    const body = await healthBody("mcp", healthVersion, deps.health?.probe);
+    const host = c.req.header("host");
+    if (deps.allowedHosts.length > 0 && (host === undefined || !deps.allowedHosts.includes(host))) {
+      body.failing = [...body.failing, "host"];
+      body.degraded = true;
+    }
+    return healthResponse(body);
+  });
   app.all("/mcp", async (c) => {
     // The SDK transport checks Origin only when the allow-list is non-empty, so the hosted default (MCP_ALLOWED_ORIGINS
     // unset) served a browser page on any origin. An Origin header (a browser) must be listed; agents send none.

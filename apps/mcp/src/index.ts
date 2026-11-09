@@ -1,6 +1,6 @@
 // @capstan/mcp: MCP server (Streamable HTTP, stateless) on MCP_PORT at /mcp. The hosted endpoint's host name is
 // config (MCP_ALLOWED_HOSTS, default the local port); tools call the public API at API_BASE_URL.
-import { createDb, loadConfig, logger, type ConfigFor } from "@capstan/core";
+import { createDb, healthProbe, loadConfig, logger, releaseVersion, type ConfigFor } from "@capstan/core";
 import { bufferedRequestLog, dailyClientHasher, initTelemetry, telemetryEnv } from "@capstan/telemetry";
 import { httpApiClient, type CapstanApiClient } from "./client";
 import { paymentsFromEnv, type McpPaymentOverrides } from "./payments";
@@ -13,11 +13,21 @@ export * from "./server";
 export * from "./payments";
 export * from "./tools";
 
+/** The MCP tools need the API: its /health must answer 200 (one probe per 5 s at most, through healthProbe). */
+export function apiHealthCheck(apiBase: string, f: typeof fetch = fetch): () => Promise<void> {
+  const url = `${apiBase.replace(/\/+$/, "")}/health`;
+  return async () => {
+    const r = await f(url, { headers: { accept: "application/json" } });
+    await r.body?.cancel();
+    if (r.status !== 200) throw new Error(`api health ${r.status}`);
+  };
+}
+
 /**
  * The production MCP app from the environment (the entry below calls exactly this). Paid tools get the x402 gate from
  * paymentsFromEnv; with payments off they answer "payments unavailable" and are never served free.
  */
-export async function mcpAppFromEnv(cfg: ConfigFor<"mcp">, env: Record<string, string | undefined>, o: McpPaymentOverrides & { api?: CapstanApiClient; requestLog?: McpAppDeps["requestLog"] } = {}) {
+export async function mcpAppFromEnv(cfg: ConfigFor<"mcp">, env: Record<string, string | undefined>, o: McpPaymentOverrides & { api?: CapstanApiClient; requestLog?: McpAppDeps["requestLog"]; health?: McpAppDeps["health"] } = {}) {
   // r1:9 F-3: behind Caddy the Host is the public api host, so a hosted server with only the loopback default answers
   // 403 to every /mcp request while its loopback health probe stays green. Refuse to start instead.
   if (!env.MCP_ALLOWED_HOSTS?.trim() && (cfg.CAPSTAN_NETWORK === "testnet" || cfg.CAPSTAN_NETWORK === "mainnet")) {
@@ -26,7 +36,8 @@ export async function mcpAppFromEnv(cfg: ConfigFor<"mcp">, env: Record<string, s
   const hosts = (env.MCP_ALLOWED_HOSTS?.trim() || `127.0.0.1:${cfg.MCP_PORT},localhost:${cfg.MCP_PORT}`).split(",").map((s) => s.trim()).filter(Boolean);
   const origins = (env.MCP_ALLOWED_ORIGINS ?? "").split(",").map((s) => s.trim()).filter(Boolean);
   const payments = await paymentsFromEnv(cfg, env, o);
-  const app = createMcpApp({ api: o.api ?? httpApiClient(cfg.API_BASE_URL), version: MCP_VERSION, allowedHosts: hosts, allowedOrigins: origins, ...(payments ? { payments } : {}), ...(o.requestLog ? { requestLog: o.requestLog } : {}), rateLimit: { perMin: cfg.MCP_RATE_LIMIT_PER_MIN } });
+  const health = o.health ?? { version: releaseVersion(env), probe: healthProbe({ api: apiHealthCheck(cfg.API_BASE_URL) }) };
+  const app = createMcpApp({ api: o.api ?? httpApiClient(cfg.API_BASE_URL), version: MCP_VERSION, health, allowedHosts: hosts, allowedOrigins: origins, ...(payments ? { payments } : {}), ...(o.requestLog ? { requestLog: o.requestLog } : {}), rateLimit: { perMin: cfg.MCP_RATE_LIMIT_PER_MIN } });
   return { app, hosts, paidTools: payments !== undefined };
 }
 

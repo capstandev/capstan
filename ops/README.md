@@ -15,3 +15,5 @@
 - `testnet/`: testnet wallets (`make-wallets.sh`, `make-wallets-vps.sh` for Aster on the VPS), the read-only
   `doctor.sh`, the testnet brand Safe (`make-safe.sh`) and `run-all.sh`, which runs every testnet-gated suite whose
   wallets are funded. Testnets only; every sender asserts its network first (`bun test ops/testnet`).
+- `uptime/`: the outside uptime monitors (`monitors.json`, the free-account click-path in `README.md`) and
+  `check.sh`, which probes the same URLs and prints PASS or FAIL (`bun test ops/uptime` runs it on a local stack).

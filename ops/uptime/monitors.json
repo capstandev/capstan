@@ -1,0 +1,57 @@
+{
+  "about": "Outside uptime monitors for Capstan (tracker line 88). Created by hand in a free UptimeRobot account (README.md has the click-path). ops/uptime/check.sh probes the same list locally.",
+  "provider": "UptimeRobot Free",
+  "intervalSeconds": 300,
+  "alertContacts": [
+    { "type": "email", "to": "the ops alert inbox (OPS_ALERT_EMAIL, set when the account is made)", "free": true },
+    { "type": "telegram", "to": "the ops Telegram chat", "free": false, "note": "UptimeRobot Telegram alerts need the Solo plan; webhooks need Team. Stays off until a paid plan is chosen." }
+  ],
+  "bases": {
+    "site": "https://get-capstan.com",
+    "api": "https://api.get-capstan.com"
+  },
+  "monitors": [
+    {
+      "id": "site",
+      "name": "Capstan site",
+      "type": "keyword",
+      "method": "GET",
+      "base": "site",
+      "path": "/",
+      "url": "https://get-capstan.com/",
+      "expectStatus": 200,
+      "keyword": "Capstan",
+      "alertWhen": "keyword not exists",
+      "maxMs": 5000,
+      "expectNoStore": false
+    },
+    {
+      "id": "api-health",
+      "name": "Capstan API health",
+      "type": "keyword",
+      "method": "GET",
+      "base": "api",
+      "path": "/v1/health",
+      "url": "https://api.get-capstan.com/v1/health",
+      "expectStatus": 200,
+      "keyword": "\"degraded\":false",
+      "alertWhen": "keyword not exists",
+      "maxMs": 2000,
+      "expectNoStore": true
+    },
+    {
+      "id": "mcp-health",
+      "name": "Capstan MCP endpoint",
+      "type": "keyword",
+      "method": "GET",
+      "base": "api",
+      "path": "/mcp/health",
+      "url": "https://api.get-capstan.com/mcp/health",
+      "expectStatus": 200,
+      "keyword": "\"degraded\":false",
+      "alertWhen": "keyword not exists",
+      "maxMs": 2000,
+      "expectNoStore": true
+    }
+  ]
+}
