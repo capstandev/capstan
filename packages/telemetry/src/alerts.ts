@@ -6,7 +6,10 @@
 //     in a log line, an error message or process arguments (no child process is spawned)
 //   - text carries no user identifier: wallet addresses become a short hash unless they are known service addresses,
 //     IPs become [ip], long hex is hashed
-//   - text longer than 3,600 characters is cut at a line end and ends with "+N more" (Telegram caps at 4,096)
+//   - text longer than 3,600 characters is split at line ends into numbered parts "(1/3) ..." of at most 3,600
+//     characters each (Telegram caps at 4,096), up to MAX_ALERT_PARTS; past that the last part ends with "+N more"
+//   - a 429 from Telegram is retried after its retry_after (body parameters.retry_after, else the Retry-After header),
+//     at most MAX_429_RETRIES times and only when the wait is at most MAX_RETRY_WAIT_S; otherwise the send fails
 // Alerts only notify. Nothing in this module can pause, stop or kill anything (MON-1).
 import type { Logger } from "@capstan/core";
 import { readFileSync, statSync } from "node:fs";
@@ -17,6 +20,12 @@ import { isIP } from "node:net";
 export type { OpsAlert } from "./causes";
 
 export const MAX_ALERT_CHARS = 3600;
+/** At most this many messages per alert; the rest of a longer text is counted as "+N more". */
+export const MAX_ALERT_PARTS = 4;
+/** A 429 is retried at most this many times per message. */
+export const MAX_429_RETRIES = 2;
+/** A 429 that asks for a longer wait is not waited for (the worker runs every 15 s); the send fails instead. */
+export const MAX_RETRY_WAIT_S = 30;
 
 export interface DedupeStore {
   /** True when the key was free and is now held for ttlMs; false when it is already held. */
@@ -60,6 +69,8 @@ export interface SendDeps {
   http: typeof fetch;
   apiBase?: string; // default https://api.telegram.org (tests point it at a local fake server)
   now?: () => number;
+  /** Wait before a 429 retry (default a real timer). */
+  sleep?: (ms: number) => Promise<void>;
   dedupe?: DedupeStore;
   log?: Logger;
   /** Service and builder addresses that may appear in full (the owner funds them). Every other address is hashed. */
@@ -108,10 +119,66 @@ export function truncateAlert(text: string, max = MAX_ALERT_CHARS): string {
   return `${lines.slice(0, k).join("\n")}\n+${n - k} more`;
 }
 
-export function formatOpsAlert(a: OpsAlert, knownAddresses: readonly string[] = []): string {
+/** Split at line ends into numbered parts "(i/n) " of at most `max` characters each, at most `maxParts` parts. A line
+ * longer than a part is cut into pieces. Past `maxParts` the last part is cut with truncateAlert ("+N more"). */
+export function splitAlert(text: string, max = MAX_ALERT_CHARS, maxParts = MAX_ALERT_PARTS): string[] {
+  if (text.length <= max) return [text];
+  const room = max - "(99/99) ".length;
+  const pieces: string[] = [];
+  for (const line of text.split("\n")) {
+    if (line.length <= room) pieces.push(line);
+    else for (let i = 0; i < line.length; i += room) pieces.push(line.slice(i, i + room));
+  }
+  const parts: string[] = [];
+  let cur: string[] = [];
+  let len = 0;
+  for (const p of pieces) {
+    const next = len + (cur.length ? 1 : 0) + p.length;
+    if (cur.length && next > room) {
+      parts.push(cur.join("\n"));
+      cur = [p];
+      len = p.length;
+    } else {
+      cur.push(p);
+      len = next;
+    }
+  }
+  if (cur.length) parts.push(cur.join("\n"));
+  if (parts.length > maxParts) {
+    const rest = parts.slice(maxParts - 1).join("\n");
+    parts.length = maxParts - 1;
+    parts.push(truncateAlert(rest, room));
+  }
+  return parts.map((p, i) => `(${i + 1}/${parts.length}) ${p}`);
+}
+
+function fullAlertText(a: OpsAlert, knownAddresses: readonly string[]): string {
   const head = `[${a.severity.toUpperCase()}] ${a.cause}`;
   const body = [`What happened: ${a.what}`, `Who is affected: ${a.affected}`, `What was done: ${a.done}`, `What is next: ${a.next}`, `Glossary: ops/alerts/GLOSSARY.md#${a.cause}`];
-  return truncateAlert(sanitizeAlertText([head, ...body].join("\n"), knownAddresses));
+  return sanitizeAlertText([head, ...body].join("\n"), knownAddresses);
+}
+
+/** One message of at most MAX_ALERT_CHARS (cut with "+N more"); the log line form. */
+export function formatOpsAlert(a: OpsAlert, knownAddresses: readonly string[] = []): string {
+  return truncateAlert(fullAlertText(a, knownAddresses));
+}
+
+/** The messages an alert is sent as: one, or numbered parts when the text is longer than MAX_ALERT_CHARS. */
+export function formatOpsAlertParts(a: OpsAlert, knownAddresses: readonly string[] = []): string[] {
+  return splitAlert(fullAlertText(a, knownAddresses));
+}
+
+/** Seconds a 429 asks to wait: body parameters.retry_after, else the Retry-After header, else 1. */
+async function retryAfterSeconds(res: Response): Promise<number> {
+  try {
+    const j = (await res.json()) as { parameters?: { retry_after?: unknown } };
+    const v = Number(j?.parameters?.retry_after);
+    if (Number.isFinite(v) && v >= 0) return v;
+  } catch {
+    // not JSON: fall back to the header
+  }
+  const h = Number(res.headers.get("retry-after"));
+  return Number.isFinite(h) && h >= 0 ? h : 1;
 }
 
 function readToken(file: string): string | null {
@@ -153,25 +220,39 @@ export async function sendOpsAlert(a: OpsAlert, deps: SendDeps): Promise<"sent" 
     return "deduped";
   }
   const base = (deps.apiBase ?? "https://api.telegram.org").replace(/\/+$/, "");
-  let res: Response;
-  try {
-    res = await deps.http(`${base}/bot${token}/sendMessage`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ chat_id: deps.chatId, text, disable_web_page_preview: true }),
-    });
-  } catch {
-    await dedupe.release(key);
-    log?.error("ops alert send failed", { cause: a.cause, status: null });
-    throw new TelegramSendError(null);
-  } finally {
+  const sleep = deps.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
+  const parts = formatOpsAlertParts(a, deps.knownAddresses);
+  const fail = async (status: number | null): Promise<never> => {
     token = null;
-  }
-  if (!res.ok) {
     await dedupe.release(key);
-    log?.error("ops alert send failed", { cause: a.cause, status: res.status });
-    throw new TelegramSendError(res.status);
+    log?.error("ops alert send failed", { cause: a.cause, status });
+    throw new TelegramSendError(status);
+  };
+  for (const part of parts) {
+    for (let attempt = 0; ; attempt++) {
+      let res: Response;
+      try {
+        res = await deps.http(`${base}/bot${token}/sendMessage`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ chat_id: deps.chatId, text: part, disable_web_page_preview: true }),
+        });
+      } catch {
+        return fail(null);
+      }
+      if (res.ok) break;
+      if (res.status === 429 && attempt < MAX_429_RETRIES) {
+        const wait = await retryAfterSeconds(res);
+        if (wait <= MAX_RETRY_WAIT_S) {
+          log?.warn("ops alert rate limited, retrying", { cause: a.cause, retryAfterS: wait });
+          await sleep(Math.ceil(wait * 1000));
+          continue;
+        }
+      }
+      return fail(res.status);
+    }
   }
-  log?.info("ops alert sent", { cause: a.cause, severity: a.severity });
+  token = null;
+  log?.info("ops alert sent", { cause: a.cause, severity: a.severity, parts: parts.length });
   return "sent";
 }

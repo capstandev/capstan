@@ -8,11 +8,13 @@ import {
   formatOpsAlert,
   hlBuilderReader,
   MAX_ALERT_CHARS,
+  MAX_ALERT_PARTS,
   memoryDedupe,
   sendOpsAlert,
   StalenessMonitor,
   TelegramSendError,
   toOpsAlert,
+  splitAlert,
   truncateAlert,
   type OpsEvent,
 } from "../src";
@@ -165,6 +167,23 @@ describe("ops alerts", () => {
     const one = truncateAlert("y".repeat(5000) + "\nend");
     expect(one.length).toBeLessThanOrEqual(MAX_ALERT_CHARS);
     expect(one).toEndWith("\n+1 more");
+  });
+
+  test("split: long text becomes numbered parts at line ends; past the part cap the last part ends with +N more", () => {
+    expect(splitAlert("short")).toEqual(["short"]);
+    const lines = Array.from({ length: 300 }, (_, i) => `line ${String(i).padStart(3, "0")} ${"x".repeat(24)}`);
+    const parts = splitAlert(lines.join("\n"));
+    expect(parts.length).toBe(3);
+    parts.forEach((p, i) => {
+      expect(p.length).toBeLessThanOrEqual(MAX_ALERT_CHARS);
+      expect(p.startsWith(`(${i + 1}/3) `)).toBeTrue();
+    });
+    expect(parts.map((p) => p.replace(/^\(\d\/\d\) /, "")).join("\n")).toBe(lines.join("\n")); // nothing lost
+    const huge = Array.from({ length: 2000 }, (_, i) => `row ${i} ${"z".repeat(30)}`);
+    const capped = splitAlert(huge.join("\n"));
+    expect(capped.length).toBe(MAX_ALERT_PARTS);
+    for (const p of capped) expect(p.length).toBeLessThanOrEqual(MAX_ALERT_CHARS);
+    expect(capped.at(-1)!).toMatch(/\n\+\d+ more$/);
   });
 
   test("builder-balances: HL under 100 USDC or not standard, and Aster under 100 ASTER, raise one act alert each (read-only)", async () => {

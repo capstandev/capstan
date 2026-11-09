@@ -8,6 +8,8 @@ set -u
 rr_init
 envf=$(rr_conf_get TELEGRAM_ENV /etc/capstan-release/telegram.env)
 curl_bin=$(rr_conf_get CURL /usr/bin/curl)
+api=$(rr_conf_get TELEGRAM_API https://api.telegram.org) # tests point it at a local stand-in Bot API
+api="${api%/}"
 read_env() { grep -E "^$1=" "$envf" 2>/dev/null | tail -n 1 | sed -E "s/^$1=//; s/^['\"]//; s/['\"]\$//"; }
 esc() { printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' | awk 'BEGIN { ORS = "" } NR > 1 { print "\\n" } { print }'; }
 test_mode=0
@@ -19,8 +21,8 @@ text="$title
 
 $body"
 text="${text:0:3800}"
-if printf 'url = "https://api.telegram.org/bot%s/sendMessage"\ndata-urlencode = "chat_id=%s"\ndata-urlencode = "text=%s"\nsilent\nshow-error\nfail\nmax-time = 20\n' \
-  "$token" "$(esc "$chat")" "$(esc "$text")" | "$curl_bin" -K - -o /dev/null; then
+if printf 'url = "%s/bot%s/sendMessage"\ndata-urlencode = "chat_id=%s"\ndata-urlencode = "text=%s"\nsilent\nshow-error\nfail\nmax-time = 20\n' \
+  "$api" "$token" "$(esc "$chat")" "$(esc "$text")" | "$curl_bin" -K - -o /dev/null; then
   [ "$test_mode" = "1" ] && : > "$(rr_conf_get NOTIFY_PROOF "$RR_HOME/notify.proof")"
   exit 0
 fi

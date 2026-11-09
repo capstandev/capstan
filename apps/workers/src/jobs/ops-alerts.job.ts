@@ -15,6 +15,7 @@ import {
   identify,
   OPS_ALERT_CHANNEL,
   OPS_ALERT_LIST,
+  OPS_ALERT_SEEN,
   redisDedupe,
   refreshDbGauges,
   sendOpsAlert,
@@ -36,7 +37,14 @@ export interface OpsAlertsOptions {
   aster?: AsterBuilderReader | null;
   /** Events to handle when there is no Redis (tests, dry runs). */
   events?: OpsEvent[];
+  /** Wait before a Telegram 429 retry (default a real timer). */
+  sleep?: (ms: number) => Promise<void>;
 }
+
+/** A failed alert is put back at most this many times (about 5 minutes at one run every 15 s), then dropped. */
+export const MAX_ALERT_REQUEUES = 20;
+
+export type OpsAlertResult = "sent" | "deduped" | "logged" | "failed";
 
 let subscriber: Redis | null = null;
 let lastBuilderCheck = 0;
@@ -102,22 +110,42 @@ export async function runOpsAlerts(deps: JobDeps, o: OpsAlertsOptions = {}) {
   const armed = env.ALERTS_ARMED === "1" || env.ALERTS_ARMED === "true";
   const dedupe = o.dedupe ?? (deps.redis ? redisDedupe(deps.redis) : undefined);
   const known = (env.OPS_KNOWN_ADDRESSES ?? "").split(",").map((s) => s.trim()).filter(Boolean);
-  const results: { cause: string; result: "sent" | "deduped" | "logged" }[] = [];
+  const results: { cause: string; result: OpsAlertResult }[] = [];
   for (const e of pending) {
     const a = toOpsAlert(e);
-    const result = await sendOpsAlert(a, {
-      armed,
-      tokenFile: env.ALERTS_TOKEN_FILE ?? DEFAULT_TOKEN_FILE,
-      chatId: env.ALERTS_CHAT_ID ?? "",
-      dedupeMinutes: 30,
-      http: o.http ?? fetch,
-      apiBase: env.ALERTS_TELEGRAM_API,
-      now: () => deps.now().getTime(),
-      dedupe,
-      log: deps.log,
-      knownAddresses: known,
-    });
-    results.push({ cause: a.cause, result });
+    try {
+      const result = await sendOpsAlert(a, {
+        armed,
+        tokenFile: env.ALERTS_TOKEN_FILE ?? DEFAULT_TOKEN_FILE,
+        chatId: env.ALERTS_CHAT_ID ?? "",
+        dedupeMinutes: 30,
+        http: o.http ?? fetch,
+        apiBase: env.ALERTS_TELEGRAM_API,
+        now: () => deps.now().getTime(),
+        ...(o.sleep ? { sleep: o.sleep } : {}),
+        dedupe,
+        log: deps.log,
+        knownAddresses: known,
+      });
+      results.push({ cause: a.cause, result });
+    } catch (err) {
+      // one failed send (network, 5xx, a long 429) must not drop the other drained events: they are still sent, and
+      // this one goes back on the durable list for the next run (its seen mark is cleared so the drain takes it again)
+      results.push({ cause: a.cause, result: "failed" });
+      deps.log.error("ops alert failed, kept for the next run", { cause: a.cause, error: (err as Error).message });
+      const tries = Number((e as { requeues?: unknown }).requeues ?? 0) || 0;
+      if (deps.redis && tries >= MAX_ALERT_REQUEUES) {
+        deps.log.error("ops alert dropped after repeated failures", { cause: a.cause, requeues: tries });
+      } else if (deps.redis) {
+        const id = (e as { eventId?: unknown }).eventId;
+        try {
+          if (typeof id === "string") await deps.redis.del(OPS_ALERT_SEEN + id);
+          await deps.redis.rpush(OPS_ALERT_LIST, JSON.stringify({ ...e, requeues: tries + 1 }));
+        } catch (qe) {
+          deps.log.error("ops alert requeue failed", { cause: a.cause, error: (qe as Error).message });
+        }
+      }
+    }
   }
   return results;
 }

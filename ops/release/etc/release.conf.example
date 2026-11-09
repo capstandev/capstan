@@ -19,6 +19,7 @@ STRESS_REPORT=/var/lib/capstan-release/release-stress.md
 RELEASE_TOKEN_PROOF=/var/lib/capstan-release/release-token.proof
 NOTIFY_PROOF=/var/lib/capstan-release/notify.proof
 TELEGRAM_ENV=/etc/capstan-release/telegram.env
+# TELEGRAM_API=https://api.telegram.org   (default; tests point it at a local stand-in Bot API)
 GITHUB_RELEASE_ENV=/etc/capstan-release/github-release.env
 # Light gate on the server: typecheck plus the tests of what the update touched (the full gate ran before launch).
 GATE_CMD=/opt/capstan-release/bin/gate-light.sh
