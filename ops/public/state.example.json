@@ -1,0 +1,19 @@
+{
+ "privateSha": "SET-BY-BOOTSTRAP",
+ "publicSha": "SET-BY-BOOTSTRAP",
+ "name": "capstandev",
+ "email": "SET-capstandev-noreply@users.noreply.github.com",
+ "signingKey": "~/.ssh/id_ed25519_capstan.pub",
+ "publicRemote": "public",
+ "branch": "main",
+ "projectName": "Capstan",
+ "scrub": {"<owner name>": "the owner"},
+ "forbidden": "<owner names and handles>|<other project names>|co-authored[-]by|generated[ ]with",
+ "scrubFiles": {"<path>": [["<old text>", "<new text>"]]},
+ "forbiddenSkipPaths": ["web/public/assets/**", "**/*.svg"],
+ "changelog": {"entries": "<private docs>/public/changelog-entries.json", "commitUrl": "https://github.com/capstandev/capstan/commit/{sha}"},
+ "publicOwner": "capstandev",
+ "publicRepo": "capstan",
+ "publicUrl": "git@github-capstan:capstandev/capstan.git",
+ "website": "https://get-capstan.com"
+}
