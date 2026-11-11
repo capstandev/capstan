@@ -52,6 +52,7 @@ RESUME*
 !packages/spreads/test/plan/**
 STATUS.md
 Dockerfile*
+!ops/server/test/standin/Dockerfile
 docker-compose.*.yml
 docker-compose.override.yml
 compose*.yml

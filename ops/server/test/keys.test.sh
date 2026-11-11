@@ -19,6 +19,23 @@ for f in keystore.json keystore.password keystore.network; do
 done
 assert_eq "$(cat /etc/capstan/receipts/keystore.password)" "$PW" "stored password"
 ls -A /etc/capstan/receipts | grep -q '^\.new\.' && fail "temporary folder left behind"
+# the older cast output shape ("Address: 0x..." under the file line) still gives one address line
+rm -f /etc/capstan/facilitator/keystore.*
+outl="$(printf '%s\n' "$PW" | FAKE_CAST_SHAPE=legacy FAKE_CAST_PASSWORD="$PW" /bin/bash "$dir/make-service-key.sh" facilitator testnet 2>&1)" || fail "legacy cast shape: $outl"
+printf '%s' "$outl" | grep -qE '^0x[0-9a-f]{40}$' || fail "legacy cast shape output is not one address: $outl"
+rm -f /etc/capstan/facilitator/keystore.*
+# a dropped session (HUP to the whole process group, as sshd sends it) mid-key leaves no half-made keystore folder
+rm -f /etc/capstan/anchor/keystore.* /tmp/fake-cast.ready
+ls -A /etc/capstan/anchor | grep -q '^\.new\.' && fail "a .new folder was there before the hangup test"
+FAKE_CAST_HANG=1 FAKE_CAST_HANG_READY=/tmp/fake-cast.ready FAKE_CAST_PASSWORD="$PW" setsid /bin/bash "$dir/make-service-key.sh" anchor testnet </dev/null >/dev/null 2>&1 &
+hpid=$!
+for i in $(seq 1 50); do [ -e /tmp/fake-cast.ready ] && break; sleep 0.1; done
+[ -e /tmp/fake-cast.ready ] || fail "fake cast never reached its prompt"
+ls -A /etc/capstan/anchor | grep -q '^\.new\.' || fail "no .new folder while cast waits"
+kill -HUP -- "-$hpid" 2>/dev/null; wait "$hpid" 2>/dev/null
+ls -A /etc/capstan/anchor | grep -q '^\.new\.' && fail "hangup left the half-made keystore folder behind"
+[ ! -e /etc/capstan/anchor/keystore.json ] || fail "keystore stored after a hangup"
+rm -f /tmp/fake-cast.ready
 # second run: nothing new, same address
 m1="$(stat -c '%Y %i' /etc/capstan/receipts/keystore.json)"
 out2="$(/bin/bash "$dir/make-service-key.sh" receipts testnet </dev/null 2>&1)"

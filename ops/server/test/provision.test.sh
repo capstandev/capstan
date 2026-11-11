@@ -29,4 +29,10 @@ assert_eq "$n" "0" "first run printed lines that are not stage lines"
 # the database password exists, is 0600 root, and was never printed
 assert_eq "$(stat -c '%a %U' /etc/capstan/db/password)" "600 root"
 assert_not_contains "$out1" "$(cat /etc/capstan/db/password)"
+# every template placeholder is filled (the VPS stand-in found OTLP_FILE=/var/log/capstan/@SVC@/spans.jsonl)
+left="$(grep -l '@[A-Z_]*@' /etc/capstan/*/env 2>/dev/null || true)"
+assert_eq "$left" "" "env files with an unfilled @PLACEHOLDER@"
+assert_eq "$(grep '^OTLP_FILE=' /etc/capstan/api/env)" "OTLP_FILE=/var/log/capstan/api/spans.jsonl"
+# with "admin off" in the Caddyfile, caddy cannot reload; provision must restart it (the stand-in proves the restart)
+if grep -q 'admin off' "$SRC/Caddyfile.tmpl" && grep -qE 'systemctl (reload|reload-or-restart) caddy' "$SRC/provision.sh"; then fail "provision reloads caddy, but the Caddyfile turns the admin API off"; fi
 pass

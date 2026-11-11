@@ -41,6 +41,12 @@ assert_eq "$($P -d postgres -c "SELECT count(*) FROM pg_database WHERE datname =
 # retention: 14 daily files kept
 for d in 01 02 03 04 05 06 07 08 09 10 11 12 13 14 15 16 17 18 19; do : > "/var/backups/capstan/daily/capstan-2026-10-$d.dump.age"; done
 CAPSTAN_BACKUP_DATE=2026-11-09 CAPSTAN_BACKUP_WEEKDAY=1 /bin/bash "$dir/backup.sh" >/dev/null 2>&1 || fail "second backup"
+# a first backup on a weekday (weekly/ still empty) exits 0: the prune of an empty folder ended the script with exit 1
+# under pipefail, so capstan-backup.service failed and the off-box copy never ran (VPS stand-in, 2026-11-11)
+mv /var/backups/capstan /var/backups/capstan.keep && mkdir -m 700 /var/backups/capstan
+out="$(CAPSTAN_BACKUP_DATE=2026-11-11 CAPSTAN_BACKUP_WEEKDAY=3 /bin/bash "$dir/backup.sh" 2>&1)" || fail "first weekday backup exit $?: $out"
+assert_eq "$(ls /var/backups/capstan/weekly | wc -l | tr -d ' ')" "0" "weekday backup wrote a weekly file"
+rm -rf /var/backups/capstan && mv /var/backups/capstan.keep /var/backups/capstan
 assert_eq "$(ls /var/backups/capstan/daily | grep -cE '\.dump\.age$')" "14" "daily files kept"
 [ -f /var/backups/capstan/daily/capstan-2026-11-09.dump.age ] || fail "newest file pruned"
 # a missing recipient refuses before dumping anything

@@ -33,6 +33,7 @@ fi
 umask 077
 work="$(/bin/mktemp -d "$dir/.new.XXXXXX")"
 trap '/bin/rm -rf "$work"' EXIT
+trap 'exit 1' HUP INT TERM # a dropped ssh session still removes the half-made keystore
 # Foundry's hidden prompt; its stdout names the file and the address, never the key
 # (cast's stderr is kept aside and shown only when cast fails; the hidden prompt itself uses the terminal)
 if ! out="$("$CAST" wallet new "$work" 2> "$work/cast.err")"; then
@@ -41,7 +42,9 @@ fi
 /bin/rm -f "$work/cast.err"
 newks="$(/bin/ls "$work" | /bin/grep -v '^cast\.err$' | /usr/bin/head -n 1)"
 [ -n "$newks" ] || die "cast made no keystore"
-addr="$(printf '%s\n' "$out" | /usr/bin/awk '/^Address:/ { print $2; exit }')"
+# Foundry 1.8.4 prints only the address on stdout (the "Created new encrypted keystore file" line goes to stderr);
+# older releases printed "Address: 0x..." under that line. Both shapes are read (VPS stand-in, 2026-11-11).
+addr="$(printf '%s\n' "$out" | /usr/bin/awk '/^Address:/ { print $2; exit } /^0x[0-9a-fA-F]+$/ { print $1; exit }')"
 printf '%s\n' "$addr" | /bin/grep -qE '^0x[0-9a-fA-F]{40}$' || die "cast output had no address"
 
 # the same password again, hidden, for the service's password file

@@ -57,7 +57,8 @@ say "backup: wrote $out ($(/usr/bin/wc -c < "$out" | /usr/bin/tr -d ' ') bytes)"
 
 if [ "$WEEKDAY" = "7" ]; then /bin/cp -f "$out" "$CAPSTAN_BACKUPS/weekly/$name.dump.age"; /bin/cp -f "$out.counts" "$CAPSTAN_BACKUPS/weekly/$name.dump.age.counts"; fi
 prune() { # dir keep
-  /bin/ls -1 "$1" | /bin/grep -E '^capstan-[0-9]{4}-[0-9]{2}-[0-9]{2}\.dump\.age$' | /usr/bin/sort -r | /usr/bin/tail -n +"$(($2 + 1))" | while IFS= read -r f; do /bin/rm -f "$1/$f" "$1/$f.counts"; done
+  # "|| true": an empty folder (weekly/ before the first Sunday) is not an error under pipefail
+  /bin/ls -1 "$1" | { /bin/grep -E '^capstan-[0-9]{4}-[0-9]{2}-[0-9]{2}\.dump\.age$' || true; } | /usr/bin/sort -r | /usr/bin/tail -n +"$(($2 + 1))" | while IFS= read -r f; do /bin/rm -f "$1/$f" "$1/$f.counts"; done
 }
 prune "$CAPSTAN_BACKUPS/daily" "$KEEP_DAILY"
 prune "$CAPSTAN_BACKUPS/weekly" "$KEEP_WEEKLY"

@@ -1,0 +1,19 @@
+#!/usr/bin/expect -f
+# Runs make-service-key.sh for one service and answers its hidden password prompts with a random password that is
+# made here and never printed (log_user 0). Prints only the script's last line: the address.
+#   expect make-key.exp <svc> <net>
+set timeout 120
+log_user 0
+set pw [exec /bin/sh -c {head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \n'}]
+spawn /bin/bash /tmp/capstan-provision/server/make-service-key.sh [lindex $argv 0] [lindex $argv 1]
+set last ""
+expect {
+  -re {(?i)(password|secret|passphrase)[^\r\n]*: ?$} { send -- "$pw\r"; exp_continue }
+  -re {(0x[0-9a-fA-F]{40})} { set last $expect_out(1,string); exp_continue }
+  -re {error: [^\r\n]*} { puts $expect_out(0,string); exp_continue }
+  eof
+}
+set pw ""
+catch wait result
+if {[lindex $result 3] != 0} { puts "make-service-key failed"; exit 1 }
+puts $last

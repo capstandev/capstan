@@ -12,7 +12,7 @@ export CAPSTAN_MIGRATE_CMD='sleep 1; echo "$PWD" >> /tmp/migrate.log'
 export GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@example.invalid GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@example.invalid
 
 reset() {
-  rm -rf /tmp/repo /opt/capstan/releases/* /opt/capstan/current /opt/capstan/previous /opt/capstan/repo.git /tmp/systemctl.log /tmp/alerts.log /tmp/migrate.log
+  rm -rf /tmp/fake-failed /tmp/repo /opt/capstan/releases/* /opt/capstan/current /opt/capstan/previous /opt/capstan/repo.git /tmp/systemctl.log /tmp/alerts.log /tmp/migrate.log
   mkdir -p /tmp/repo && git -C /tmp/repo init -q -b main
   /usr/local/sbin/capstan-config set REPO_URL /tmp/repo >/dev/null
 }
@@ -48,6 +48,22 @@ assert_eq "$(cur)" "$A" "--rollback went back to A"
 /bin/bash "$dir/deploy.sh" 'main; rm -rf /' >/dev/null 2>&1 && fail "accepted a non-sha argument"
 /bin/bash "$dir/deploy.sh" deadbeefdeadbeef >/dev/null 2>&1 && fail "accepted an unknown sha"
 assert_eq "$(cur)" "$A" "refusals changed nothing"
+pass
+
+# The VPS stand-in (2026-11-11): a release that crash-loops its unit runs it into systemd's start limit, and the
+# rollback's restart was then refused, so set -e ended the deploy with no rollback and no alert. The deploy now
+# clears the failed state before every restart.
+T_NAME=rollback-after-start-limit
+reset
+A="$(commit a yes)"
+/bin/bash "$dir/deploy.sh" "$A" >/dev/null 2>&1 || fail "good sha A failed"
+B="$(commit b no)"
+out="$(CAPSTAN_HEALTH_CMD='test -f /opt/capstan/current/HEALTHY || { mkdir -p /tmp/fake-failed; touch /tmp/fake-failed/capstan-api.service; false; }' /bin/bash "$dir/deploy.sh" "$B" 2>&1)"; rc=$?
+assert_eq "$rc" "1" "crash-looping sha B exit code"
+assert_contains "$out" "deploy: failed $B, rolled back to $A (ok)"
+assert_eq "$(cur)" "$A" "rolled back to A"
+assert_contains "$(cat /tmp/alerts.log)" '"kind":"deploy.rollback"'
+grep -q '^reset-failed capstan-api.service' /tmp/systemctl.log || fail "no reset-failed before the restart"
 pass
 
 T_NAME=single-migrator

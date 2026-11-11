@@ -200,7 +200,7 @@ eip="$(conf_get RELAY_EGRESS_IP)"
 for s in $CAPSTAN_SERVICES; do
   f="$CAPSTAN_ETC/$s/env"
   if [ -f "$f" ]; then continue; fi
-  (umask 027 && /bin/sed -e "s|@DB_PASSWORD@|$dbpw|" -e "s|@API_HOST@|$apihost|" -e "s|@RELAY_EGRESS_IP@|$eip|" "$here/etc/$s.env" > "$f")
+  (umask 027 && /bin/sed -e "s|@DB_PASSWORD@|$dbpw|" -e "s|@API_HOST@|$apihost|" -e "s|@RELAY_EGRESS_IP@|$eip|" -e "s|@SVC@|$s|g" "$here/etc/$s.env" > "$f")
   /bin/chmod 640 "$f"; /bin/chown "root:capstan-$s" "$f"
   n=$((n + 1))
 done
@@ -228,6 +228,9 @@ if [ -d /run/systemd/system ]; then
     /bin/systemctl is-enabled --quiet "$u" 2>/dev/null || { /bin/systemctl enable --quiet "$u"; en=$((en + 1)); }
   done
   if [ "$en" -eq 0 ]; then stage_skip "enable units"; else mark "enable units ($en)"; fi
+  # enabling a timer does not start it until the next boot (timers.target is already reached): start it now, or
+  # no backup runs until the server reboots (VPS stand-in, 2026-11-11)
+  if /bin/systemctl is-active --quiet capstan-backup.timer; then stage_skip "backup timer"; else /bin/systemctl start capstan-backup.timer; mark "backup timer"; fi
 else
   stage_skip "enable units (systemd not running here)"
 fi
@@ -283,9 +286,14 @@ dom="$(conf_get DOMAIN)"; mail="$(conf_get ACME_EMAIL)"
 if [ -z "$dom" ] || [ -z "$mail" ]; then stage_skip "caddyfile (DOMAIN or ACME_EMAIL not set)"; else
   tmpc="$(/bin/mktemp)"
   /bin/sed -e "s|@DOMAIN@|$dom|g" -e "s|@ACME_EMAIL@|$mail|g" "$here/Caddyfile.tmpl" > "$tmpc"
+  # test stand-in only (ops/server/test/standin): certificates from Caddy's own local CA instead of ACME
+  if [ "${CAPSTAN_CADDY_LOCAL_CA:-0}" = "1" ]; then /bin/sed -i -e 's|^\tadmin off$|\tadmin off\n\tlocal_certs|' "$tmpc"; fi
   if same_content "$tmpc" /etc/caddy/Caddyfile; then stage_skip "caddyfile"; else
     /usr/bin/install -m 0644 "$tmpc" /etc/caddy/Caddyfile
-    if [ -d /run/systemd/system ]; then /bin/systemctl reload-or-restart caddy; fi
+    # restart, not reload: the Caddyfile turns the admin API off, and `caddy reload` needs it. A reload failed on every
+    # change after the first, set -e stopped here, and the next run skipped the already-installed file, so Caddy kept
+    # the old config (VPS stand-in, 2026-11-11)
+    if [ -d /run/systemd/system ]; then /bin/systemctl restart caddy; fi
     mark "caddyfile"
   fi
   /bin/rm -f "$tmpc"

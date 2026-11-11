@@ -8,7 +8,7 @@ T_NAME=compatible
 srv="$(cd "$here/.." && pwd -P)"
 BASH32=/bin/bash
 "$BASH32" --version | head -n 1 | grep -q 'version 3\.2' || echo "note: $BASH32 is not bash 3.2 here; syntax check still runs"
-for f in "$srv"/*.sh "$srv"/test/*.sh; do
+for f in "$srv"/*.sh "$srv"/test/*.sh "$srv"/test/standin/*.sh; do
   "$BASH32" -n "$f" || fail "$BASH32 -n $f"
   [ "$(basename "$f")" = "bash32.test.sh" ] && continue # this file holds the patterns themselves
   # constructs bash 3.2 lacks; arrays are not used at all, so no empty-array expansion can hit set -u

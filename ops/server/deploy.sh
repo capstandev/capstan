@@ -40,7 +40,12 @@ alert() { # kind json-detail
 }
 
 restart_all() {
-  for s in $CAPSTAN_RESTART_ORDER; do "$SYSTEMCTL" restart "capstan-$s.service"; done
+  # reset-failed first: a release that crash-looped a unit leaves it at its start limit, and systemd would refuse the
+  # restart (found in the VPS stand-in: the rollback then died under set -e, with no rollback and no alert)
+  for s in $CAPSTAN_RESTART_ORDER; do
+    "$SYSTEMCTL" reset-failed "capstan-$s.service" >/dev/null 2>&1 || true
+    "$SYSTEMCTL" restart "capstan-$s.service"
+  done
 }
 
 health() { # true when every service answers (or the test override says so)
@@ -118,7 +123,7 @@ fi
 log "health failed for $sha"
 if [ -n "$prev" ] && [ -d "$REL/$prev" ]; then
   switch_to "$REL/$prev"
-  restart_all
+  restart_all || true # a refused restart must not skip the alert: wait_healthy reports it as unhealthy
   if wait_healthy; then rb="ok"; else rb="unhealthy"; fi
   alert deploy.rollback "{\"sha\":\"$sha\",\"previous\":\"$prev\",\"rollback\":\"$rb\"}"
   say "deploy: failed $sha, rolled back to $prev ($rb)"

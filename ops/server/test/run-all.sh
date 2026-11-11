@@ -41,11 +41,13 @@ for t in provision permissions keys deploy backup firewall config; do
   while IFS= read -r l; do record "$l"; done <<< "$lines"
   printf '%s\n' "$lines"
 done
-echo "run-all: bash32.test.sh (host)"
-out="$(/bin/bash "$here/bash32.test.sh" 2>&1)"
-lines="$(printf '%s\n' "$out" | grep -E '^(PASS|FAIL) ' || echo "FAIL bash32.test.sh: $(printf '%s' "$out" | tail -n 3 | tr '\n' ' ')")"
-while IFS= read -r l; do record "$l"; done <<< "$lines"
-printf '%s\n' "$lines"
+for t in bash32 tracked; do
+  echo "run-all: $t.test.sh (host)"
+  out="$(/bin/bash "$here/$t.test.sh" 2>&1)"
+  lines="$(printf '%s\n' "$out" | grep -E '^(PASS|FAIL) ' || echo "FAIL $t.test.sh: $(printf '%s' "$out" | tail -n 3 | tr '\n' ' ')")"
+  while IFS= read -r l; do record "$l"; done <<< "$lines"
+  printf '%s\n' "$lines"
+done
 
 total="$(printf '%s' "$results" | grep -c . || true)"
 echo "run-all: $((total - failed)) passed, $failed failed"
