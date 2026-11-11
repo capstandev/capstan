@@ -9,7 +9,8 @@
 # - A failed gate holds that one update; the next one still releases at its slot (no cascade).
 # - Exit 75 from gate, push or deploy means "nothing switched": the update stays pending and is retried.
 # - A failed deploy or check rolls back and holds; a failed rollback writes PAUSE and alerts.
-# - A crash mid-release is adopted from the journal by the next pass; the public copy is never made twice.
+# - A crash mid-release is adopted from the journal by the next pass; the public copy is never made twice. An update
+#   that crashes its pass more than CRASH_MAX (3) times pauses the runner with one alert (no endless redeploys).
 # - The public copy and the Release are side channels: their failure never blocks the next update.
 # - The team post (ANNOUNCE_CMD: poster plus notes) is marked announced only when it went out; until then it is owed
 #   and retried one per pass, never blocking the next update. ANNOUNCE_DRY_RUN=1 renders it and sends nothing.
@@ -20,6 +21,7 @@ rr_init
 TRANSIENT_MAX=$(rr_conf_get TRANSIENT_MAX 30)
 MIN_GAP_MINUTES=$(rr_conf_get MIN_GAP_MINUTES 2)
 PUBLIC_CI_EVERY_S=$(rr_conf_get PUBLIC_CI_EVERY_S 300)
+CRASH_MAX=$(rr_conf_get CRASH_MAX 3)
 
 git_w() { git -C "$RR_WORK" "$@"; }
 
@@ -35,7 +37,9 @@ sync_main() {
 # Apply update sha on main. Prints the sha now at HEAD. 0 ok, 3 conflict.
 apply_update() {
   local sha="$1" parent
-  if git_w merge-base --is-ancestor "$sha" HEAD 2>/dev/null; then git_w rev-parse HEAD; return 0; fi
+  # on main already (rr_carries: not taken out by a rollback revert since; a retried update after a rollback used to
+  # be marked released with nothing shipped)
+  if rr_carries "$RR_WORK" "$sha"; then git_w rev-parse HEAD; return 0; fi
   parent=$(git_w rev-parse "$sha^" 2>/dev/null || true)
   if [ "$parent" = "$(git_w rev-parse HEAD)" ]; then
     git_w merge -q --ff-only "$sha" >/dev/null || return 3
@@ -178,13 +182,22 @@ retry_owed_publish() {
 }
 
 # Adopt a release a crash left in_progress: continue from the stage after the last journal line.
-adopt_crashed() {
-  local n stage sha
+adopt_crashed() { # returns 1 when it paused the runner (an update that keeps crashing its pass)
+  local n stage sha crashes
   for n in $(rr_sched_rows | cut -f1); do
     [ "$(rr_state_get "$n" 2)" = "in_progress" ] || continue
-    stage=$(rr_journal_last "$n")
+    stage=$(awk -v n="$n" '$2==n && $4!="adopted" { s=$4 } END { print s }' "$RR_JOURNAL") # last real stage
     sha=$(awk -v n="$n" '$2==n && $3!="-" { s=$3 } END { print s }' "$RR_JOURNAL")
-    rr_log "update $n: adopting a crashed release (last stage: ${stage:-none})"
+    crashes=$(( $(awk -v n="$n" '$4=="resumed" { c=0 } $2==n && $4=="adopted" { c++ } END { print c+0 }' "$RR_JOURNAL") + 1 ))
+    if [ "$crashes" -gt "$CRASH_MAX" ]; then
+      # the same update killed its pass again and again (an OOM kill, a check that hangs the unit): stop redeploying
+      printf 'update %s crashed its pass %s times (last stage %s) at %s\n' "$n" "$crashes" "${stage:-start}" "$(rr_epoch_to_iso "$(rr_now)")" > "$RR_PAUSE"
+      rr_log "update $n: crashed $crashes times; runner paused"
+      rr_notify "" 0 "PAUSED: Update $n keeps crashing" "Update $n crashed the release pass $crashes times in a row (last stage: ${stage:-start}). The runner is paused so it stops redeploying. Production may run update $n or the one before it. The owner reads the log and the status command, rolls back by hand if needed, then resumes."
+      return 1
+    fi
+    rr_journal "$n" - adopted
+    rr_log "update $n: adopting a crashed release (last stage: ${stage:-none}, crash $crashes of at most $CRASH_MAX)"
     case "$stage" in
       checked|publishing|published|publish_failed)
         finish_release "$n" "$sha" "$(rr_title_of "$n")" "$(rr_state_get "$n" 3)" ;;
@@ -284,7 +297,7 @@ main() {
   local launch n
   launch=$(rr_iso_to_epoch "$(rr_sched_header launch_at)") || { rr_log "pass: the schedule has no launch_at (run arm.sh)"; exit 1; }
   if [ "$(rr_now)" -lt "$launch" ]; then rr_log "pass: before launch"; exit 0; fi
-  adopt_crashed
+  adopt_crashed || exit 0
   retry_owed_publish
   retry_owed_announce
   n=$(next_due)

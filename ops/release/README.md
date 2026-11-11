@@ -24,6 +24,7 @@ Linux bash 5.
 | Deploy or check fails | Rolled back to the previous version, private main reverted, held, team told |
 | Rollback fails | `PAUSE` file written, alert, update marked held (never left half done) |
 | Crash or reboot mid-release | The next pass reads the journal and finishes or redoes it; the public copy is never made twice |
+| The same update crashes its pass again and again | After `CRASH_MAX` (3) adoptions: `PAUSE` file, one alert; resuming starts the count again |
 | Public copy or Release fails | The update stays live; it is retried later; later updates are not blocked |
 | Team post fails | The update stays live; the post is owed and retried each pass (no part twice); one alert after `ANNOUNCE_MAX_PASSES` |
 | Main moved under the queue | That update is held with one "queue needs a rebase" alert |
@@ -61,4 +62,11 @@ and a 1-minute timer, installed disabled), `sudoers/` (narrow rules), `etc/relea
 ## Tests
 ```bash
 bash ops/release/test/run-all.sh
+```
+
+Container sandbox (Docker; the real runner installed by `install.sh` as root in a Debian 12 container with systemd as
+PID 1, real unit and sudo wrappers, local bare private, queue and public repos, a stand-in `capstan-deploy`, stand-in
+Telegram and GitHub APIs on 127.0.0.1:25520 and 25521). 13 cases, one PASS or FAIL line each, about 3 minutes:
+```bash
+bash ops/release/test/sandbox/run.sh
 ```

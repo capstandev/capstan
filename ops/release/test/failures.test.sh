@@ -87,4 +87,31 @@ t_release_token_problem_alerts_once() {
   assert_eq "$(grep -c 'GITHUB RELEASES BLOCKED' "$T/notify.log")" 1 "one alert per cause"
 }
 
+# A held update retried after its rollback must go live again. The update was a fast-forward, so after the revert its
+# sha is still an ancestor of main: the runner used to treat it as "already applied" and marked a release that
+# shipped nothing (found by the container sandbox, ops/release/test/sandbox).
+t_retry_after_rollback_ships_the_update() {
+  sandbox; echo 1 > "$T/fail-deploy"; pass_at "$LAUNCH"
+  assert_eq "$(st 1)" held
+  rm -f "$T/fail-deploy"; "$BIN/retry.sh" 1 > /dev/null
+  pass_at $((LAUNCH + 60))
+  assert_eq "$(st 1)" released
+  private_has u1.txt || fail "the retried update is not on private main"
+  g -C "$T/work" show "$(cat "$T/prod"):u1.txt" > /dev/null 2>&1 || fail "production runs a tree without the retried update"
+}
+
+# An update whose check kills the pass every time (found by the container sandbox: it was adopted and redeployed on
+# every pass forever, with no alert) pauses the runner after CRASH_MAX adoptions, with one alert.
+t_crash_loop_pauses_with_one_alert() {
+  sandbox
+  printf '#!/bin/bash\nkill -9 $PPID; sleep 2\n' > "$T/fake/check"
+  for i in 0 1 2 3 4 5; do pass_at $((LAUNCH + i * 60)) || true; done
+  assert_file "$T/home/PAUSE"; assert_contains "$(cat "$T/home/PAUSE")" "update 1 crashed its pass 4 times"
+  assert_eq "$(grep -c 'deploy ' "$T/deploys.log")" 4 "first try plus 3 adoptions, then no more deploys"
+  assert_eq "$(notes | grep -c 'keeps crashing')" 1 "one alert"
+  assert_eq "$(st 1)" in_progress
+  printf '#!/bin/bash\nexit 0\n' > "$T/fake/check"; "$BIN/unpause.sh" > /dev/null
+  pass_at $((LAUNCH + 600)); assert_eq "$(st 1)" released "after the owner resumes, the update is adopted again"
+}
+
 run_tests "$0"

@@ -53,4 +53,18 @@ t_status_shows_counts_and_zones() {
   assert_contains "$out" "2026-11-20T02:00:00Z (2026-11-19 21:00 EST): Update 2"
 }
 
+# Owner commands run through sudo wrappers, and sudo drops the unit's CAPSTAN_RELEASE_RUNNER: the flag file alone
+# decides whether pause, resume and preflight post (found by the container sandbox: none of them ever posted).
+t_owner_commands_post_without_the_unit_env() {
+  sandbox
+  ( unset CAPSTAN_RELEASE_RUNNER; "$BIN/pause.sh" "shipping a fix" > /dev/null; "$BIN/unpause.sh" > /dev/null
+    echo 1 > "$T/fail-gate-1"; "$BIN/preflight.sh" > /dev/null || true )
+  assert_contains "$(notes)" "paused|Short planned pause: shipping a fix"
+  assert_contains "$(notes)" "resumed|Resumed. Next: Update 1"
+  assert_contains "$(notes)" "PREFLIGHT FAIL"
+  rm -f "$T/flag"; : > "$T/notify.log"
+  ( unset CAPSTAN_RELEASE_RUNNER; "$BIN/pause.sh" "x" > /dev/null; "$BIN/unpause.sh" > /dev/null )
+  assert_eq "$(notes)" "" "unarmed: nothing posted"
+}
+
 run_tests "$0"

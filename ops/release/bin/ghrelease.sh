@@ -24,7 +24,9 @@ api() { # api METHOD URL [body-file] -> prints body, returns HTTP status in $cod
   cat "$RR_HOME/ghrel.code" 2>/dev/null
 }
 auth_or_fail() { case "$1" in 401|403) rr_log "ghrelease: auth refused ($1)"; exit 3 ;; *) rr_log "ghrelease: GitHub answered $1"; exit 1 ;; esac; }
-B="https://api.github.com/repos/$repo"
+gh_api=$(rr_conf_get GITHUB_API https://api.github.com); gh_api="${gh_api%/}"       # tests: a local stand-in
+gh_up=$(rr_conf_get GITHUB_UPLOADS https://uploads.github.com); gh_up="${gh_up%/}"
+B="$gh_api/repos/$repo"
 case "${1:-}" in
   draft-test)
     printf '{"tag_name":"release-token-test-%s","name":"token test","draft":true,"body":"Draft made to prove the release token. Deleted at once."}' "$(rr_now)" > "$RR_HOME/ghrel.req"
@@ -50,7 +52,7 @@ case "${1:-}" in
     if [ -f "$poster" ] && ! grep -q "\"name\": *\"$tag.png\"" "$RR_HOME/ghrel.body"; then
       id=$(grep -o '"id": *[0-9]*' "$RR_HOME/ghrel.body" | head -n 1 | tr -dc '0-9')
       { printf 'header = "Authorization: Bearer %s"\nheader = "Content-Type: image/png"\nrequest = "POST"\n' "$token"
-        printf 'url = "https://uploads.github.com/repos/%s/releases/%s/assets?name=%s.png"\ndata-binary = "@%s"\nsilent\nmax-time = 60\n' "$repo" "$id" "$tag" "$poster"
+        printf 'url = "%s/repos/%s/releases/%s/assets?name=%s.png"\ndata-binary = "@%s"\nsilent\nmax-time = 60\n' "$gh_up" "$repo" "$id" "$tag" "$poster"
       } | "$curl_bin" -K - -o /dev/null || rr_log "ghrelease: poster upload for $tag failed (release is fine)"
     fi
     exit 0 ;;

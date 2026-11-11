@@ -42,6 +42,19 @@ rr_init() { # sets the paths every command uses
   mkdir -p "$RR_HOME/log" "$RR_HOME/notify"
   [ -f "$RR_STATE" ] || : > "$RR_STATE"
   [ -f "$RR_JOURNAL" ] || : > "$RR_JOURNAL"
+  rr_git_as_runner
+}
+
+# Owner commands run as root (arm, set-times, build-schedule). git refuses a repository another user owns ("dubious
+# ownership"): as root every git call on the work checkout failed, so arm.sh refused the schedule and its origins
+# guard read no remotes at all (a stand-in origin passed). As root, git runs as the runner user instead; that also
+# keeps root-owned files out of the checkout. Found by the container sandbox (ops/release/test/sandbox).
+rr_git_as_runner() {
+  RR_RUNNER=$(rr_conf_get RUNNER_USER "")
+  if [ "$(id -u)" = "0" ] && [ -n "$RR_RUNNER" ] && id "$RR_RUNNER" >/dev/null 2>&1 && command -v runuser >/dev/null 2>&1; then
+    git() { command runuser -u "$RR_RUNNER" -- git "$@"; }
+  fi
+  return 0
 }
 
 # ---------- time (UTC only; no GNU or BSD date flags needed for the maths) ----------
@@ -183,6 +196,15 @@ rr_notify() { # rr_notify key min_interval_s title body ; key "" = always send
   return 0
 }
 rr_notify_clear() { rm -f "$RR_HOME/notify/$1"; }
+
+# rr_carries dir sha: 0 when HEAD in dir carries the update: sha is an ancestor and no later revert took it out (a
+# rollback reverts a fast-forwarded update, which leaves its sha an ancestor of main with its changes gone).
+rr_carries() {
+  local dir="$1" sha="$2"
+  git -C "$dir" merge-base --is-ancestor "$sha" HEAD 2>/dev/null || return 1
+  [ -n "$(git -C "$dir" log --format=%H --grep="This reverts commit $sha" "$sha..HEAD" 2>/dev/null)" ] || return 0
+  git -C "$dir" diff "$sha^" "$sha" | git -C "$dir" apply --check -R --cached >/dev/null 2>&1
+}
 
 rr_title_of() { rr_sched_field "$1" 4; }
 rr_tag_of() { printf 'update-%02d' "$((10#$1))"; }

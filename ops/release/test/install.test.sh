@@ -23,4 +23,18 @@ t_units_carry_the_guards() {
   assert_not_contains "$(cat "$T_ROOT/sudoers/capstan-release")" "ALL=(ALL)" "no broad sudo"
 }
 
+# Every root wrapper named in sudoers and release.conf is installed, names the config (sudo drops the environment),
+# and the ones that touch the work checkout run as the runner user (found by the container sandbox: a fresh install
+# had none, so every alert, team post and Release failed with "command not found").
+t_installs_the_sudo_wrappers() {
+  T=$(mktemp -d "${TMPDIR:-/tmp}/rr-test.XXXXXX"); trap 'rm -rf "$T"' EXIT
+  DESTDIR="$T/root" /bin/bash "$T_ROOT/install.sh" > /dev/null
+  for w in $(grep -oE '/usr/local/sbin/capstan-release-[a-z]+' "$T_ROOT/sudoers/capstan-release" "$T_ROOT/etc/release.conf.example" | cut -d: -f2 | sort -u); do
+    [ -x "$T/root$w" ] || fail "wrapper $w not installed"
+    assert_contains "$(cat "$T/root$w")" "RR_CONF=/etc/capstan-release/release.conf" "$w names the config"
+  done
+  assert_contains "$(cat "$T/root/usr/local/sbin/capstan-release-preflight")" "runuser -u capstan-release" "preflight runs as the runner"
+  assert_contains "$(cat "$T/root/usr/local/sbin/capstan-release-retry")" "runuser -u capstan-release" "retry runs as the runner"
+}
+
 run_tests "$0"

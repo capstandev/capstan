@@ -7,7 +7,8 @@
 #   public-ci       PUBLIC_CI_CHECK_CMD is set and exits 0 (green on the public launch commit)
 #   release-token   RELEASE_TOKEN_PROOF exists (ghrelease.sh draft-test passed through the server's token)
 #   notify          NOTIFY_PROOF exists (notify-telegram.sh --test reached the team group)
-#   origins         the work checkout has no url.* rewrites and no local-path remotes (stand-in origins removed)
+#   origins         the work checkout has no url.* rewrites and no local-path remotes, and the Telegram and GitHub
+#                   API bases are the real ones (stand-in origins and endpoints removed)
 # Then: dates every slot (set-times), creates the real-deploy flag, enables the timer. --check runs the guards only.
 # Usage: arm.sh [--check] LAUNCH_AT=2026-11-20T01:30:00Z
 set -u
@@ -46,6 +47,9 @@ p=$(rr_conf_get NOTIFY_PROOF "$RR_HOME/notify.proof"); [ -f "$p" ] || refuse not
 
 if [ -n "$(git -C "$RR_WORK" config --get-regexp '^url\.' 2>/dev/null || true)" ]; then refuse origins "url.* rewrites are still set"; fi
 if [ "$(rr_conf_get ALLOW_LOCAL_REMOTES 0)" != "1" ]; then
+  for kv in "TELEGRAM_API https://api.telegram.org" "GITHUB_API https://api.github.com" "GITHUB_UPLOADS https://uploads.github.com"; do
+    v=$(rr_conf_get "${kv%% *}" "${kv#* }"); [ "${v%/}" = "${kv#* }" ] || refuse origins "${kv%% *} points at a stand-in ($v)"
+  done
   for r in $(git -C "$RR_WORK" remote 2>/dev/null); do
     case "$(git -C "$RR_WORK" remote get-url "$r")" in /*|file://*) refuse origins "remote $r points at a local path" ;; esac
   done

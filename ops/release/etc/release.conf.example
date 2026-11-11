@@ -12,6 +12,8 @@ EXPECTED_COUNT=72
 MIN_GAP_MINUTES=2
 # The timer runs every minute: 30 passes = a 30-minute retry window for transient failures.
 TRANSIENT_MAX=30
+# An update that crashes its pass more than this many times in a row pauses the runner with one alert.
+CRASH_MAX=3
 PUBLIC_CI_EVERY_S=300
 ARM_MIN_LEAD_MINUTES=10
 SIGN_CHERRY_PICKS=1
@@ -21,6 +23,8 @@ NOTIFY_PROOF=/var/lib/capstan-release/notify.proof
 TELEGRAM_ENV=/etc/capstan-release/telegram.env
 # TELEGRAM_API=https://api.telegram.org   (default; tests point it at a local stand-in Bot API)
 GITHUB_RELEASE_ENV=/etc/capstan-release/github-release.env
+# GITHUB_API=https://api.github.com and GITHUB_UPLOADS=https://uploads.github.com (defaults; tests use stand-ins).
+# arm.sh refuses when any API base is not the real one.
 # Light gate on the server: typecheck plus the tests of what the update touched (the full gate ran before launch).
 GATE_CMD=/opt/capstan-release/bin/gate-light.sh
 PRIVATE_PUSH_CMD=/opt/capstan-release/bin/push-private.sh

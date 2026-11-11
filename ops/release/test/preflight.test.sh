@@ -34,4 +34,13 @@ t_stale_schedule_stops_with_one_line() {
   assert_eq "$rc" 2; assert_contains "$out" "schedule base"; assert_contains "$out" "the schedule does not match"
 }
 
+# A held update whose fast-forward was rolled back (reverted on main) is gated with its changes, not passed as "on main".
+t_preflight_reapplies_a_rolled_back_update() {
+  sandbox; pass_at "$LAUNCH"; echo 1 > "$T/fail-deploy"; pass_at $((LAUNCH + 3600)); rm -f "$T/fail-deploy"
+  assert_eq "$(st 1)" released; assert_eq "$(st 2)" held
+  printf '#!/bin/bash\n[ -f u2.txt ] || { echo "u2.txt missing from the gated tree"; exit 1; }\n' > "$T/fake/gate"
+  "$BIN/preflight.sh" > "$T/pf.out" || fail "preflight failed: $(cat "$T/pf.out" "$T/home/preflight/gate-2.log" 2>&1)"
+  assert_contains "$(cat "$T/home/preflight/results.tsv")" "2	PASS"
+}
+
 run_tests "$0"

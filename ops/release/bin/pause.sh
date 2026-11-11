@@ -8,5 +8,5 @@ why="${1:?usage: pause.sh \"<reason>\"}"
 printf 'paused at %s: %s\n' "$(rr_epoch_to_iso "$(rr_now)")" "$why" > "$RR_PAUSE"
 rr_log "pause: $why"
 rr_fix_owner
-rr_armed && rr_notify "" 0 "paused" "Short planned pause: $why. Nothing is broken and nobody is affected."
+[ -f "$RR_FLAG" ] && rr_notify "" 0 "paused" "Short planned pause: $why. Nothing is broken and nobody is affected."
 echo "pause: paused"

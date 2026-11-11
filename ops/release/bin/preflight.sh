@@ -18,7 +18,7 @@ nice_cmd=""; command -v nice >/dev/null 2>&1 && nice_cmd="nice -n 19"
 for n in $(rr_sched_rows | cut -f1); do
   case "$(rr_state_get "$n" 2)" in pending|held) ;; *) continue ;; esac
   sha=$(rr_sched_field "$n" 3); total=$((total + 1)); before=$(git -C "$wt" rev-parse HEAD)
-  if git -C "$wt" merge-base --is-ancestor "$sha" HEAD; then :
+  if rr_carries "$wt" "$sha"; then :
   elif [ "$(git -C "$wt" rev-parse "$sha^")" = "$before" ]; then git -C "$wt" merge -q --ff-only "$sha" >/dev/null 2>&1
   elif ! git -C "$wt" -c commit.gpgsign=false cherry-pick "$sha" >/dev/null 2>&1; then
     git -C "$wt" cherry-pick --abort >/dev/null 2>&1; printf '%s\tNOAPPLY\t%s\n' "$n" "$sha" >> "$out/results.tsv"; continue
@@ -34,6 +34,6 @@ line="preflight: $pass of $total PASS"
 rr_log "$line"; echo "$line"
 if [ "$pass" -ne "$total" ]; then
   bad=$(awk -F '\t' '$2!="PASS" { printf "%s %s, ", $1, $2 }' "$out/results.tsv")
-  rr_armed && rr_notify preflight 3600 "PREFLIGHT FAIL" "$line. Not ready: ${bad%, }. Those updates would be held at their slot; nothing is live yet. Logs: $out."
+  [ -f "$RR_FLAG" ] && rr_notify preflight 3600 "PREFLIGHT FAIL" "$line. Not ready: ${bad%, }. Those updates would be held at their slot; nothing is live yet. Logs: $out."
   exit 1
 fi
