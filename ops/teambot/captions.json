@@ -1,0 +1,12 @@
+{
+  "00": {"title": "Overview", "caption": "One API for perps on Hyperliquid, Lighter and Aster: every cost per venue before you sign, a trade-only key made on your device, a signed receipt for every routed order."},
+  "01": {"title": "Quote compare", "caption": "One quote, every venue side by side: fees, slippage, funding and liquidation price."},
+  "02": {"title": "Onboarding per venue", "caption": "Hyperliquid, Lighter and Aster onboarding: what is signed, and that no approval can withdraw."},
+  "03": {"title": "Risk panel", "caption": "The risk panel and its fixed banner: each venue liquidates on its own."},
+  "04": {"title": "Spread plan", "caption": "A spread plan with its risk label and the acknowledgement, on demo data."},
+  "05": {"title": "Agent kill switch", "caption": "The owner sets a policy, the agent is halted, and the revocation bundle is ready."},
+  "06": {"title": "MCP", "caption": "An agent client lists the tools, gets a quote and builds an unsigned order."},
+  "07": {"title": "Receipt verify", "caption": "A receipt checked from a file, its root on Robinhood Chain."},
+  "08": {"title": "Contracts page", "caption": "Every deployed address with its explorer and Sourcify links."},
+  "09": {"title": "Perks", "caption": "The locked view of a perk, then the unlocked view with demo data on screen."}
+}

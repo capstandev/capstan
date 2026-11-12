@@ -75,3 +75,6 @@ ops/load/last-run.json
 # ops/fork local stack state (keys, logs, PIDs): never committed
 ops/fork/.state/
 ops/fork/.pids
+
+# Python bytecode (ops/teambot tests)
+__pycache__/

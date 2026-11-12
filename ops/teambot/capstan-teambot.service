@@ -1,0 +1,19 @@
+[Unit]
+Description=Capstan team Telegram bot (commands, owner pause and resume, requests)
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+User=root
+ExecStart=/usr/local/sbin/teambot run
+Restart=always
+RestartSec=5
+Environment=PYTHONUNBUFFERED=1
+PrivateTmp=yes
+UMask=0077
+TimeoutStopSec=10
+
+[Install]
+WantedBy=multi-user.target

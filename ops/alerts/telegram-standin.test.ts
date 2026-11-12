@@ -44,3 +44,46 @@ describe("sendPhoto through the stand-in", () => {
     expect(got[0]?.tokenLength).toBe(5);
   });
 });
+
+describe("inbound side for the team bot", () => {
+  let s: TelegramStandin;
+  beforeAll(() => {
+    s = startTelegramStandin({ port: 0 });
+  });
+  afterAll(() => s.stop());
+  const post = (method: string, body: unknown) =>
+    fetch(`${s.url}/bot1:abc/${method}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) }).then((r) => r.json() as Promise<{ ok: boolean; result: unknown }>);
+
+  test("getUpdates hands out pushed updates from the offset on; a scripted 429 is kept for the send methods", async () => {
+    s.script({ status: 429, retryAfter: 1 });
+    const a = s.pushUpdate({ message: { message_id: 1, text: "/status" } });
+    const b = s.pushUpdate({ message: { message_id: 2, text: "/help" } });
+    const all = (await post("getUpdates", { offset: 0, timeout: 0 })).result as { update_id: number }[];
+    expect(all.map((u) => u.update_id)).toEqual([a, b]);
+    const rest = (await post("getUpdates", { offset: b, timeout: 0 })).result as { update_id: number }[];
+    expect(rest.map((u) => u.update_id)).toEqual([b]);
+    expect((await post("getUpdates", { offset: b + 1, timeout: 0 })).result).toEqual([]);
+    expect(s.polls()).toBe(3);
+    expect((await post("sendMessage", { chat_id: 1, text: "x" })).ok).toBe(false);
+  });
+
+  test("getMe, callback answers, edits and buttons are recorded", async () => {
+    s.reset();
+    expect(((await post("getMe", {})).result as { is_bot: boolean }).is_bot).toBe(true);
+    await post("sendMessage", { chat_id: -1, text: "Pause?", reply_markup: { inline_keyboard: [[{ text: "Confirm", callback_data: "p:1:y" }]] } });
+    await post("answerCallbackQuery", { callback_query_id: "q1", text: "Only the owner can do that.", show_alert: true });
+    await post("editMessageText", { chat_id: -1, message_id: 1, text: "Done." });
+    const [m, q, e] = s.calls;
+    expect(JSON.parse(m?.replyMarkup ?? "{}").inline_keyboard[0][0].text).toBe("Confirm");
+    expect(q).toMatchObject({ method: "answerCallbackQuery", callbackQueryId: "q1", showAlert: true });
+    expect(e).toMatchObject({ method: "editMessageText", messageId: 1, text: "Done." });
+  });
+
+  test("shell control endpoints", async () => {
+    s.reset();
+    const r = (await fetch(`${s.url}/__standin/updates`, { method: "POST", body: JSON.stringify([{ message: { text: "a" } }]) }).then((x) => x.json())) as { ids: number[] };
+    expect(r.ids.length).toBe(1);
+    const c = (await fetch(`${s.url}/__standin/calls`).then((x) => x.json())) as { pending: number };
+    expect(c.pending).toBe(1);
+  });
+});
