@@ -4,7 +4,9 @@ import { readFileSync } from "node:fs";
 import type { OrderIntent, VenueCapabilities } from "@capstan/schema";
 import { SdkError } from "../src/errors";
 import { assertServerMatchesPins, PINS } from "../src/pins";
-import { PINS_FILE, regenerate, render } from "../scripts/gen-pins";
+import { hlTemplateHashes, PINS_FILE, regenerate, render } from "../scripts/gen-pins";
+import { hlProbeBundles } from "../scripts/hl-template";
+import { hlTemplateHash } from "../src/onboard";
 import { BUILDER_ASTER, BUILDER_HL, labelAddr, testPins } from "./helpers";
 import { sdkClient, startStack } from "./stack";
 
@@ -66,14 +68,34 @@ describe("pins", () => {
     }
   });
 
-  test("generated parts of pins.json are current", () => {
+  test("generated parts of pins.json are current", async () => {
     const raw = JSON.parse(readFileSync(PINS_FILE, "utf8"));
-    expect(render(regenerate(raw))).toBe(readFileSync(PINS_FILE, "utf8"));
+    expect(render(regenerate(raw, await hlTemplateHashes()))).toBe(readFileSync(PINS_FILE, "utf8"));
     // eight Lighter step combinations per config and network; no builder, so no Aster hash yet
     expect(PINS.networks.mainnet.templateHashes["lighter-rh"].length).toBe(8);
     expect(PINS.networks.testnet.templateHashes["lighter-mainnet"].length).toBe(8);
     expect(PINS.networks.mainnet.templateHashes.aster).toEqual([]);
     expect(PINS.networks.mainnet.approvalCeilings).toEqual({ hyperliquid: "0.03%", aster: "0.0003" });
     expect(PINS.networks.mainnet.allowedFees).toEqual({ hyperliquid: [10, 20], aster: ["0.0001", "0.0002"] });
+  });
+
+  // The launch blocker of 2026-11-12: empty Hyperliquid pins made every production onboarding TEMPLATE_UNKNOWN.
+  test("a real Hyperliquid onboarding build (plain and agent-safe) matches a pin on each network", async () => {
+    const seen = new Set<string>();
+    for (const net of ["mainnet", "testnet"] as const) {
+      const pinned = PINS.networks[net].templateHashes.hyperliquid;
+      expect(pinned.length).toBe(2);
+      const { plain, policy } = await hlProbeBundles(net);
+      expect(plain.steps.map((s) => s.kind)).toEqual(["eligibility_declaration", "hl_approve_agent", "hl_approve_builder_fee"]);
+      expect(policy.steps.map((s) => s.kind)).toEqual(["eligibility_declaration", "hl_approve_agent", "hl_approve_builder_fee", "agent_policy"]);
+      for (const b of [plain, policy]) {
+        const h: string = hlTemplateHash(b).toLowerCase();
+        expect(h).toBe(b.templateHash.toLowerCase());
+        expect(pinned.map((x) => x.toLowerCase() as string)).toContain(h);
+        seen.add(h);
+      }
+    }
+    // the network is part of the template (hyperliquidChain stays literal): four different hashes
+    expect(seen.size).toBe(4);
   });
 });

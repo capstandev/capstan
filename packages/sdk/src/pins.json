@@ -32,7 +32,10 @@
       "hlNetwork": "Mainnet",
       "asterNetwork": "Mainnet",
       "templateHashes": {
-        "hyperliquid": [],
+        "hyperliquid": [
+          "9e4a6f7e58cbaf69803df5a7cb964e7362bad69c9d0db54dea5a536c426a2580",
+          "dd49de38dc6bda9054de096af4db0a77c3b57d81d6da16a6d944e8077fd59f82"
+        ],
         "aster": [],
         "lighter-mainnet": [
           "67f8c7bd249f45c88dd0d17caa3cae9a46104a5f067ff1a41b55e3ef976f01ef",
@@ -91,7 +94,10 @@
       "hlNetwork": "Testnet",
       "asterNetwork": "Testnet",
       "templateHashes": {
-        "hyperliquid": [],
+        "hyperliquid": [
+          "08952fa648303d46ffc7c379b781235b3b4330c2f9dd616e5e6199ccecceb096",
+          "4c9c5e363896f13edbf80a0c888e7e016a21098164edf741df05c956a6c8c1d7"
+        ],
         "aster": [],
         "lighter-mainnet": [
           "745f832fb720a7704395273915c3960f266fb9f3ceec0ecb938b20d1088072a6",

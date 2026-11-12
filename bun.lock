@@ -423,6 +423,7 @@
         "@capstan/adapter-hyperliquid": "workspace:*",
         "@capstan/adapter-lighter": "workspace:*",
         "@capstan/core": "workspace:*",
+        "@capstan/eligibility": "workspace:*",
         "@capstan/venue-client": "workspace:*",
         "viem": "2.57.14",
       },
