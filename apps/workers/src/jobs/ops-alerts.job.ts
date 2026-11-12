@@ -19,6 +19,7 @@ import {
   redisDedupe,
   refreshDbGauges,
   sendOpsAlert,
+  TelegramSendError,
   toOpsAlert,
   type AsterBuilderReader,
   type DedupeStore,
@@ -126,6 +127,7 @@ export async function runOpsAlerts(deps: JobDeps, o: OpsAlertsOptions = {}) {
         dedupe,
         log: deps.log,
         knownAddresses: known,
+        startPart: Number((e as { sentParts?: unknown }).sentParts ?? 0) || 0,
       });
       results.push({ cause: a.cause, result });
     } catch (err) {
@@ -140,7 +142,9 @@ export async function runOpsAlerts(deps: JobDeps, o: OpsAlertsOptions = {}) {
         const id = (e as { eventId?: unknown }).eventId;
         try {
           if (typeof id === "string") await deps.redis.del(OPS_ALERT_SEEN + id);
-          await deps.redis.rpush(OPS_ALERT_LIST, JSON.stringify({ ...e, requeues: tries + 1 }));
+          // d1-alerts-01: keep the parts already delivered, so the next run resumes there instead of resending part 1
+          const sentParts = err instanceof TelegramSendError ? err.sentParts : Number((e as { sentParts?: unknown }).sentParts ?? 0) || 0;
+          await deps.redis.rpush(OPS_ALERT_LIST, JSON.stringify({ ...e, requeues: tries + 1, sentParts }));
         } catch (qe) {
           deps.log.error("ops alert requeue failed", { cause: a.cause, error: (qe as Error).message });
         }

@@ -75,12 +75,21 @@ export interface SendDeps {
   log?: Logger;
   /** Service and builder addresses that may appear in full (the owner funds them). Every other address is hashed. */
   knownAddresses?: readonly string[];
+  /**
+   * Parts already delivered by an earlier run of a multi-part alert (d1-alerts-01): sending resumes at this part
+   * instead of part 1. Ignored when it does not fit the parts of this alert.
+   */
+  startPart?: number;
 }
 
 const defaultDedupe = memoryDedupe();
 
 export class TelegramSendError extends Error {
-  constructor(readonly status: number | null) {
+  /** `sentParts`: how many parts of the alert were delivered before this failure (resume point for a retry). */
+  constructor(
+    readonly status: number | null,
+    readonly sentParts = 0,
+  ) {
     super(status === null ? "telegram: send failed (network error)" : `telegram: send failed (status ${status})`);
     this.name = "TelegramSendError";
   }
@@ -222,13 +231,15 @@ export async function sendOpsAlert(a: OpsAlert, deps: SendDeps): Promise<"sent" 
   const base = (deps.apiBase ?? "https://api.telegram.org").replace(/\/+$/, "");
   const sleep = deps.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
   const parts = formatOpsAlertParts(a, deps.knownAddresses);
+  const start = Number.isInteger(deps.startPart) && deps.startPart! > 0 && deps.startPart! < parts.length ? deps.startPart! : 0;
+  let sentParts = start;
   const fail = async (status: number | null): Promise<never> => {
     token = null;
     await dedupe.release(key);
-    log?.error("ops alert send failed", { cause: a.cause, status });
-    throw new TelegramSendError(status);
+    log?.error("ops alert send failed", { cause: a.cause, status, sentParts, parts: parts.length });
+    throw new TelegramSendError(status, sentParts);
   };
-  for (const part of parts) {
+  for (const part of parts.slice(start)) {
     for (let attempt = 0; ; attempt++) {
       let res: Response;
       try {
@@ -251,6 +262,7 @@ export async function sendOpsAlert(a: OpsAlert, deps: SendDeps): Promise<"sent" 
       }
       return fail(res.status);
     }
+    sentParts++;
   }
   token = null;
   log?.info("ops alert sent", { cause: a.cause, severity: a.severity, parts: parts.length });

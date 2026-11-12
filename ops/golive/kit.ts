@@ -267,7 +267,21 @@ export async function runKit(o: RunOptions): Promise<number> {
   }
 
   const c = await (o.client ?? ((e, b) => defaultClient(o.kit, o.net, e, b)))(env, venueBase);
-  const open = await c.signAndSubmit(await c.buildOrder(openIntent(marketId, size), spec.venue, mode));
+  let openBuilt: Awaited<ReturnType<KitClient["buildOrder"]>>;
+  try {
+    openBuilt = await c.buildOrder(openIntent(marketId, size), spec.venue, mode);
+  } catch (e) {
+    log(`failed: the open could not be built: ${(e as Error).message}. Nothing was sent.`);
+    return 1;
+  }
+  let open: SubmitOutcome;
+  try {
+    open = await c.signAndSubmit(openBuilt);
+  } catch (e) {
+    // d1-golive-01: the post may have reached the venue and filled before the error; the kit cannot tell
+    log(`OPEN OUTCOME UNKNOWN: ${(e as Error).message}. The open of ${size} ${m.symbol} may have filled: check the venue and close it on the venue now if a position is open.`);
+    return 1;
+  }
   log(`open: ${open.order.status}, filled ${open.order.filled} of ${size}, receipt ${open.receiptId ?? "pending"}`);
   const ids = open.receiptId ? [open.receiptId] : [];
   let code = open.receiptId ? 0 : 3;

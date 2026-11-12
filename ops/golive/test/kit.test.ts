@@ -118,7 +118,7 @@ const ARMED = (kit: Kit, net: Net): Record<string, string> => ({
   GOLIVE_OWNER: "0x0000000000000000000000000000000000000001",
 });
 
-function fakeClient(o: { fill?: string; closeFill?: string; status?: string; closeThrows?: boolean } = {}) {
+function fakeClient(o: { fill?: string; closeFill?: string; status?: string; closeThrows?: boolean; openSubmitThrows?: boolean } = {}) {
   const calls: { intent: Record<string, unknown>; venue: string; mode: string }[] = [];
   const verified: string[] = [];
   const c: KitClient = {
@@ -129,6 +129,7 @@ function fakeClient(o: { fill?: string; closeFill?: string; status?: string; clo
     },
     signAndSubmit: async (b) => {
       const i = (b as unknown as { intent: { size: string; reduceOnly: boolean; marketId: string } }).intent;
+      if (!i.reduceOnly && o.openSubmitThrows) throw new Error("socket closed after the post");
       const filled = i.reduceOnly ? (o.closeFill ?? i.size) : (o.fill ?? i.size);
       return { order: { venue: "hyperliquid", marketId: i.marketId, venueOrderId: "1", side: "buy", size: i.size, filled, px: "1", status: "filled" }, receiptId: i.reduceOnly ? "rc_close" : "rc_open" } as never;
     },
@@ -208,6 +209,15 @@ describe("armed send (stand-in SDK client)", () => {
     const b = await run("lighter", "mainnet", { send: true, env: ARMED("lighter", "mainnet"), client: fakeClient({ closeFill: "0.0001" }).c });
     expect(b.code).toBe(1);
     expect(b.out).toContain("FAILED TO CLOSE FULLY");
+  });
+
+  test("d1-golive-01: an open whose submit throws warns OPEN OUTCOME UNKNOWN and exits 1", async () => {
+    const f = fakeClient({ openSubmitThrows: true });
+    const r = await run("hl-core", "mainnet", { send: true, env: ARMED("hl-core", "mainnet"), client: f.c });
+    expect(r.code).toBe(1);
+    expect(r.out).toContain("OPEN OUTCOME UNKNOWN");
+    expect(r.out).toContain("close it on the venue now");
+    expect(f.calls.length).toBe(1); // no close is guessed at an unknown size
   });
 
   test("an unfilled open sends no close", async () => {

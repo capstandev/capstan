@@ -43,6 +43,16 @@ describe("gate fork anchor for /verify", () => {
     expect(r?.fork).toBe(true);
   });
 
+  test("d1-fork-01: a fork record with ANCHOR_RPC_URL unset never reads the public RPC", async () => {
+    const file = join(dir, "4663-fork.json");
+    writeFileSync(file, JSON.stringify({ chainId: 4663, contracts: { CapstanReceiptAnchor: { address: ANCHOR, block: 1 } } }));
+    // the loader passes: no chain RPC is set, so none is remote
+    expect(applyForkDeployments({ CAPSTAN_FORK_DEPLOYMENTS: file })).toBe(4663);
+    expect(await anchorReaderFromEnv({ CAPSTAN_NETWORK: "mainnet" })).toBeNull();
+    expect(await anchorReaderFromEnv({ CAPSTAN_NETWORK: "mainnet", ANCHOR_RPC_URL: "https://rpc.example.org" })).toBeNull();
+    expect((await anchorReaderFromEnv({ CAPSTAN_NETWORK: "mainnet", ANCHOR_RPC_URL: "http://127.0.0.1:24690" }))?.fork).toBe(true);
+  });
+
   test("fork reader: a root posted after the first check is seen at once", async () => {
     const chain = postedAfterFirst();
     const deps = receiptDepsWith({} as never, [], { fork: true, readRoot: chain.readRoot, latestHour: chain.latestHour });

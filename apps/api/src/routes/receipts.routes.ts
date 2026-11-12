@@ -2,7 +2,7 @@
 // the hour's Merkle proof once the root is anchored; /verify runs the full public check (signature, leaf, proof,
 // on-chain root). Listing by owner (GET /v1/receipts?owner=) needs that owner's signature: receipts are public one by
 // one, never enumerable by a stranger.
-import { createDb, schema, type Db, type RouteSpec } from "@capstan/core";
+import { createDb, isLoopbackUrl, schema, type Db, type RouteSpec } from "@capstan/core";
 import { buildTree, pgReceiptStore, proofFor, verifyFull, type SignerWindow } from "@capstan/receipts";
 import { CHAINS, DEPLOYMENTS, errorBody, LOCAL_CHAIN_ID, type Hex, type Receipt } from "@capstan/schema";
 import { and, desc, eq, lt } from "drizzle-orm";
@@ -266,6 +266,9 @@ export async function anchorReaderFromEnv(env: Record<string, string | undefined
   const address = (deployed ?? (local ? env.ANCHOR_ADDRESS : undefined)) as Hex | undefined;
   const rpcUrl = env.ANCHOR_RPC_URL ?? (network === "mainnet" ? CHAINS.rhc.publicRpc : network === "testnet" ? CHAINS.rhcTestnet.publicRpc : undefined);
   if (!address || !/^0x[0-9a-fA-F]{40}$/.test(address) || !rpcUrl) return null;
+  // d1-fork-01: a fork record turns off the read cache, so it is used only against a loopback RPC (the fork itself).
+  // With ANCHOR_RPC_URL unset the URL falls back to the public chain RPC; a fork record never reads that.
+  if (record?.fork === true && !isLoopbackUrl(rpcUrl)) return null;
   const { createPublicClient, http, parseAbi } = await import("viem");
   const client = createPublicClient({ transport: http(rpcUrl) });
   const abi = parseAbi(["function rootOf(uint64 hourEpoch) view returns (bytes32 root, uint32 leafCount, uint64 postedAt)", "function latestHour() view returns (uint64)"]);

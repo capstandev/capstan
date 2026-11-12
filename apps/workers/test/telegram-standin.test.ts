@@ -4,7 +4,7 @@
 // Proves: every cause fires once, dedupe inside the 30 minute window, long text splits, a 429 is retried after its
 // retry_after, one failed send does not drop the others, and nothing posts when unarmed.
 import { createRedis, logger, type JobDeps, type Redis } from "@capstan/core";
-import { CAUSES, emitOpsEvent, loadGlossary, MAX_ALERT_CHARS, memoryDedupe, OPS_ALERT_LIST, redisDedupe, type DedupeStore, type OpsEvent } from "@capstan/telemetry";
+import { CAUSES, emitOpsEvent, loadGlossary, MAX_ALERT_CHARS, memoryDedupe, OPS_ALERT_LIST, redisDedupe, sendOpsAlert, TelegramSendError, toOpsAlert, type DedupeStore, type OpsEvent } from "@capstan/telemetry";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -174,6 +174,27 @@ describe(`telegram stand-in (${REDIS_URL ? "Redis durable list" : "events option
     const r2 = redis ? await runOpsAlerts(deps(), { env: armedEnv(), hl: null, dedupe }) : await deliver([{ kind: "x402.settle_dropped" }], armedEnv());
     expect(r2).toEqual([{ cause: "x402.settle_dropped", result: "sent" }]);
     expect(tg.delivered().map((c) => c.text.split("\n")[0])).toEqual(["[INFO] geo.refresh_failed", expect.stringContaining("x402.settle_dropped")]);
+  });
+
+  test("d1-alerts-01: a multi-part alert that fails on a later part resumes there next run, never from part 1", async () => {
+    const lines = Array.from({ length: 400 }, (_, i) => `line ${String(i).padStart(3, "0")} of the read error`);
+    const ev: OpsEvent = { kind: "canary.read_failed", detail: { venue: "hl", network: "mainnet", read: "meta", error: lines.join("\n") } };
+    tg.script({ status: 200 }, { status: 500 });
+    expect(await deliver([ev], armedEnv())).toEqual([{ cause: "canary.read_failed", result: "failed" }]);
+    expect(tg.delivered("sendMessage").length).toBe(1);
+    // the error names the resume point
+    tg.script({ status: 200 }, { status: 500 });
+    const err = await sendOpsAlert(toOpsAlert(ev), { armed: true, tokenFile: join(dir, "token"), chatId: CHAT, dedupeMinutes: 30, http: fetch, apiBase: tg.url, dedupe: memoryDedupe() }).catch((e) => e);
+    expect(err).toBeInstanceOf(TelegramSendError);
+    expect((err as TelegramSendError).sentParts).toBe(1);
+    tg.reset();
+    // next run: with Redis the event went back on the list with sentParts; without it the caller hands that record
+    const r2 = redis ? await runOpsAlerts(deps(), { env: armedEnv(), hl: null, dedupe }) : await runOpsAlerts(deps(), { env: armedEnv(), hl: null, dedupe, events: [{ ...ev, sentParts: 1 } as OpsEvent] });
+    expect(r2).toEqual([{ cause: "canary.read_failed", result: "sent" }]);
+    const texts = tg.delivered("sendMessage").map((c) => c.text);
+    expect(texts.length).toBeGreaterThan(0);
+    expect(texts.some((t) => t.startsWith("(1/"))).toBeFalse();
+    expect(texts[0]!.startsWith("(2/")).toBeTrue();
   });
 
   test("a 500 on one alert does not drop the next one", async () => {
