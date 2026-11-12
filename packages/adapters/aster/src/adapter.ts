@@ -65,6 +65,8 @@ export interface AsterAdapterDeps {
   bundles?: { get(id: string): Promise<OnboardingBundle | null>; put(b: OnboardingBundle): Promise<void> };
   /** CapstanEligibility v1 declaration step for an owner (todo 23). */
   eligibilityStep?: (owner: Hex) => Promise<OnboardingStep> | OnboardingStep;
+  /** The agent_policy step for an agent-safe request (null without a policy); placed last in the bundle. */
+  policyStep?: (req: OnboardingRequest) => Promise<OnboardingStep | null> | OnboardingStep | null;
   /** Delegation state from the delegations table (Aster agent reads are signed, so the server cannot ask Aster). */
   delegationState?: (id: VenueIdentity) => Promise<DelegationState | null>;
   /** Relay-mode IP for agent whitelists (RELAY_EGRESS_IP). */
@@ -171,10 +173,11 @@ export function createAdapter(cfg: AsterConfig & { builder: Hex; execution?: boo
     async buildOnboarding(req: OnboardingRequest) {
       if (!deps.eligibilityStep) throw new CapstanError("INTERNAL_ERROR", "no eligibility step provider");
       if (!req.agentAddress) throw new CapstanError("INVALID_INPUT", "agentAddress is required", { field: "agentAddress" });
+      const policyStep = deps.policyStep ? await deps.policyStep(req) : null;
       const maxFeeRate = req.builderMaxBps !== undefined ? Dec.toString(Dec.div(Dec.parse(String(req.builderMaxBps), 6, "down"), Dec.parse("10000", 0), 18)) : undefined;
       const b = buildAsterOnboarding(
         { owner: req.owner, agentAddress: req.agentAddress, mode: "relay", network: cfg.network, nowMs: now(), ...(maxFeeRate ? { maxFeeRate } : {}) },
-        { relayEgressIp: deps.relayEgressIp ?? "", builder: cfg.builder, nonce: nonceFor(req.owner), eligibilityStep: await deps.eligibilityStep(req.owner) },
+        { relayEgressIp: deps.relayEgressIp ?? "", builder: cfg.builder, nonce: nonceFor(req.owner), eligibilityStep: await deps.eligibilityStep(req.owner), ...(policyStep ? { policyStep } : {}) },
       );
       await deps.bundles?.put(b);
       return b;

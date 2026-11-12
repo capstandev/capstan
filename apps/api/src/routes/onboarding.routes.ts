@@ -12,6 +12,7 @@ import { sha256Jcs } from "@capstan/relay";
 import { AgentPolicyZ, CapstanError, errorBody, OnboardingBuildZ, OnboardingPreflightQueryZ, OnboardingSubmitZ, type Hex, type OnboardingBundle, type OnboardingRequest, type VenueId } from "@capstan/schema";
 import { recordOnboardingPrompt } from "@capstan/telemetry";
 import { edgeScopeMatches, storeDeclaration } from "@capstan/eligibility";
+import { storeOnboardingPolicy, verifyOnboardingPolicy, type PendingPolicy } from "../onboarding-policy";
 import { and, eq, ne } from "drizzle-orm";
 import type { Context } from "hono";
 import { bundleOfRow, type BuildAdapter } from "../adapters";
@@ -127,6 +128,8 @@ export function createOnboardingRoutes(getDeps: () => Promise<OnboardingRouteDep
           if (e instanceof CapstanError) return c.json(e.toBody(), e.status as 400);
           throw e;
         }
+        // agent-safe mode never falls back to no policy: a venue whose bundle has no policy step refuses it here
+        if (req.policy !== undefined && !b.steps.some((st) => st.kind === "agent_policy")) return c.json(errorBody("INVALID_INPUT", `Agent-safe mode (a policy) is not available for ${venue} onboarding yet.`), 400);
         const stored = { bundle: b, request: { venue, owner: req.owner.toLowerCase(), agentAddress: req.agentAddress?.toLowerCase() ?? null, policy: req.policy ?? null } };
         await deps.db
           .insert(schema.onboardingSessions)
@@ -174,7 +177,7 @@ export function createOnboardingRoutes(getDeps: () => Promise<OnboardingRouteDep
         if (typeof authed === "string" && authed.toLowerCase() !== row.owner.toLowerCase()) return c.json(errorBody("UNAUTHORIZED", "The signature does not belong to this bundle's owner."), 401);
         if (row.status !== "built") return c.json(errorBody("INVALID_INPUT", "This onboarding bundle was already submitted."), 409);
         const bundle = bundleOfRow(row.bundle);
-        const request = ((row.bundle as { request?: { agentAddress?: string | null } }).request ?? {}) as { agentAddress?: string | null };
+        const request = ((row.bundle as { request?: { agentAddress?: string | null; policy?: unknown } }).request ?? {}) as { agentAddress?: string | null; policy?: unknown };
         const now = deps.now();
         if (now > row.createdAt.getTime() + SESSION_LIFE_MS || now > bundle.expiresAt) {
           await deps.db.update(s).set({ status: "expired" }).where(eq(s.id, row.id));
@@ -202,6 +205,15 @@ export function createOnboardingRoutes(getDeps: () => Promise<OnboardingRouteDep
             throw e;
           }
         }
+        // the owner's signed policy is verified before any venue step is sent (spec 7.6)
+        let pending: PendingPolicy | null;
+        try {
+          pending = await verifyOnboardingPolicy(deps.db, { venue, owner: row.owner, bundle, requestPolicy: request.policy, agentAddress: request.agentAddress, signatures: p.data.signatures as { step: number; sig: Hex }[], nowMs: now });
+        } catch (e) {
+          await deps.db.update(s).set({ status: "failed" }).where(eq(s.id, row.id));
+          if (e instanceof CapstanError) return c.json(e.toBody(), e.status as 400);
+          throw e;
+        }
         let res;
         try {
           res = await a.submitOnboarding({ bundleId: row.id, signatures: p.data.signatures as { step: number; sig: Hex }[], ...(p.data.lighterSignedTx !== undefined ? { lighterSignedTx: p.data.lighterSignedTx } : {}) });
@@ -219,6 +231,16 @@ export function createOnboardingRoutes(getDeps: () => Promise<OnboardingRouteDep
           accountIndex: acct !== undefined && /^\d+$/.test(acct) ? Number(acct) : null,
           apiKeyIndex: key !== undefined && /^\d+$/.test(key) ? Number(key) : null,
         };
+        // stored before the delegation, so the relay never sees the new agent without its policy (fail closed)
+        if (pending) {
+          try {
+            res = { ...res, delegation: { ...res.delegation, policyId: await storeOnboardingPolicy(deps.db, pending, res.agentRef, now) } };
+          } catch (e) {
+            await deps.db.update(s).set({ status: "failed" }).where(eq(s.id, row.id));
+            if (e instanceof CapstanError) return c.json(e.toBody(), e.status as 400);
+            throw e;
+          }
+        }
         try {
           await deps.db.transaction(async (tx) => {
             await tx.insert(schema.delegations).values({ ...next, builderMaxBps: res.delegation.builderMaxBps, expiresAt: res.delegation.expiresAt ? new Date(res.delegation.expiresAt) : null, state: "active", createdAt: new Date(now) });

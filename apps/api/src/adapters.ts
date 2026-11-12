@@ -129,7 +129,7 @@ export async function composeAdapters(env: Record<string, string | undefined>, o
     "aster",
     aster.createAdapter(
       { ...asterCfg, builder: (env.ASTER_BUILDER_ADDRESS as Hex | undefined) ?? ZERO, execution: aster.asterExecutionEnabled(env) },
-      { http: asterHttp, cache, reader: aster.createAsterReader(asterCfg, asterHttp, cache), bundles, ...(o.redis ? { accounts: aster.redisAccountStore(o.redis) } : {}), eligibilityStep: (owner) => declarationStep(owner, ["aster"], Date.now()), ...(env.RELAY_EGRESS_IP ? { relayEgressIp: env.RELAY_EGRESS_IP } : {}) },
+      { http: asterHttp, cache, reader: aster.createAsterReader(asterCfg, asterHttp, cache), bundles, ...(o.redis ? { accounts: aster.redisAccountStore(o.redis) } : {}), eligibilityStep: (owner) => declarationStep(owner, ["aster"], Date.now()), policyStep: (req) => policyStepOf(req.policy), ...(env.RELAY_EGRESS_IP ? { relayEgressIp: env.RELAY_EGRESS_IP } : {}) },
     ) as unknown as BuildAdapter,
   );
   const { defaultVariationalAdapter } = await import("@capstan/adapter-variational");
