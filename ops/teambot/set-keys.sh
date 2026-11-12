@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Owner script: saves OWNER_TELEGRAM_ID into /etc/capstan-teambot/teambot.env on the server (root 0600), then restarts
+# Owner script: saves OWNER_TELEGRAM_ID into /etc/capstan-teambot/teambot.env on the server (root:capstan-teambot 0640), then restarts
 # the team bot. The prompt is hidden (nothing echoes on screen) and the value goes over ssh stdin, never on a command
 # line or in shell history. Other lines in the file are kept.
 # Your id: send /whoami in the team group once the bot runs (it answers "Your Telegram id is N").
@@ -22,12 +22,15 @@ OWNER="$(printf '%s' "$OWNER" | tr -d ' \r')"
 REMOTE='set -e
 umask 077
 d="${TEAMBOT_DIR:-/etc/capstan-teambot}"
-install -d -m 0700 "$d"
+# the bot runs as capstan-teambot (G4-02): on the server it reads this file through its group, nobody else can
+g=""; [ "$(id -u)" = 0 ] && getent group capstan-teambot >/dev/null 2>&1 && g=capstan-teambot
+if [ -n "$g" ]; then install -d -m 0750 -o root -g "$g" "$d"; else install -d -m 0700 "$d"; fi
 f="$d/teambot.env"
 touch "$f"
 IFS= read -r line
 { grep -v "^OWNER_TELEGRAM_ID=" "$f" || true; printf "%s\n" "$line"; } > "$f.new"
-chmod 0600 "$f.new"; [ "$(id -u)" = 0 ] && chown root:root "$f.new"; mv -f "$f.new" "$f"
+if [ -n "$g" ]; then chown "root:$g" "$f.new"; chmod 0640 "$f.new"; else chmod 0600 "$f.new"; [ "$(id -u)" = 0 ] && chown root:root "$f.new"; fi
+mv -f "$f.new" "$f"
 if [ -z "${TEAMBOT_DIR:-}" ]; then systemctl restart capstan-teambot.service; sleep 3; systemctl is-active --quiet capstan-teambot.service; fi'
 if [[ -n "$DRY" ]]; then
   printf 'OWNER_TELEGRAM_ID=%s\n' "$OWNER" | TEAMBOT_DIR="$DRY" bash -c "$REMOTE"
@@ -35,5 +38,5 @@ if [[ -n "$DRY" ]]; then
   exit 0
 fi
 printf 'OWNER_TELEGRAM_ID=%s\n' "$OWNER" | ssh "$HOST" "$REMOTE"
-echo "PASS OWNER_TELEGRAM_ID saved on $HOST (root 0600) and the bot restarted"
+echo "PASS OWNER_TELEGRAM_ID saved on $HOST (root:capstan-teambot 0640) and the bot restarted"
 ssh "$HOST" '/usr/local/sbin/teambot check' | grep -E "OWNER_TELEGRAM_ID" || true

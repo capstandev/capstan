@@ -241,6 +241,72 @@ class TeamBotTest(unittest.TestCase):
         self.assertIn("not on the server", self.one_reply("/poster 2"))
         self.assertIn("Send /poster N", self.one_reply("/poster x"))
 
+    # G4-02: the runner's folder belongs to another account; a link it plants must never make the bot read the target
+    def plant_secret(self):
+        secret = os.path.join(self.tmp, "root-only.env")
+        self.write(secret, "TELEGRAM_BOT_TOKEN=planted-secret-value\n")
+        return secret
+
+    def test_poster_refuses_a_linked_notes_file(self):
+        notes = os.path.join(self.rr, "notes", "update-01.txt")
+        os.remove(notes)
+        os.symlink(self.plant_secret(), notes)
+        ph = self.sends(self.say("/poster 1"), "sendPhoto")
+        self.assertEqual(len(ph), 1)
+        self.assertNotIn("planted-secret-value", ph[0]["text"])
+        self.assertIn("Update 1", ph[0]["text"])
+
+    def test_poster_refuses_a_linked_poster_or_folder(self):
+        poster = os.path.join(self.rr, "posters", "update-01.png")
+        os.remove(poster)
+        os.symlink(self.plant_secret(), poster)
+        self.assertIn("not on the server", self.one_reply("/poster 1"))
+        os.remove(poster)
+        real = os.path.join(self.tmp, "elsewhere")
+        os.makedirs(real)
+        self.write(os.path.join(real, "update-01.png"), "\x89PNG from a linked folder")
+        shutil.rmtree(os.path.join(self.rr, "posters"))
+        os.symlink(real, os.path.join(self.rr, "posters"))
+        self.assertIn("not on the server", self.one_reply("/poster 1"))
+
+    def test_poster_refuses_a_fifo_without_hanging(self):
+        notes = os.path.join(self.rr, "notes", "update-01.txt")
+        os.remove(notes)
+        os.mkfifo(notes)
+        ph = self.sends(self.say("/poster 1"), "sendPhoto")
+        self.assertEqual(len(ph), 1)
+        self.assertIn("Update 1", ph[0]["text"])
+
+    def test_poster_uploads_the_bytes_it_read(self):
+        ph = self.sends(self.say("/poster 1"), "sendPhoto")
+        self.assertEqual(len(ph), 1)
+        self.assertEqual(str(ph[0].get("photo")), str(len("\x89PNG fake poster 1".encode())))
+        self.assertEqual([f for f in os.listdir(self.home) if f.startswith("poster-")], [])  # the private copy is gone
+
+    def test_linked_state_file_reads_as_empty(self):
+        state = os.path.join(self.rr, "state.tsv")
+        target = os.path.join(self.tmp, "state-elsewhere.tsv")
+        shutil.move(state, target)
+        os.symlink(target, state)
+        self.assertEqual(self.bot.released_ids(), {})
+
+    def test_service_is_not_root_and_sudo_is_narrow(self):
+        with open(os.path.join(ROOT, "ops", "teambot", "capstan-teambot.service")) as f:
+            unit = f.read()
+        self.assertNotRegex(unit, r"(?m)^User=root")
+        self.assertRegex(unit, r"(?m)^User=capstan-teambot$")
+        self.assertRegex(unit, r"(?m)^LoadCredential=telegram.env:/etc/capstan-release/telegram.env$")
+        with open(os.path.join(ROOT, "ops", "teambot", "sudoers", "capstan-teambot")) as f:
+            rules = [ln for ln in f.read().splitlines() if ln.strip() and not ln.startswith("#")]
+        self.assertEqual(rules, ["capstan-teambot ALL=(root) NOPASSWD: /usr/local/sbin/capstan-release-status, "
+                                 "/usr/local/sbin/capstan-release-pause, /usr/local/sbin/capstan-release-resume"])
+        for k in ("TEAMBOT_STATUS_CMD", "TEAMBOT_PAUSE_CMD", "TEAMBOT_RESUME_CMD"):
+            os.environ.pop(k, None)
+        cfg = teambot.Cfg()
+        self.assertEqual(cfg.status_cmd, ["/usr/bin/sudo", "-n", "/usr/local/sbin/capstan-release-status", "3"])
+        self.assertEqual(cfg.pause_cmd, ["/usr/bin/sudo", "-n", "/usr/local/sbin/capstan-release-pause"])
+        self.assertEqual(cfg.resume_cmd, ["/usr/bin/sudo", "-n", "/usr/local/sbin/capstan-release-resume"])
+
     def test_mcp_reads_known_md(self):
         t = self.one_reply("/mcp")
         self.assertTrue(t.startswith("MCP server:"), t)

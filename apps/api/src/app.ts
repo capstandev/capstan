@@ -3,6 +3,7 @@
 // value is refused at mount (deny by default), and auth kinds with no verifier registered answer 401.
 import { logger, ROUTE_AUTHS, ulid, type Logger, type RouteAuth, type RouteSpec, type RouteWrite } from "@capstan/core";
 import { CapstanError, errorBody } from "@capstan/schema";
+import { REQUEST_VENUE_WAIT_MS, withRequestDeadline, type RequestVenueWait } from "@capstan/venue-client";
 import { Hono, type Context, type MiddlewareHandler } from "hono";
 import { basename, join, relative } from "node:path";
 import { CREDIT_REFUND } from "./auth/index";
@@ -32,6 +33,8 @@ export interface CreateAppOptions {
   requestLog?: (spec: RouteSpec) => MiddlewareHandler;
   /** Where an unexpected error (a 500) is logged. Default the api JSON-lines logger on stdout. */
   log?: Logger;
+  /** Longest venue budget wait per request before VENUE_RATE_LIMITED (G4-01). Default REQUEST_VENUE_WAIT_MS. */
+  requestVenueWaitMs?: number;
 }
 
 /** The first stack frame inside this repo as file:line (no values from the request), or null. */
@@ -166,6 +169,13 @@ export async function createApp(opts: CreateAppOptions = {}): Promise<{ app: Hon
   for (const r of opts.extraRoutes ?? []) found.push({ spec: validateSpec(r, "extraRoutes"), file: "extraRoutes" });
   const verifiers = opts.verifiers ?? {};
   const v1 = new Hono();
+  // a venue budget wait inside a request fails fast with 429 + Retry-After instead of holding the socket (G4-01)
+  const waitMs = opts.requestVenueWaitMs ?? REQUEST_VENUE_WAIT_MS;
+  v1.use("*", async (c, next) => {
+    const w: RequestVenueWait = { until: Date.now() + waitMs };
+    await withRequestDeadline(w, next);
+    if (c.res.status === 429 && w.retryAfterMs !== undefined && !c.res.headers.has("retry-after")) c.header("retry-after", String(Math.max(1, Math.ceil(w.retryAfterMs / 1_000))));
+  });
   const seen = new Set<string>();
   const mounted: MountedRoute[] = [];
   for (const { spec, file } of found) {

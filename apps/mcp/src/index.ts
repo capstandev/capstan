@@ -5,6 +5,7 @@ import { bufferedRequestLog, dailyClientHasher, initTelemetry, telemetryEnv } fr
 import { httpApiClient, type CapstanApiClient } from "./client";
 import { paymentsFromEnv, type McpPaymentOverrides } from "./payments";
 import { createMcpApp, type McpAppDeps } from "./server";
+import { SERVER_IDLE_TIMEOUT_S } from "@capstan/schema";
 
 export const PACKAGE_NAME = "@capstan/mcp" as const;
 export const MCP_VERSION = "1.0.0";
@@ -48,7 +49,7 @@ if (import.meta.main) {
     const tel = initTelemetry("mcp", telemetryEnv(process.env));
     const sink = cfg.DATABASE_URL ? bufferedRequestLog(createDb(cfg.DATABASE_URL, { max: 2 }), { onError: (e, dropped) => log.warn("request log insert failed", { error: e.message, dropped }) }) : null;
     const { app, hosts, paidTools } = await mcpAppFromEnv(cfg, process.env, sink ? { requestLog: { sink, hash: dailyClientHasher() } } : {});
-    const server = Bun.serve({ port: cfg.MCP_PORT, hostname: "127.0.0.1", fetch: tel.serve(app.fetch) });
+    const server = Bun.serve({ port: cfg.MCP_PORT, hostname: "127.0.0.1", idleTimeout: SERVER_IDLE_TIMEOUT_S, fetch: tel.serve(app.fetch) });
     log.info("listening", { port: cfg.MCP_PORT, hosts, paidTools, requestLog: !!sink });
     let stopping = false;
     const stop = async () => {

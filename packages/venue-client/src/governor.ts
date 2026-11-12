@@ -274,7 +274,7 @@ export function createGovernorWithStore(store: GovernorStore, egress: string, op
         for (;;) {
           const t = now();
           if (priority === "free" && (await store.proWaiters(key)) > 0) {
-            if (t + 25 > deadline) throw new CapstanError("VENUE_RATE_LIMITED", `${venue}: waiting behind pro traffic`);
+            if (t + 25 > deadline) throw new CapstanError("VENUE_RATE_LIMITED", `${venue}: waiting behind pro traffic`, { retryAfterMs: 1_000 });
             await sleep(25);
             continue;
           }
@@ -293,10 +293,10 @@ export function createGovernorWithStore(store: GovernorStore, egress: string, op
           }
           if (r.code === 0) {
             record(venue, r.used, r.bannedUntil);
-            throw new CapstanError("VENUE_RATE_LIMITED", `${venue} is banned for this IP until ${new Date(r.bannedUntil).toISOString()}`);
+            throw new CapstanError("VENUE_RATE_LIMITED", `${venue} is banned for this IP until ${new Date(r.bannedUntil).toISOString()}`, { retryAfterMs: Math.max(0, r.bannedUntil - t) });
           }
           record(venue, r.used, null);
-          if (t + r.waitMs > deadline) throw new CapstanError("VENUE_RATE_LIMITED", `${venue}: budget wait ${r.waitMs} ms passes the deadline`);
+          if (t + r.waitMs > deadline) throw new CapstanError("VENUE_RATE_LIMITED", `${venue}: budget wait ${r.waitMs} ms passes the deadline`, { retryAfterMs: r.waitMs });
           // pro and safety waiters both hold free traffic back (security r2 D2-ADP-05: a safety read used not to
           // register, so a flood of free reads kept taking the slot it waited for)
           if (priority !== "free" && !registered) {

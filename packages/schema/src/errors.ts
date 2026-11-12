@@ -58,15 +58,26 @@ export class CapstanError extends Error {
   readonly status: number;
   readonly receiptId?: string;
   readonly field?: string;
-  constructor(code: ErrorCode, message?: string, opts?: { receiptId?: string; field?: string }) {
+  /** How long the caller should wait before a retry (sent as Retry-After); set on VENUE_RATE_LIMITED. */
+  readonly retryAfterMs?: number;
+  constructor(code: ErrorCode, message?: string, opts?: { receiptId?: string; field?: string; retryAfterMs?: number }) {
     super(message ?? ERROR_CODES[code].message);
     this.name = "CapstanError";
     this.code = code;
     this.status = ERROR_CODES[code].status;
     if (opts?.receiptId) this.receiptId = opts.receiptId;
     if (opts?.field) this.field = opts.field;
+    if (opts?.retryAfterMs !== undefined) this.retryAfterMs = opts.retryAfterMs;
   }
   toBody(): ErrorBody {
     return errorBody(this.code, this.message, this.receiptId);
   }
 }
+
+/**
+ * Idle timeout for every Bun.serve (G4-01). Bun's default (10 s) closes the socket of any request that sends no byte
+ * for 10 s, so a caller got a reset instead of an answer. 60 s sits above the longest wait one request makes (an 8 s
+ * venue budget cap, a 10 s venue fetch, a 10 s relay answer, the relay's 30 s safety lane) and below the proxy (Caddy
+ * sets no response timeout; its idle timeout is 5 min). Bun allows at most 255.
+ */
+export const SERVER_IDLE_TIMEOUT_S = 60;

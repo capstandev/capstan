@@ -13,14 +13,14 @@ import type { Hex, OnboardingBundle, OrderIntent, Receipt } from "@capstan/schem
 import { eq } from "drizzle-orm";
 import { db as schema } from "@capstan/schema";
 import type { PrivateKeyAccount } from "viem/accounts";
-import { API, freshWallet, PORTS, revert, RHC, rhc, snapshot, stateAddr, warp, type Row } from "../lib";
+import { API, freshWallet, honourRetryAfter, PORTS, revert, RHC, rhc, snapshot, stateAddr, warp, type Row } from "../lib";
 import type { Ctx } from "../every-tx";
 
 export const BTC = "hyperliquid:-:BTC";
 const HL = `http://127.0.0.1:${PORTS.hl}`;
 
 export async function api<T>(method: string, path: string, body?: unknown, headers: Record<string, string> = {}): Promise<{ status: number; body: T; headers: Headers }> {
-  const r = await fetch(`${API}${path}`, { method, headers: { "content-type": "application/json", ...headers }, ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
+  const r = await honourRetryAfter()(`${API}${path}`, { method, headers: { "content-type": "application/json", ...headers }, ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
   const text = await r.text();
   let j: unknown = text;
   try {
@@ -91,7 +91,7 @@ let nextIp = 10;
  * user of a real deployment comes from their own address, and the api's per-IP limits must see them that way.
  */
 export function userFetch(ip = `192.0.2.${nextIp++ % 250 + 2}`): typeof fetch {
-  return ((u: string | URL | Request, init?: RequestInit) => fetch(u, { ...init, headers: { ...(init?.headers as Record<string, string>), "x-forwarded-for": ip } })) as typeof fetch;
+  return honourRetryAfter(((u: string | URL | Request, init?: RequestInit) => fetch(u, { ...init, headers: { ...(init?.headers as Record<string, string>), "x-forwarded-for": ip } })) as typeof fetch);
 }
 
 /** A fresh user onboarded on Hyperliquid through the real SDK (bundle checked against the pins, signed by the wallet). */

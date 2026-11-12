@@ -140,6 +140,11 @@ for s in $CAPSTAN_SERVICES; do
   fi
 done
 /usr/bin/getent group capstan-ops >/dev/null || { /usr/sbin/groupadd --system capstan-ops; n=$((n + 1)); }
+# G4-03: deploy installs packages as this account; no service runs as it, so no running process can write a new release
+if ! /usr/bin/getent passwd capstan-install >/dev/null; then
+  /usr/sbin/useradd --system --user-group --no-create-home --home-dir /nonexistent --shell /usr/sbin/nologin capstan-install
+  n=$((n + 1))
+fi
 if [ "$n" -eq 0 ]; then stage_skip "unix users"; else mark "unix users ($n created)"; fi
 
 # folders and modes

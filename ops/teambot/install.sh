@@ -3,7 +3,9 @@
 # It copies the program, the unit file, the captions, contracts.json (from web/public) and any demo videos found in
 # VIDEOS_DIR (only the ones that changed), keeps an existing known.md and teambot.env, then enables and restarts
 # capstan-teambot.service. It never reads or prints a token or key: the server-side check only says whether they
-# are present. The bot reads the runner's token file /etc/capstan-release/telegram.env (install the runner first).
+# are present. The bot reads the runner's token file /etc/capstan-release/telegram.env (install the runner first),
+# handed to it by systemd. It runs as capstan-teambot (never root, G4-02) with sudo for the runner's status, pause and
+# resume wrappers only (sudoers/capstan-teambot).
 # Usage: bash install.sh user@host [--known] [--skip-tests]
 #        --known       also replace the server's /etc/capstan-teambot/known.md with the local one
 #        --skip-tests  do not run the local tests first
@@ -42,12 +44,19 @@ fi
 
 # 2. folders
 "${SSH[@]}" "$HOST" 'set -e
-install -d -m 0700 /etc/capstan-teambot
-install -d -m 0700 /var/lib/capstan-teambot /var/lib/capstan-teambot/videos /var/lib/capstan-teambot/videos/desktop /var/lib/capstan-teambot/videos/phone
-[ -e /etc/capstan-teambot/teambot.env ] || install -m 0600 /dev/null /etc/capstan-teambot/teambot.env
-chmod 0600 /etc/capstan-teambot/teambot.env
-command -v curl >/dev/null && command -v python3 >/dev/null' || fail "server folders (or curl/python3 missing)"
-pass "server folders ready on $HOST"
+id capstan-teambot >/dev/null 2>&1 || useradd --system --home-dir /var/lib/capstan-teambot --shell /usr/sbin/nologin capstan-teambot
+install -d -m 0750 -o root -g capstan-teambot /etc/capstan-teambot
+install -d -m 0700 -o capstan-teambot -g capstan-teambot /var/lib/capstan-teambot /var/lib/capstan-teambot/videos /var/lib/capstan-teambot/videos/desktop /var/lib/capstan-teambot/videos/phone
+chown -R capstan-teambot:capstan-teambot /var/lib/capstan-teambot
+[ -e /etc/capstan-teambot/teambot.env ] || install -m 0640 /dev/null /etc/capstan-teambot/teambot.env
+chown root:capstan-teambot /etc/capstan-teambot/teambot.env; chmod 0640 /etc/capstan-teambot/teambot.env
+command -v curl >/dev/null && command -v python3 >/dev/null && command -v sudo >/dev/null' || fail "server folders (or curl/python3/sudo missing)"
+pass "server folders ready on $HOST (bot account capstan-teambot)"
+"${SCP[@]}" "$HERE/sudoers/capstan-teambot" "$HOST:/root/capstan-teambot.sudoers"
+"${SSH[@]}" "$HOST" 'set -e; f=/root/capstan-teambot.sudoers; visudo -cf "$f" >/dev/null
+install -m 0440 -o root -g root "$f" /etc/sudoers.d/capstan-teambot; rm -f "$f"
+visudo -c >/dev/null || { rm -f /etc/sudoers.d/capstan-teambot; exit 1; }' || fail "sudoers for capstan-teambot refused by visudo"
+pass "sudo for capstan-teambot: runner status, pause and resume only"
 
 # 3. program, unit, captions, contracts, known.md
 "${SCP[@]}" "$HERE/teambot.py" "$HOST:/usr/local/sbin/teambot.new"
@@ -57,7 +66,8 @@ pass "program at /usr/local/sbin/teambot"
 "${SCP[@]}" "$HERE/capstan-teambot.service" "$HOST:/etc/systemd/system/capstan-teambot.service"
 "${SCP[@]}" "$HERE/captions.json" "$HOST:/var/lib/capstan-teambot/captions.json"
 "${SCP[@]}" "$ROOT/web/public/contracts.json" "$HOST:/var/lib/capstan-teambot/contracts.json"
-"${SSH[@]}" "$HOST" 'chmod 0644 /etc/systemd/system/capstan-teambot.service; chmod 0600 /var/lib/capstan-teambot/captions.json /var/lib/capstan-teambot/contracts.json'
+"${SSH[@]}" "$HOST" 'chmod 0644 /etc/systemd/system/capstan-teambot.service; chmod 0600 /var/lib/capstan-teambot/captions.json /var/lib/capstan-teambot/contracts.json
+chown capstan-teambot:capstan-teambot /var/lib/capstan-teambot/captions.json /var/lib/capstan-teambot/contracts.json'
 pass "unit file, captions and contracts.json"
 if [[ $KNOWN == 1 ]] || ! "${SSH[@]}" "$HOST" 'test -e /etc/capstan-teambot/known.md'; then
   "${SCP[@]}" "$HERE/known.md" "$HOST:/etc/capstan-teambot/known.md"
@@ -80,7 +90,7 @@ if [[ -n "$VIDEOS" ]]; then
       copied=$((copied + 1))
     done
   done
-  "${SSH[@]}" "$HOST" 'chmod 0600 /var/lib/capstan-teambot/videos/*/*.mp4 2>/dev/null || true'
+  "${SSH[@]}" "$HOST" 'chmod 0600 /var/lib/capstan-teambot/videos/*/*.mp4 2>/dev/null || true; chown -R capstan-teambot:capstan-teambot /var/lib/capstan-teambot/videos'
   pass "videos: $copied copied, $same already there"
 else
   echo "INFO no VIDEOS_DIR given: /videos answers that the videos are not on the server yet"
@@ -92,6 +102,8 @@ sleep 6
 "${SSH[@]}" "$HOST" 'systemctl is-active --quiet capstan-teambot.service' && pass "capstan-teambot.service is active" \
   || fail "service not active (look: journalctl -u capstan-teambot -n 30)"
 "${SSH[@]}" "$HOST" 'systemctl is-enabled --quiet capstan-teambot.service' && pass "capstan-teambot.service starts at boot"
+"${SSH[@]}" "$HOST" '[ "$(ps -o user= -p "$(systemctl show -p MainPID --value capstan-teambot.service)")" = capstan-teambot ]' \
+  && pass "the bot runs as capstan-teambot, not root" || fail "the bot is not running as capstan-teambot"
 if "${SSH[@]}" "$HOST" 'journalctl -u capstan-teambot --since "-2 min" --no-pager -o cat | grep -q "event=started"'; then
   pass "bot started and is polling"
 else

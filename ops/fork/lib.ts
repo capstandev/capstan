@@ -19,6 +19,26 @@ export const PORTS = { api: port("API", 22410), ws: port("WS", 22411), relay: po
 export const RHC = `http://127.0.0.1:${PORTS.anvil}`;
 export const BASE = `http://127.0.0.1:${PORTS.base}`;
 export const API = `http://127.0.0.1:${PORTS.api}/v1`;
+
+/**
+ * G4-01: when the venue budget would make a request wait more than 8 s, the api answers 429 VENUE_RATE_LIMITED with
+ * Retry-After instead of holding the socket. A well-behaved client waits that long and asks again; every fork client
+ * does (bounded), and the retries are counted in the run summary so a budget squeeze stays visible.
+ */
+export const budgetRetries = { count: 0 };
+export function honourRetryAfter(f: typeof fetch = fetch, maxTotalMs = 180_000): typeof fetch {
+  return (async (u: string | URL | Request, init?: RequestInit) => {
+    const start = Date.now();
+    for (;;) {
+      const r = await f(u, init);
+      const after = r.status === 429 ? Number(r.headers.get("retry-after")) : Number.NaN;
+      if (!(after > 0) || Date.now() - start + after * 1000 > maxTotalMs) return r;
+      await r.body?.cancel();
+      budgetRetries.count++;
+      await Bun.sleep(Math.min(after, 65) * 1000);
+    }
+  }) as typeof fetch;
+}
 export const DATABASE_URL = `postgres://capstan:capstan@127.0.0.1:${PORTS.pg}/capstan`;
 export const REDIS_URL = `redis://127.0.0.1:${PORTS.redis}`;
 export const FORGE = join(homedir(), ".foundry/bin/forge");

@@ -9,7 +9,7 @@ import { closeDb, createDb, createMarketDataCache, createRedis, logger, type Db,
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import type { PrivateKeyAccount } from "viem/accounts";
-import { API, DATABASE_URL, freshWallet, PORTS, REDIS_URL, rhc, ROOT, setBalance, STATE, type ForkSafe, type Row } from "./lib";
+import { API, budgetRetries, DATABASE_URL, freshWallet, PORTS, REDIS_URL, rhc, ROOT, setBalance, STATE, type ForkSafe, type Row } from "./lib";
 import type { Deployed } from "./scenarios/s1-deploy";
 
 export interface Ctx {
@@ -121,7 +121,7 @@ export async function main(argv = process.argv.slice(2)): Promise<{ rows: Row[];
     writeFileSync(join(STATE, "web-pins.json"), JSON.stringify(ctx.shared.pins));
     Bun.spawnSync(["/bin/bash", join(ROOT, "ops/fork/up.sh"), "web"], { cwd: ROOT, stdout: "ignore", stderr: "ignore" });
   }
-  console.log(`every-tx ${runId}: ${passed}/${byId.size} scenarios passed (${rows.filter((r) => r.result === "pass").length}/${rows.length} rows); report ${report}`);
+  console.log(`every-tx ${runId}: ${passed}/${byId.size} scenarios passed (${rows.filter((r) => r.result === "pass").length}/${rows.length} rows); ${budgetRetries.count} venue budget retries (429 + Retry-After); report ${report}`);
   await redis.quit().catch(() => undefined);
   await closeDb(db);
   return { rows, passed, total: byId.size, report };

@@ -7,7 +7,7 @@
 import { CapstanError } from "@capstan/schema";
 import { arcusWeight, asterWeight, hlExchangeWeight, hlInfoWeight, HL_INFO_PER_ITEMS, type Priority, type VenueKey } from "./budgets";
 import { currentRecorder } from "./record-context";
-import { currentVenueLane, LANE_DEADLINE_MS } from "./lane-context";
+import { currentVenueLane, LANE_DEADLINE_MS, noteVenueRefusal, requestWaitLeftMs } from "./lane-context";
 import type { Governor } from "./governor";
 import { parseJsonLossless } from "./json";
 
@@ -116,8 +116,13 @@ export function venueHttp(venue: VenueKey, baseUrl: string, gov: Governor, opts:
     // the caller's lane (withVenueLane) wins; every wait has a deadline and fails closed (D2-ADP-05)
     const lane = currentVenueLane();
     const prio: Priority = lane?.priority ?? priority;
-    const deadlineMs = lane?.deadlineMs ?? opts.deadlineMs ?? LANE_DEADLINE_MS[prio];
-    await gov.acquire(venue, cost, { priority: prio, deadlineMs });
+    const laneMs = lane?.deadlineMs ?? opts.deadlineMs ?? LANE_DEADLINE_MS[prio];
+    const left = requestWaitLeftMs(); // inside an HTTP request the wait never outlives the request cap (G4-01)
+    const deadlineMs = left === undefined ? laneMs : Math.min(laneMs, left);
+    await gov.acquire(venue, cost, { priority: prio, deadlineMs }).catch((e: unknown) => {
+      if (e instanceof CapstanError && e.code === "VENUE_RATE_LIMITED") noteVenueRefusal(e.retryAfterMs ?? 1_000);
+      throw e;
+    });
     const headers: Record<string, string> = { "user-agent": ua, accept: "application/json" };
     let body: string | undefined;
     if (init.json !== undefined) {

@@ -6,6 +6,7 @@ import { join } from "node:path";
 import { createApp, discoverRoutes, envEdge } from "./app";
 import { gatewayFromEnv } from "./auth/env";
 import { requestLogger } from "./request-log";
+import { SERVER_IDLE_TIMEOUT_S } from "@capstan/schema";
 
 export { createApp };
 
@@ -26,7 +27,7 @@ if (import.meta.main) {
     const gw = await gatewayFromEnv(cfg, process.env, specs);
     const rl = requestLogFromConfig(cfg, log);
     const { app, routes } = await createApp({ ...gw, edge: envEdge(), corsOrigins: cfg.CAPSTAN_WEB_ORIGINS, requestLog: rl.middleware });
-    const server = Bun.serve({ port: cfg.API_PORT, hostname: "127.0.0.1", fetch: tel.serve(app.fetch) });
+    const server = Bun.serve({ port: cfg.API_PORT, hostname: "127.0.0.1", idleTimeout: SERVER_IDLE_TIMEOUT_S, fetch: tel.serve(app.fetch) });
     log.info("listening", { port: cfg.API_PORT, routes: routes.length, corsOrigins: cfg.CAPSTAN_WEB_ORIGINS.length });
     let stopping = false;
     const stop = async () => {

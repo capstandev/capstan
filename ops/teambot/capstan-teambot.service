@@ -6,7 +6,12 @@ StartLimitIntervalSec=0
 
 [Service]
 Type=simple
-User=root
+# never root (G4-02): its own account, reading the runner's folder as any other user can, and sudo only for the three
+# runner wrappers in /etc/sudoers.d/capstan-teambot. systemd (as root) hands it a copy of the token file.
+User=capstan-teambot
+Group=capstan-teambot
+LoadCredential=telegram.env:/etc/capstan-release/telegram.env
+Environment=TEAMBOT_TELEGRAM_ENV=%d/telegram.env
 ExecStart=/usr/local/sbin/teambot run
 Restart=always
 RestartSec=5

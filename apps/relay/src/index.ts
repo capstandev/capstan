@@ -6,6 +6,7 @@ import { relayHttp } from "./health";
 import { startRelayWorker } from "./queue";
 import { startPendingSweep } from "./sweep";
 import { relayConfig, relayRuntime } from "./wire";
+import { SERVER_IDLE_TIMEOUT_S } from "@capstan/schema";
 
 export const PACKAGE_NAME = "@capstan/relay" as const;
 export * from "./types";
@@ -33,6 +34,7 @@ if (import.meta.main) {
     Bun.serve({
       port: cfg.RELAY_PORT,
       hostname: "127.0.0.1",
+      idleTimeout: SERVER_IDLE_TIMEOUT_S,
       fetch: tel.serve(relayHttp(rt.flags)),
     });
     const stop = async () => {

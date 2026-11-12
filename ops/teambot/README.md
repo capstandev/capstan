@@ -54,14 +54,15 @@ Approve / Decline. If the owner has never opened a private chat with the bot, it
 | Path | What |
 |---|---|
 | /usr/local/sbin/teambot | the program (`run`, `check [--live]`, `requests`) |
-| /etc/systemd/system/capstan-teambot.service | the unit |
-| /etc/capstan-release/telegram.env | bot token and team chat id (the runner's file, read only) |
-| /etc/capstan-release/release.conf | the runner config, handed to status.sh, pause.sh and unpause.sh as RR_CONF |
-| /etc/capstan-teambot/teambot.env | `OWNER_TELEGRAM_ID` (root 0600, written by set-keys.sh) |
+| /etc/systemd/system/capstan-teambot.service | the unit: runs as the capstan-teambot account, never root (G4-02) |
+| /etc/sudoers.d/capstan-teambot | sudo for the runner's status, pause and resume wrappers only |
+| /etc/capstan-release/telegram.env | bot token and team chat id (the runner's file; systemd hands the bot a copy, LoadCredential) |
+| /etc/capstan-release/release.conf | the runner config; the root wrappers capstan-release-{status,pause,resume} name it themselves |
+| /etc/capstan-teambot/teambot.env | `OWNER_TELEGRAM_ID` (root:capstan-teambot 0640, written by set-keys.sh) |
 | /etc/capstan-teambot/known.md | hand-written: what Capstan has and does not have; /mcp and /socials read it |
 | /var/lib/capstan-teambot/{offset,state.json,requests.jsonl} | poll offset, open confirmations, the request queue |
 | /var/lib/capstan-teambot/{captions.json,contracts.json,videos/} | copied by install.sh |
-| /var/lib/capstan-release/ | read only: schedule.tsv, state.tsv, PAUSE, posters/, notes/ |
+| /var/lib/capstan-release/ | read only: schedule.tsv, state.tsv, PAUSE, posters/, notes/; a link or a non-regular file there reads as missing |
 
 ## Install (from the Mac, once the release runner is on the server)
 

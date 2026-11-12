@@ -100,9 +100,42 @@ assert_contains "$out" "not on main" "refusal names the reason"
 out="$(CAPSTAN_INSTALL_CMD= CAPSTAN_BUN=/tmp/fake-bun /bin/bash "$dir/deploy.sh" "$E" 2>&1)" || fail "sha E on main failed: $out"
 assert_eq "$(cur)" "$E" "E live"
 call="$(cat /tmp/bun.log)"
-assert_contains "$call" "capstan-workers|" "bun ran as the install user, not root"
+assert_contains "$call" "capstan-install|" "bun ran as the install-only user, not root"
 assert_not_contains "$call" "root|" "bun ran as root"
 assert_contains "$call" "install --frozen-lockfile --production --ignore-scripts" "lifecycle scripts are off"
 assert_eq "$(stat -c %U "/opt/capstan/releases/$E")" "root" "root owns the release tree"
 [ -z "$(find "/opt/capstan/releases/$E" ! -user root | head -n 1)" ] || fail "files in the release not owned by root"
+pass
+
+# G4-03: the install user used to be capstan-workers, a live service account that could write the new release (which
+# the api, relay and facilitator then run) for the length of the install. It is now an install-only account that no
+# unit runs as; the tree is closed to everyone else during the install and left with no write bit but root's.
+T_NAME=install-only-account
+reset
+cat > /tmp/fake-bun <<'BUN'
+#!/bin/bash
+printf '%s|%s|%s\n' "$(id -un)" "$(stat -c '%U %a' "$PWD")" "$*" >> /tmp/bun.log
+mkdir -p node_modules/pkg && echo x > node_modules/pkg/index.js && chmod 0666 node_modules/pkg/index.js && chmod 0777 node_modules/pkg
+BUN
+chmod 0755 /tmp/fake-bun; : > /tmp/bun.log; chmod 0666 /tmp/bun.log
+G="$(commit g yes)"
+assert_eq "$(getent passwd capstan-install | cut -d: -f7)" "/usr/sbin/nologin" "capstan-install has no login shell"
+[ -z "$(grep -lE '^User=capstan-install' /etc/systemd/system/capstan-* 2>/dev/null)" ] || fail "a unit runs as capstan-install"
+for u in root capstan-workers capstan-api capstan-facilitator; do
+  out="$(CAPSTAN_INSTALL_USER=$u CAPSTAN_INSTALL_CMD= CAPSTAN_BUN=/tmp/fake-bun /bin/bash "$dir/deploy.sh" "$G" 2>&1)"; rc=$?
+  [ "$rc" -ne 0 ] || fail "deploy ran with the service account $u as install user"
+  assert_contains "$out" "install-only account" "refusal for $u names the reason"
+done
+[ ! -s /tmp/bun.log ] || fail "bun ran with a service account as install user: $(cat /tmp/bun.log)"
+[ ! -e "/opt/capstan/releases/$G" ] || fail "a release dir was made with a service account as install user"
+out="$(CAPSTAN_INSTALL_CMD= CAPSTAN_BUN=/tmp/fake-bun /bin/bash "$dir/deploy.sh" "$G" 2>&1)" || fail "deploy with the default install user failed: $out"
+assert_eq "$(cur)" "$G" "G live"
+call="$(cat /tmp/bun.log)"
+assert_contains "$call" "capstan-install|capstan-install 700|" "bun ran as capstan-install in a tree only it can open"
+assert_contains "$call" "--ignore-scripts" "lifecycle scripts stay off"
+rel="/opt/capstan/releases/$G"
+[ -z "$(find "$rel" ! -user root | head -n 1)" ] || fail "files in the release not owned by root"
+[ -z "$(find "$rel" -perm /022 | head -n 1)" ] || fail "group or other can write in the release: $(find "$rel" -perm /022 | head -n 3)"
+[ -r "$rel/node_modules/pkg/index.js" ] && runuser -u capstan-api -- test -r "$rel/node_modules/pkg/index.js" || fail "services cannot read the release"
+! runuser -u capstan-workers -- test -w "$rel/node_modules/pkg/index.js" || fail "capstan-workers can write the release"
 pass

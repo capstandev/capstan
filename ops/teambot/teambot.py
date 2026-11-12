@@ -1,14 +1,16 @@
 #!/usr/bin/env python3
 # Capstan team Telegram bot ("teambot"). One long-polling service for the internal TEAM group, on the release alert
-# bot. Python 3 stdlib only, no paid API, no AI answers. Runs as root from capstan-teambot.service.
+# bot. Python 3 stdlib only, no paid API, no AI answers. Runs as its own user (capstan-teambot) from
+# capstan-teambot.service; status, pause and resume go through sudo to the runner's root wrappers only (G4-02).
 #
 # Serves only the team group (TELEGRAM_CHAT_ID) and the owner's private chat (OWNER_TELEGRAM_ID); everything else is
 # ignored. The bot token is read from /etc/capstan-release/telegram.env and reaches curl in a config on stdin: never
-# on a command line, never printed, never logged. Logs keep update id, chat id, command name and lengths only.
+# on a command line, never printed, never logged (systemd hands the service a copy: LoadCredential). Logs keep update id, chat id, command name and lengths only.
 #
-# /status reads the release runner's own status output (/opt/capstan-release/bin/status.sh) plus its schedule.tsv
-# and state.tsv; /roadmap and /changelog point at get-capstan.com. /pause and /resume run the runner's pause.sh and
-# unpause.sh after the owner taps Confirm.
+# /status reads the release runner's own status output (sudo capstan-release-status) plus its schedule.tsv and
+# state.tsv; /roadmap and /changelog point at get-capstan.com. /pause and /resume run capstan-release-pause and
+# capstan-release-resume after the owner taps Confirm. Files in the runner's folder are read only when they are
+# regular files with no link on the way (safe_read): that folder belongs to another account.
 #
 # Usage: teambot run                          the service (getUpdates long poll, offset kept in /var/lib/capstan-teambot)
 #        teambot check [--live]               PASS/FAIL lines for the setup (--live also asks Telegram who the bot is)
@@ -17,12 +19,15 @@
 import datetime as dt
 import fcntl
 import glob
+import hashlib
 import json
 import os
 import re
 import secrets
+import stat
 import subprocess
 import sys
+import tempfile
 import time
 
 E = os.environ.get
@@ -71,6 +76,31 @@ MENTION_REPLY = ("I answer commands only: /status, /roadmap, /changelog, /social
                  "/mcp, /help.\nUse /request <what you want> to ask the owner.")
 
 
+def runner_cmd(key, wrapper):
+    """argv for a runner command: the path in `key` when set (tests), else `sudo -n <root wrapper>`."""
+    v = E(key)
+    return [v] if v else ["/usr/bin/sudo", "-n", wrapper]
+
+
+def safe_read(path, root):
+    """Bytes of `path`, or None. Below `root` (a folder another account owns) no part of the path may be a symlink and
+    the file must be a regular file, opened with O_NOFOLLOW and checked on the open descriptor (G4-02, as rr_read)."""
+    root, p = os.path.abspath(root), os.path.abspath(path)
+    q = p
+    while q.startswith(root + os.sep):
+        if os.path.islink(q):
+            return None
+        q = os.path.dirname(q)
+    try:
+        fd = os.open(p, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | getattr(os, "O_CLOEXEC", 0))
+    except OSError:
+        return None
+    with os.fdopen(fd, "rb") as f:
+        if not stat.S_ISREG(os.fstat(f.fileno()).st_mode):
+            return None
+        return f.read()
+
+
 class Cfg:
     def __init__(self):
         self.telegram_env = E("TEAMBOT_TELEGRAM_ENV", "/etc/capstan-release/telegram.env")
@@ -79,9 +109,10 @@ class Cfg:
         self.home = E("TEAMBOT_HOME", "/var/lib/capstan-teambot")
         self.release_home = E("TEAMBOT_RELEASE_HOME", "/var/lib/capstan-release")
         self.contracts = E("TEAMBOT_CONTRACTS", os.path.join(self.home, "contracts.json"))
-        self.status_cmd = [E("TEAMBOT_STATUS_CMD", "/opt/capstan-release/bin/status.sh"), "3"]
-        self.pause_cmd = E("TEAMBOT_PAUSE_CMD", "/opt/capstan-release/bin/pause.sh")
-        self.resume_cmd = E("TEAMBOT_RESUME_CMD", "/opt/capstan-release/bin/unpause.sh")
+        # the bot is not root: by default each runner command is its root wrapper through sudo (sudoers/capstan-teambot)
+        self.status_cmd = runner_cmd("TEAMBOT_STATUS_CMD", "/usr/local/sbin/capstan-release-status") + ["3"]
+        self.pause_cmd = runner_cmd("TEAMBOT_PAUSE_CMD", "/usr/local/sbin/capstan-release-pause")
+        self.resume_cmd = runner_cmd("TEAMBOT_RESUME_CMD", "/usr/local/sbin/capstan-release-resume")
         self.rr_conf = E("TEAMBOT_RR_CONF", "/etc/capstan-release/release.conf")
         self.site = E("TEAMBOT_SITE", SITE_DEFAULT).rstrip("/")
         self.api_base = E("TELEGRAM_API_BASE", "https://api.telegram.org").rstrip("/")
@@ -231,16 +262,13 @@ def parse_status(text):
     return s
 
 
-def read_tsv(path):
+def read_tsv(path, root):
     out = []
-    try:
-        with open(path) as f:
-            for ln in f:
-                if ln.startswith("#") or not ln.strip():
-                    continue
-                out.append(ln.rstrip("\n").split("\t"))
-    except OSError:
-        pass
+    raw = safe_read(path, root)
+    for ln in (raw or b"").decode("utf-8", "replace").splitlines():
+        if ln.startswith("#") or not ln.strip():
+            continue
+        out.append(ln.split("\t"))
     return out
 
 
@@ -325,12 +353,12 @@ class Bot:
         return self.tg.call("editMessageText", {"chat_id": chat, "message_id": msg_id, "text": text[:4000],
                                                  "disable_web_page_preview": True})
 
-    def send_media(self, method, field, chat, path, caption, reply_to=None):
+    def send_media(self, method, field, chat, path, caption, reply_to=None, key=None):
         try:
             st = os.stat(path)
         except OSError:
             return {"ok": False}
-        key = f"{path}:{st.st_size}:{int(st.st_mtime)}"
+        key = key or f"{path}:{st.st_size}:{int(st.st_mtime)}"
         base = {"chat_id": str(chat), "caption": caption[:1024]}
         if reply_to:
             base["reply_to_message_id"] = str(reply_to)
@@ -380,8 +408,8 @@ class Bot:
             pass
         s = parse_status(text)
         # The runner's own files give every row (names, slots, statuses) and are the fallback if the command fails.
-        sched = read_tsv(os.path.join(self.cfg.release_home, "schedule.tsv"))
-        state = {row[0]: row for row in read_tsv(os.path.join(self.cfg.release_home, "state.tsv")) if row}
+        sched = read_tsv(os.path.join(self.cfg.release_home, "schedule.tsv"), self.cfg.release_home)
+        state = {row[0]: row for row in read_tsv(os.path.join(self.cfg.release_home, "state.tsv"), self.cfg.release_home) if row}
         rows = []
         for row in sched:
             if len(row) < 2 or not row[0].isdigit():
@@ -425,7 +453,7 @@ class Bot:
         return out + (f", {row['name']}" if row.get("name") else "")
 
     def released_ids(self):
-        rows = read_tsv(os.path.join(self.cfg.release_home, "state.tsv"))
+        rows = read_tsv(os.path.join(self.cfg.release_home, "state.tsv"), self.cfg.release_home)
         return {tu_id(r[0]): {"releaseTag": f"update-{int(r[0]):02d}"} for r in rows
                 if len(r) > 1 and r[0].isdigit() and r[1] == "released"}
 
@@ -555,20 +583,27 @@ class Bot:
         rel = self.released_ids()
         if tid not in rel:
             return NOT_RELEASED.format(n=n)
-        path = os.path.join(self.cfg.release_home, "posters", f"update-{n:02d}.png")
-        if not os.path.isfile(path):
+        home = self.cfg.release_home
+        path = os.path.join(home, "posters", f"update-{n:02d}.png")
+        poster = safe_read(path, home)  # a link or a non-regular file reads as missing (G4-02)
+        if poster is None:
             return f"The poster for update {n} is not on the server."
         if not self.media_ok(ctx):
             return TOO_MANY
-        try:
-            with open(os.path.join(self.cfg.release_home, "notes", f"update-{n:02d}.txt")) as f:
-                cap = f.read().strip()
-        except OSError:
-            cap = f"Update {n}"
+        notes = safe_read(os.path.join(home, "notes", f"update-{n:02d}.txt"), home)
+        cap = notes.decode("utf-8", "replace").strip() if notes is not None else f"Update {n}"
         tag = rel[tid].get("releaseTag") or ""
         if re.match(r"^[A-Za-z0-9._-]{1,64}$", tag):
             cap = cap[:900] + f"\n\nGitHub: {RELEASES_TAG}{tag}"
-        r = self.send_media("sendPhoto", "photo", ctx["chat_id"], path, cap, ctx["msg_id"])
+        # curl uploads the bytes read above from a private copy, never the runner's path (it could be swapped for a link)
+        fd, up = tempfile.mkstemp(prefix="poster-", suffix=".png", dir=self.cfg.home)
+        try:
+            with os.fdopen(fd, "wb") as f:
+                f.write(poster)
+            key = f"{path}:{hashlib.sha256(poster).hexdigest()}"
+            r = self.send_media("sendPhoto", "photo", ctx["chat_id"], up, cap, ctx["msg_id"], key=key)
+        finally:
+            os.unlink(up)
         return None if r.get("ok") else "Sending the poster did not work. Try again in a minute."
 
     def known_section(self, word, fallback=True):
@@ -625,7 +660,7 @@ class Bot:
         return None
 
     def run_action(self, p):
-        argv = [self.cfg.pause_cmd, "owner via the team bot: " + p["reason"]] if p["action"] == "pause" else [self.cfg.resume_cmd]
+        argv = self.cfg.pause_cmd + ["owner via the team bot: " + p["reason"]] if p["action"] == "pause" else list(self.cfg.resume_cmd)
         try:
             r = subprocess.run(argv, capture_output=True, text=True, timeout=120,
                                env=self.runner_env())

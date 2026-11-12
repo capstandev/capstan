@@ -20,12 +20,16 @@ REL="$CAPSTAN_OPT/releases"
 CUR="$CAPSTAN_OPT/current"
 PREV_FILE="$CAPSTAN_OPT/previous"
 CACHE="$CAPSTAN_OPT/repo.git"
-# r3d-02: the release tree is installed by this unprivileged user with lifecycle scripts off, then handed to root
-INSTALL_USER="${CAPSTAN_INSTALL_USER:-capstan-workers}"
+# r3d-02: the release tree is installed by this unprivileged user with lifecycle scripts off, then handed to root.
+# G4-03: an install-only account (provision.sh); never root or a service account, which could write the new release.
+INSTALL_USER="${CAPSTAN_INSTALL_USER:-capstan-install}"
 
 arg="${1:-}"
 [ -n "$arg" ] || die "usage: capstan-deploy <git-sha> | --rollback"
 require_root
+case " root $(for s in $CAPSTAN_SERVICES; do printf 'capstan-%s ' "$s"; done)" in
+  *" $INSTALL_USER "*) die "install user $INSTALL_USER runs a service or is root: use the install-only account (G4-03)" ;;
+esac
 /bin/mkdir -p "$REL" "$CAPSTAN_LOG/ops"
 exec 9> "$LOCK"
 /usr/bin/flock 9
@@ -107,12 +111,13 @@ if [ ! -d "$dir" ]; then
   # r3d-02: never run package code as root. bun installs as INSTALL_USER with --ignore-scripts (no lifecycle script of
   # the root package or any dependency runs), then root takes the tree back so no service user can change the code.
   /bin/chown -R "$INSTALL_USER:" "$dir.tmp" "$dir.home"
+  /bin/chmod 0700 "$dir.tmp" "$dir.home" # G4-03: no other account reads or writes the tree while it is installed
   ( cd "$dir.tmp" && if [ -n "${CAPSTAN_INSTALL_CMD:-}" ]; then /bin/bash -c "$CAPSTAN_INSTALL_CMD"; else
       /usr/sbin/runuser -u "$INSTALL_USER" -- /usr/bin/env HOME="$dir.home" BUN_INSTALL_CACHE_DIR="$dir.home/cache" \
         "$BUN" install --frozen-lockfile --production --ignore-scripts >> "$CAPSTAN_LOG/ops/deploy.log" 2>&1; fi )
   /bin/rm -rf "$dir.home"
   /bin/chown -R root:root "$dir.tmp"
-  /bin/chmod -R a+rX "$dir.tmp"
+  /bin/chmod -R go-w,a+rX "$dir.tmp" # root alone can write the finished tree
   /bin/mv "$dir.tmp" "$dir"
 fi
 say "deploy: release $sha ready"

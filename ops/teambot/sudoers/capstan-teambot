@@ -1,0 +1,4 @@
+# The team bot runs as capstan-teambot, not root (G4-02). It may run only the release runner's status, pause and
+# resume wrappers (root-owned copies installed by ops/release/install.sh). Nothing here allows a shell.
+# Installed by ops/teambot/install.sh: visudo -cf, then install -m 0440 to /etc/sudoers.d/capstan-teambot.
+capstan-teambot ALL=(root) NOPASSWD: /usr/local/sbin/capstan-release-status, /usr/local/sbin/capstan-release-pause, /usr/local/sbin/capstan-release-resume

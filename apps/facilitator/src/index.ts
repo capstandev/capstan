@@ -3,7 +3,7 @@
 // its encrypted keystore (optional), Postgres-backed settle records, a reconciler every 30 s and a float check
 // every hour. The hot key holds gas only; payTo is never the hot key.
 import { closeDb, createDb, devSigner, keystoreSigner, loadConfig, logger, type ServiceSigner } from "@capstan/core";
-import { ADDRESSES } from "@capstan/schema";
+import { ADDRESSES, SERVER_IDLE_TIMEOUT_S } from "@capstan/schema";
 import { initTelemetry, telemetryEnv } from "@capstan/telemetry";
 import { floatGuard, NETWORKS, railDefs, svmKeystoreSigner, type EvmNetwork, type FloatHolding, type SvmNetwork } from "@capstan/x402";
 import { createPublicClient, erc20Abi, http, type Hex } from "viem";
@@ -77,7 +77,7 @@ async function main(): Promise<void> {
     floatHolders: holders,
   });
   const app = createFacilitatorApp(service);
-  const server = Bun.serve({ port: cfg.FACILITATOR_PORT, hostname: "127.0.0.1", fetch: tel.serve(app.fetch) });
+  const server = Bun.serve({ port: cfg.FACILITATOR_PORT, hostname: "127.0.0.1", idleTimeout: SERVER_IDLE_TIMEOUT_S, fetch: tel.serve(app.fetch) });
   const rec = setInterval(() => void service.reconcile().catch((err) => log.warn("reconcile failed", { err })), 30_000);
   const flt = setInterval(() => void float.check().catch(() => undefined), 60 * 60 * 1000);
   void float.check().catch(() => undefined);
