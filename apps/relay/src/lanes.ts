@@ -6,6 +6,7 @@
 // one actor fill every submit slot). One sliding 60 s window, atomic in Redis.
 // Redis down: the free lane refuses (fail closed); the pro lane and the exit lane fall back to an in-process window
 // (an exit is never refused only because Redis is down).
+import { randomUUID } from "node:crypto";
 import type { Redis } from "@capstan/core";
 import type { VenueId } from "@capstan/schema";
 import type { LaneDecision, LaneLimiter } from "./types";
@@ -93,7 +94,7 @@ export function redisLaneLimiter(redis: Redis): LaneLimiter {
     async take(o) {
       const checks = checksFor(o);
       try {
-        const member = `${o.nowMs}:${process.pid}:${++n}:${Math.random().toString(36).slice(2, 8)}`;
+        const member = `${o.nowMs}:${process.pid}:${++n}:${randomUUID().slice(0, 8)}`;
         const r = Number(await redis.eval(TAKE_LUA, checks.length, ...checks.map((c) => c.key), String(o.nowMs), String(WINDOW_MS), member, ...checks.map((c) => String(c.limit))));
         if (r === 0) return { ok: true, lane: o.lane };
         return { ok: false, lane: o.lane, reason: checks[r - 1]!.reason };

@@ -149,6 +149,20 @@ describe("ci runs the web package", () => {
     expect(web).toContain("bun run check:copy");
     expect(job("ci-summary")).toMatch(/needs: \[[^\]]*\bweb\b[^\]]*\]/);
   });
+
+  // first public run (2026-11-12): coverage never migrated (the web client e2e answered 500) and cast came after the
+  // tests (the testnet wallet test could not make a keystore)
+  test("ts and coverage migrate the database and install Foundry before their tests", () => {
+    for (const name of ["ts", "coverage"]) {
+      const j = job(name);
+      const tests = j.indexOf("run: bun test --timeout 30000");
+      expect(tests).toBeGreaterThan(0);
+      expect(j.indexOf("run: bun run db:migrate")).toBeGreaterThan(0);
+      expect(j.indexOf("run: bun run db:migrate")).toBeLessThan(tests);
+      expect(j.indexOf("uses: foundry-rs/foundry-toolchain@")).toBeGreaterThan(0);
+      expect(j.indexOf("uses: foundry-rs/foundry-toolchain@")).toBeLessThan(tests);
+    }
+  });
 });
 
 // r3d-05: the npm publish job gave id-token: write to every step, including bun install, tests and node smoke.mjs.

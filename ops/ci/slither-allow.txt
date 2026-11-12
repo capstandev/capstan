@@ -1,3 +1,14 @@
 # Slither findings accepted on purpose, one per line, matched exactly:
 #   <detector> | <contract> | <function> | <reason>
-# Never an inline disable comment in deployed source: it changes the Sourcify match. Empty for now.
+# Never an inline disable comment in deployed source: it changes the Sourcify match.
+# Reviewed 2026-11-12 (first public CI run): each line below is a detector reading a deliberate pattern, not a bug.
+reentrancy-balance | CPSTLock | lock | the balance delta around transferFrom is the fee-on-transfer check (TransferShort); lock is nonReentrant and the token is the immutable CPST (plain OpenZeppelin ERC20, no hooks), so nothing can move the balance between the two reads
+reentrancy-no-eth | CPSTLock | lock | nonReentrant on lock and unlock; the lock is written after the pull on purpose, because the received amount must be checked first; the only cross-function reader, lockedOf, is a view
+reentrancy-benign | CPSTLock | lock | same call as above: totalLocked is written after the checked pull, under nonReentrant, with the immutable CPST token
+incorrect-equality | CapstanReceiptAnchor | verify | bytes32 equality on a Merkle root (zero means no root posted; the proof must fold to the exact root); not a balance or an amount
+timestamp | CPSTLock | lock | unlock times are 0, 30 or 90 days ahead; a few seconds of block-time drift cannot change a lock in any way that matters
+timestamp | CPSTLock | unlock | a lock opens at block.timestamp >= unlockAt by design; seconds of drift on a 30 or 90 day lock are harmless
+timestamp | CapstanReceiptAnchor | postRoot | the anchor works in whole hours (an hour must have ended before its root is posted); seconds of drift cannot post a root early by an hour
+timestamp | CapstanReceiptAnchor | verify | no time comparison in verify: the flagged lines compare bytes32 roots; slither taints them because postRoot stores block.timestamp next to the root
+assembly | SortedPairMerkle | hashPair | memory-safe scratch-space keccak of two words (the OpenZeppelin efficientHash pattern); covered by the Merkle tests and fuzz
+low-level-calls | CPSTLock | _call | a low-level call so a token with no return value still works; ok and the return data (empty or true) are both checked, any other answer reverts

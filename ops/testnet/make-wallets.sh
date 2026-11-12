@@ -10,8 +10,11 @@
 set -eu
 here="$(cd "$(dirname "$0")" && pwd -P)"
 CAST="${TESTNET_TOOL_DIR:-$HOME/.foundry/bin}/cast"
+# no foundryup install (CI's foundry-toolchain): the cast on PATH; an explicit TESTNET_TOOL_DIR is never overridden
+if [ ! -x "$CAST" ] && [ -z "${TESTNET_TOOL_DIR:-}" ]; then CAST="$(command -v cast || echo "$CAST")"; fi
 BUN="${TESTNET_BUN:-$HOME/.bun/bin/bun}"
 [ -x "$BUN" ] || BUN="/opt/homebrew/bin/bun"
+[ -x "$BUN" ] || BUN="$(command -v bun || echo "$BUN")"
 home="${CAPSTAN_TESTNET_HOME:-$HOME/.capstan-testnet}"
 ks="${CAPSTAN_TESTNET_KEYSTORES:-$HOME/.foundry/keystores}"
 umask 077

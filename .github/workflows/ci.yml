@@ -57,10 +57,11 @@ jobs:
         run: bun run check:deployments && bun run check:vectors
       - name: migrations (up from empty)
         run: bun run db:migrate
-      - name: tests (includes the invariant check tests and the database tests)
-        run: bun test --timeout 30000
+      # cast on PATH before the tests: ops/testnet/test/guard.test.ts makes throwaway keystores with it
       - uses: foundry-rs/foundry-toolchain@908c540300062bd5a7e473851cdb4282204cee09 # v1.9.1
         with: { version: v1.8.4 }
+      - name: tests (includes the invariant check tests and the database tests)
+        run: bun test --timeout 30000
       - name: anvil tests (every ANVIL_URL-gated file on a local anvil, chain 31337; a skip fails the step)
         run: bun run check:anvil
 
@@ -91,6 +92,12 @@ jobs:
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with: { bun-version: 1.4.4 }
       - run: bun install --frozen-lockfile
+      # the database tests (and the web client e2e on a booted API) need the schema: without it they answer 500
+      - name: migrations (up from empty)
+        run: bun run db:migrate
+      # cast on PATH before the tests: ops/testnet/test/guard.test.ts makes throwaway keystores with it
+      - uses: foundry-rs/foundry-toolchain@908c540300062bd5a7e473851cdb4282204cee09 # v1.9.1
+        with: { version: v1.8.4 }
       - name: tests with coverage
         run: bun test --timeout 30000 --coverage --coverage-reporter=lcov
       - name: at least 70% of lines in packages/ (raise later)

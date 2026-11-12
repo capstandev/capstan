@@ -17,9 +17,10 @@ if (import.meta.main) {
     const redis = createRedis(cfg.REDIS_URL, { forBullmq: true });
     const db = createDb(cfg.DATABASE_URL);
     const running = await startJobs(jobs, { db, redis, cache: createMarketDataCache(redis), log, now: () => new Date() }, redis);
-    log.info("workers running", { jobs: jobs.map((j) => j.name) });
-    // SIGTERM: bounded graceful stop (workers, queues, telemetry, Redis, database), then exit 0 within 3 s
+    // SIGTERM: bounded graceful stop (workers, queues, telemetry, Redis, database), then exit 0 within 3 s. The handler
+    // goes in before "workers running" is logged: a SIGTERM sent on that line must not meet the default (exit 143).
     onStopSignals(() => shutdownWorkers({ running, telemetry: tel, redis, db, log }));
+    log.info("workers running", { jobs: jobs.map((j) => j.name) });
   } catch (e) {
     console.error(`workers: ${(e as Error).message}`);
     process.exit(1);

@@ -30,3 +30,13 @@ regexes = [
   '''const key = "cpst_01ARZ3NDEKTSV4RRFFQ69G5FAV_" \+ "A"\.repeat\(43\);''',
   '''CAPSTAN_API_KEY: "cpst_acct_0123456789abcdef" \}''',
 ]
+
+# A made-up local validator genesis hash (base58, 32 bytes) in the Solana genesis-guard test, by exact line: gitleaks'
+# generic-api-key rule reads the "api.devnet" host next to it as a key name. A genesis hash is public chain data, and
+# this one belongs to no network (devnet and mainnet genesis hashes are the two lines above it in the test).
+[[allowlists]]
+description = "made-up Solana genesis hash in the genesis-guard test, by exact line"
+regexTarget = "line"
+regexes = [
+  '''assertLocalGenesis\("https://api\.devnet\.solana\.com", "2vrSEsUo2XJYd1hv4AJruEP1XkUx5goyUg65HFbka1XC"\)''',
+]

@@ -4,6 +4,10 @@ rules:
     languages: [typescript, javascript]
     severity: ERROR
     message: eval and new Function run arbitrary strings as code
+    paths:
+      # Accepted, one file: the Lighter signer worker runs Go's wasm_exec.js (a classic script that defines
+      # globalThis.Go) with new Function after the host has checked its sha256 against the pinned value.
+      exclude: ["/packages/signers/lighter-wasm/src/worker.mjs"]
     pattern-either:
       - pattern: eval(...)
       - pattern: new Function(...)
@@ -12,7 +16,10 @@ rules:
     severity: ERROR
     message: Math.random is not a secure random source; use crypto.getRandomValues
     paths:
-      exclude: ["*.test.ts", "**/test/**"]
+      # Accepted: the public site (web/site-src) uses Math.random only for animation jitter and one per-page SVG
+      # element id; web/public/assets is that site's committed minified build. ops/load makes fake load-test prices.
+      # None of these is an identifier anything trusts. Every server and package path keeps the rule.
+      exclude: ["*.test.ts", "**/test/**", "/web/site-src/", "/web/public/assets/", "/ops/load/"]
     pattern: Math.random()
   - id: no-raw-key-from-env
     languages: [typescript, javascript]

@@ -1,6 +1,6 @@
 // Todo 41 R1 (refuses-mainnet) and R2 (no-secrets).
 import { describe, expect, test } from "bun:test";
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { runSignedCanary, assertHlTestnetConfig, hlSignedProbe } from "../../../apps/workers/src/jobs/canary-signed.job";
 import { solanaAirdrop } from "../faucet";
@@ -97,7 +97,7 @@ describe("guard", () => {
     const home = env.CAPSTAN_TESTNET_HOME!;
     const passwords = readdirSync(home).filter((f) => f.endsWith(".password")).map((f) => readFileSync(join(home, f), "utf8"));
     expect(passwords.length).toBe(15);
-    for (const f of readdirSync(home).filter((x) => x.endsWith(".password"))) expect((Bun.spawnSync(["stat", "-f", "%Lp", join(home, f)]).stdout.toString().trim())).toBe("600");
+    for (const f of readdirSync(home).filter((x) => x.endsWith(".password"))) expect((statSync(join(home, f)).mode & 0o777).toString(8)).toBe("600");
     expect(findSecrets(out, passwords)).toEqual([]);
     expect(out).not.toMatch(/[0-9a-fA-F]{64}/);
     expect(out.split("\n").filter((l) => / (created|exists) \(/.test(l))).toHaveLength(15);

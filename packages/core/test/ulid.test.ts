@@ -3,7 +3,9 @@ import { ulid, ulidTime } from "../src/ulid";
 
 describe("ulid", () => {
   test("monotonic", () => {
-    const t = Date.now() + 10_000_000; // ahead of any id made earlier in this process
+    // ulid() keeps the newest time seen in this process (another test file may have used a fixed future time), so
+    // start ahead of that, not ahead of the wall clock
+    const t = ulidTime(ulid()) + 10_000_000;
     const ids = Array.from({ length: 1000 }, () => ulid(t));
     expect(new Set(ids).size).toBe(1000);
     expect([...ids].sort()).toEqual(ids); // strictly increasing within one ms
@@ -15,7 +17,7 @@ describe("ulid", () => {
   });
 
   test("sorts by time", () => {
-    const base = Date.now() + 20_000_000;
+    const base = ulidTime(ulid()) + 20_000_000;
     const a = ulid(base);
     const b = ulid(base + 5);
     const c = ulid(base + 6);
