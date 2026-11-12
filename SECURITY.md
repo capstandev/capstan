@@ -14,7 +14,11 @@ The deployment files in `contracts/deployments/<chainId>.json` are the only sour
 table is generated from them (`bun ops/ci/gen-deployments.ts`) and CI fails if it differs.
 
 <!-- deployments:start -->
-No contracts are deployed yet.
+| Chain | Contract | Address | Sourcify |
+| --- | --- | --- | --- |
+| Robinhood Chain testnet (`46630`) | `CapstanReceiptAnchor` | `0x34CC7eDB6b6F17E06BF88F79dFd86D2338d86Bcf` | [verified](https://repo.sourcify.dev/46630/0x34CC7eDB6b6F17E06BF88F79dFd86D2338d86Bcf) |
+| Robinhood Chain testnet (`46630`) | `CPSTLock` | `0x3D69429d628c8Ea342d5C8722c9e1A75d54Fb7DA` | [verified](https://repo.sourcify.dev/46630/0x3D69429d628c8Ea342d5C8722c9e1A75d54Fb7DA) |
+| Robinhood Chain testnet (`46630`) | `CPST` | `0x32a800622317F97d829277215Bcd0D62E191EB2E` | [verified](https://repo.sourcify.dev/46630/0x32a800622317F97d829277215Bcd0D62E191EB2E) |
 <!-- deployments:end -->
 
 The contracts have no owner, no pause and no upgrade path. A fix is a redeploy plus a change to the deployment file;

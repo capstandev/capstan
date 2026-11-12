@@ -2,7 +2,7 @@
 import { describe, expect, test } from "bun:test";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { runDoctor, type Readers } from "../doctor";
+import { formatRow, runDoctor, type Readers } from "../doctor";
 import { solanaAirdrop } from "../faucet";
 import { runAll, testCounts } from "../run-all";
 import { recordAddress, paths } from "../wallets";
@@ -21,6 +21,7 @@ describe("run-all", () => {
     expect(by["x402: Base Sepolia USDC + RHC testnet USDG"]).toMatchObject({ result: "waiting", detail: expect.stringMatching(/A5.*A6|A6.*A5/) });
     expect(by["aster testnet (VPS)"]).toMatchObject({ result: "skip", detail: expect.stringContaining("VPS only") });
     expect(by["faucet: Solana devnet airdrop"]).toMatchObject({ result: "waiting", detail: expect.stringContaining("429") });
+    expect(by["solana: sol-payto USDC account"]).toMatchObject({ result: "waiting", detail: expect.stringContaining("A6") });
     expect(res.rows.some((r) => r.result === "fail")).toBe(false);
   });
 
@@ -48,8 +49,12 @@ describe("run-all", () => {
     };
     const addresses: Record<string, string> = {};
     const doctor = async () => fakeDoctor(["deployer", "anchor-poster", "sol-facilitator"], addresses);
-    const one = await runAll({ env, exec, doctor, canaries: false, reportDir: dir });
-    const two = await runAll({ env, exec, doctor, canaries: false, reportDir: dir });
+    let atas = 0;
+    const paytoAta = async () => (atas++, { owner: "o", ata: "4EHa4HUwcmZzF3R3PC1zzS3XhEYE8NFe7FuuLZZU1Rew", created: true, signature: "sigata" });
+    const one = await runAll({ env, exec, doctor, canaries: false, reportDir: dir, paytoAta });
+    const two = await runAll({ env, exec, doctor, canaries: false, reportDir: dir, paytoAta });
+    expect(atas).toBe(2); // the stand-in doctor never records the account, so each run asks again (the real step is idempotent)
+    expect(one.rows.find((x) => x.suite === "solana: sol-payto USDC account")).toMatchObject({ result: "pass", detail: "created 4EHa4HUwcmZzF3R3PC1zzS3XhEYE8NFe7FuuLZZU1Rew, signature sigata" });
     expect([one.run, two.run]).toEqual([1, 2]);
     const dep = (r: typeof one) => r.rows.find((x) => x.suite === "rhc: deploy (deploy-rhc.sh testnet)")!;
     expect(dep(one)).toMatchObject({ result: "pass", detail: "stage 4: deployed (log: x)" });
@@ -81,6 +86,7 @@ describe("doctor", () => {
       lighter: async () => ({ index: null, collateral: 0 }),
       solNative: async () => 0,
       splBalance: async () => 0,
+      splAccounts: async () => 0,
     };
     const rep = await runDoctor({ env, readers });
     expect(rep.funded.deployer).toBe(true);
@@ -88,6 +94,22 @@ describe("doctor", () => {
     expect(rep.rows.find((r) => r.role === "facilitator" && r.network === "base-sepolia")).toMatchObject({ ok: false, missing: "needs 0.001 ETH", backlog: "A6" });
     expect(rep.rows.find((r) => r.role === "hl-main")).toMatchObject({ ok: false, missing: "wallet not made (run make-wallets.sh)" });
     expect(JSON.parse(readFileSync(join(p.home, "doctor.json"), "utf8")).funded.deployer).toBe(true);
+  });
+
+  test("sol-payto USDC account exists: MISS without a token account, ok with one", async () => {
+    const { env } = tempHome();
+    const p = paths(env);
+    mkdirSync(p.home, { recursive: true });
+    await recordAddress(p, "sol-payto", "431KeCCVwY44n2c5pPJttmsi1trrKejishWYi2dNBgut");
+    const base: Readers = { evmNative: async () => 0, erc20: async () => 0, hlPerps: async () => ({ perps: 0, spotUsdc: 0 }), lighter: async () => ({ index: null, collateral: 0 }), solNative: async () => 0, splBalance: async () => 0, splAccounts: async () => 0 };
+    const none = await runDoctor({ env, readers: base });
+    const row = none.rows.find((r) => r.role === "sol-payto")!;
+    expect(row).toMatchObject({ ok: false, asset: "USDC account", missing: "no USDC account yet", backlog: "A5" });
+    expect(formatRow(row)).toMatch(/^MISS sol-payto .* no account .*make-solana\.ts --payto-ata/);
+    expect(none.funded["sol-payto"]).toBe(false);
+    const one = await runDoctor({ env, readers: { ...base, splAccounts: async () => 1 } });
+    expect(formatRow(one.rows.find((r) => r.role === "sol-payto")!)).toMatch(/^ok {3}sol-payto .* sol-payto USDC account exists$/);
+    expect(one.funded["sol-payto"]).toBe(true);
   });
 });
 

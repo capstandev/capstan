@@ -223,12 +223,28 @@ describe("check-deployments", () => {
     generateDeployments(root);
     expect(deploymentDrift(root)).toEqual([]);
     const readme = readFileSync(join(root, "README.md"), "utf8");
-    expect(readme).toContain("| Robinhood Chain testnet (`46630`) | `CapstanReceiptAnchor` | `0x00000000000000000000000000000000000000a1` | [verified](https://sourcify.example/46630/a1) |");
+    expect(readme).toContain("| Robinhood Chain testnet (`46630`) | `CapstanReceiptAnchor` | `0x00000000000000000000000000000000000000a1` | [verified](https://repo.sourcify.dev/46630/0x00000000000000000000000000000000000000a1) |");
     // hand-edit the README table: the check fails on README only
     writeFileSync(join(root, "README.md"), readme.replace("00a1`", "00a9`"));
     expect(deploymentDrift(root)).toEqual(["README.md: deployment table differs from contracts/deployments (run bun ops/ci/gen-deployments.ts)"]);
     const gen = readFileSync(join(root, "packages/schema/src/generated/deployments.ts"), "utf8");
     expect(gen).toContain('"chainId": 46630');
+  });
+  test("sourcify-link-per-contract: each row links its own address, not the file-level url", () => {
+    const three = {
+      ...dep,
+      contracts: {
+        ...dep.contracts,
+        CPSTLock: { address: "0x00000000000000000000000000000000000000a2", block: 7 },
+        CPST: { address: "0x00000000000000000000000000000000000000a3", block: 7, symbol: "CPST", decimals: 18, supply: "1000000000" },
+      },
+    };
+    const table = renderTable([three as Parameters<typeof renderTable>[0][number]]);
+    const links = [...table.matchAll(/\| `(\w+)` \| `(0x[0-9a-fA-F]{40})` \| \[verified\]\(([^)]+)\) \|/g)].map((m) => [m[1], m[2], m[3]]);
+    expect(links.length).toBe(3);
+    for (const [, address, url] of links) expect(url).toBe(`https://repo.sourcify.dev/46630/${address}`);
+    expect(table).not.toContain("sourcify.example");
+    expect(renderTable([{ ...dep, sourcify: { verified: false } } as Parameters<typeof renderTable>[0][number]])).not.toContain("[verified]");
   });
   test("malformed deployment files and missing markers fail", () => {
     const root = deployRepo();

@@ -20,8 +20,12 @@ afterAll(() => srv.stop(true));
 
 describe("security r1 F1 anchor reader", () => {
   test("testnet-ignores-env-anchor-address", async () => {
-    // no anchor in contracts/deployments for 46630 yet: a free ANCHOR_ADDRESS must not be trusted
-    expect(await anchorReaderFromEnv({ CAPSTAN_NETWORK: "testnet", ANCHOR_ADDRESS: "0x00000000000000000000000000000000000a1c40", ANCHOR_RPC_URL: `http://127.0.0.1:${PORT}` })).toBeNull();
+    // no anchor in contracts/deployments for 4663 yet: a free ANCHOR_ADDRESS must not be trusted
+    expect(await anchorReaderFromEnv({ CAPSTAN_NETWORK: "mainnet", ANCHOR_ADDRESS: "0x00000000000000000000000000000000000a1c40", ANCHOR_RPC_URL: `http://127.0.0.1:${PORT}` })).toBeNull();
+    // 46630 has a deployment record (2026-11-12): the reader uses it and still checks the RPC's chain id
+    const r = await anchorReaderFromEnv({ CAPSTAN_NETWORK: "testnet", ANCHOR_ADDRESS: "0x00000000000000000000000000000000000a1c40", ANCHOR_RPC_URL: `http://127.0.0.1:${PORT}` });
+    expect(r).not.toBeNull();
+    expect((await r!.readRoot(490_000).then(() => null, (x: Error) => x))?.message).toContain("not 46630");
   });
 
   test("local-reader-checks-chain-id", async () => {

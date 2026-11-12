@@ -87,13 +87,17 @@ export function loadDeployments(root: string): { deployments: Deployment[]; erro
 
 const CHAIN_NAMES: Record<number, string> = { 4663: "Robinhood Chain", 46630: "Robinhood Chain testnet", 31337: "local" };
 
+/** Sourcify repo page for one contract. */
+export const sourcifyUrl = (chainId: number, address: string): string => `https://repo.sourcify.dev/${chainId}/${address}`;
+
 export function renderTable(deps: Deployment[]): string {
   const rows: string[] = [];
   for (const d of deps) {
     for (const name of CONTRACT_NAMES) {
       const c = d.contracts[name];
       if (!c) continue;
-      const sourcify = d.sourcify.verified ? (d.sourcify.url ? `[verified](${d.sourcify.url})` : "verified") : "not yet";
+      // each row links its own contract (chain id + that contract's address), never the file-level sourcify.url
+      const sourcify = d.sourcify.verified ? `[verified](${sourcifyUrl(d.chainId, c.address)})` : "not yet";
       rows.push(`| ${CHAIN_NAMES[d.chainId] ?? "chain"} (\`${d.chainId}\`) | \`${name}\` | \`${c.address}\` | ${sourcify} |`);
     }
   }

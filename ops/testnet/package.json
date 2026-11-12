@@ -5,6 +5,7 @@
   "type": "module",
   "description": "Testnet wallets, doctor and the run-all runner (RHC 46630, HL testnet, Lighter 300, Base Sepolia, Solana devnet)",
   "dependencies": {
-    "@capstan/x402": "workspace:*"
+    "@capstan/x402": "workspace:*",
+    "@solana/kit": "8.6.0"
   }
 }

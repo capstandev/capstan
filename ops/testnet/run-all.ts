@@ -11,6 +11,7 @@ import { runSignedCanary } from "../../apps/workers/src/jobs/canary-signed.job";
 import { runDoctor, RPC, type DoctorReport } from "./doctor";
 import { FAUCETS, solanaAirdrop } from "./faucet";
 import { findSecrets } from "./guard";
+import { ensurePaytoAta, type AtaResult } from "./make-solana";
 import { keystorePath, passwordPath, paths, WALLETS, type Paths } from "./wallets";
 
 export const ROOT = resolve(import.meta.dir, "../..");
@@ -39,6 +40,8 @@ export interface RunOptions {
   exec?: Exec;
   doctor?: () => Promise<DoctorReport>;
   airdrop?: typeof solanaAirdrop;
+  /** Creates sol-payto's devnet USDC account (make-solana.ts --payto-ata). */
+  paytoAta?: () => Promise<AtaResult>;
   canaries?: boolean;
   reportDir?: string;
   now?: () => Date;
@@ -84,6 +87,18 @@ export async function runAll(o: RunOptions = {}): Promise<{ rows: Row[]; report:
     rows.push({ suite: "faucet: Solana devnet airdrop", rule: "A6", result: a.error ? "waiting" : "pass", detail: a.error ? `devnet airdrop refused (${safe(a.error)}); waiting on A6 (https://faucet.solana.com)` : `1 SOL to sol-facilitator, signature ${a.signature}` });
     if (!a.error) doc = await (o.doctor ?? (() => runDoctor({ env })))();
   } else rows.push({ suite: "faucet: Solana devnet airdrop", rule: "A6", result: "skip", detail: solRow?.ok ? "sol-facilitator already funded" : "wallet not made" });
+
+  // 1b. sol-payto's devnet USDC account (rent from sol-facilitator, idempotent): without it every payment is refused
+  const ataRow = doc.rows.find((x) => x.role === "sol-payto" && x.network === "solana-devnet");
+  if (ataRow?.address && !ataRow.ok && funded("sol-facilitator")) {
+    try {
+      const a = await (o.paytoAta ?? (() => ensurePaytoAta(env)))();
+      rows.push({ suite: "solana: sol-payto USDC account", rule: "R7", result: "pass", detail: a.created ? `created ${a.ata}, signature ${a.signature}` : `already there (${a.ata})` });
+      doc = await (o.doctor ?? (() => runDoctor({ env })))();
+    } catch (e) {
+      rows.push({ suite: "solana: sol-payto USDC account", rule: "R7", result: "fail", detail: safe((e as Error).message.slice(0, 300)) });
+    }
+  } else rows.push({ suite: "solana: sol-payto USDC account", rule: "R7", result: ataRow?.ok ? "skip" : "waiting", detail: ataRow?.ok ? "sol-payto USDC account exists" : ataRow?.address ? missing("sol-facilitator") : "wallet not made" });
 
   // 2. RHC testnet contracts: brand Safe, then CPST, CPSTLock, CapstanReceiptAnchor (R3)
   if (funded("deployer")) {
@@ -131,7 +146,7 @@ export async function runAll(o: RunOptions = {}): Promise<{ rows: Row[]; report:
       BASE_SEPOLIA_RPC_URL: RPC.baseSepolia,
     });
   else rows.push({ suite: "x402: Base Sepolia USDC + RHC testnet USDG", rule: "R7", result: "waiting", detail: missing("facilitator", "x402-payer") });
-  if (funded("sol-facilitator", "sol-payer"))
+  if (funded("sol-facilitator", "sol-payer", "sol-payto"))
     await suite("x402: Solana devnet USDC", "R7", ["packages/x402/test/testnet/svm-devnet.test.ts"], {
       SOLANA_DEVNET_PAYER: ks("sol-payer"),
       SOLANA_DEVNET_PAYER_PASSWORD_FILE: pw("sol-payer"),
@@ -140,7 +155,7 @@ export async function runAll(o: RunOptions = {}): Promise<{ rows: Row[]; report:
       X402_TESTNET_PAYTO_SOL: addr("sol-payto"),
       SOLANA_DEVNET_RPC_URL: RPC.solanaDevnet,
     });
-  else rows.push({ suite: "x402: Solana devnet USDC", rule: "R7", result: "waiting", detail: missing("sol-facilitator", "sol-payer") });
+  else rows.push({ suite: "x402: Solana devnet USDC", rule: "R7", result: "waiting", detail: missing("sol-facilitator", "sol-payer", "sol-payto") });
 
   // 7. paired spread with a forced leg B failure (R8)
   if (funded("hl-main", "lighter")) await suite("spread pair HL + Lighter 300 (leg B forced to fail)", "R8", ["packages/spreads/test/testnet/pair.test.ts"], { ...hlEnv, LIGHTER_TESTNET_KEYSTORE: ks("lighter") });

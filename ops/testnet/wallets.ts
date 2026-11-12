@@ -62,7 +62,7 @@ export const WALLETS: readonly WalletSpec[] = [
   { role: "lighter-rh", kind: "evm", purpose: "Lighter RH testnet (signing id 300, api.rh-testnet.lighter.xyz) L1 wallet, a separate account", needs: [{ network: "lighter-rh-testnet", asset: "USDC", min: 0, backlog: "A3", faucet: "no public app found for the RH testnet: ask in the Lighter Discord" }] },
   { role: "sol-facilitator", kind: "solana", purpose: "x402 Solana devnet fee payer", needs: [{ network: "solana-devnet", asset: "SOL", min: 0.05, backlog: "A6", faucet: SOLANA_DEVNET_FAUCET }] },
   { role: "sol-payer", kind: "solana", purpose: "pays x402 calls with Solana devnet USDC", needs: [{ network: "solana-devnet", asset: "USDC", min: 1, backlog: "A5", faucet: CIRCLE_FAUCET }] },
-  { role: "sol-payto", kind: "solana", purpose: "receives the Solana devnet test payments", needs: [] },
+  { role: "sol-payto", kind: "solana", purpose: "receives the Solana devnet test payments (needs its own USDC token account)", needs: [{ network: "solana-devnet", asset: "USDC account", min: 1, backlog: "A5", faucet: "run `bun ops/testnet/make-solana.ts --payto-ata` (sol-facilitator pays about 0.00204 SOL rent)" }] },
 ];
 
 /** Aster wallets are made on the VPS only (make-wallets-vps.sh); listed here so the doctor and runbook name them. */

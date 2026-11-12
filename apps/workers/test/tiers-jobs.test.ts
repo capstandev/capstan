@@ -19,7 +19,9 @@ describe("plans jobs", () => {
     expect(stakerJob).toMatchObject({ name: "staker-credits", queue: "reconcileDaily", schedule: { pattern: "0 1 1 * *" }, concurrency: 1 });
     expect(dayStartUtc(new Date("2026-11-06T23:59:59Z")).toISOString()).toBe("2026-11-06T00:00:00.000Z");
     // no CPSTLock deployment on the network: no source
-    expect(sourceFromEnv({ CAPSTAN_NETWORK: "testnet", RHC_TESTNET_RPC_URL: "http://127.0.0.1:1" })).toBeNull();
+    expect(sourceFromEnv({ CAPSTAN_NETWORK: "mainnet", RHC_RPC_URL: "http://127.0.0.1:1" })).toBeNull();
+    // 46630 has a CPSTLock deployment record (2026-11-12): a source exists once the RPC is set
+    expect(sourceFromEnv({ CAPSTAN_NETWORK: "testnet", RHC_TESTNET_RPC_URL: "http://127.0.0.1:1" })).not.toBeNull();
     expect(parseArgs(["--ts", "2026-12-01T00:00:00Z", "--out", "x.csv"]).ts.toISOString()).toBe("2026-12-01T00:00:00.000Z");
     expect(() => parseArgs(["--ts", "nope", "--out", "x"])).toThrow();
   });

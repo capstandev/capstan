@@ -55,6 +55,8 @@ export interface Readers {
   lighter(host: string, address: string): Promise<{ index: number | null; collateral: number }>;
   solNative(address: string): Promise<number>;
   splBalance(mint: string, address: string): Promise<number>;
+  /** Number of token accounts the owner holds for the mint (0 = no account: payments to it are refused). */
+  splAccounts(mint: string, address: string): Promise<number>;
 }
 
 export function liveReaders(f: Fetch = fetch): Readers {
@@ -110,6 +112,11 @@ export function liveReaders(f: Fetch = fetch): Readers {
       );
       return r.value.reduce((s, a) => s + (a.account.data.parsed.info.tokenAmount.uiAmount ?? 0), 0);
     },
+    async splAccounts(mint, address) {
+      await sol();
+      const r = await rpcCall<{ value: unknown[] }>(RPC.solanaDevnet, "getTokenAccountsByOwner", [address, { mint }, { encoding: "jsonParsed" }], f);
+      return r.value.length;
+    },
   };
 }
 
@@ -132,13 +139,18 @@ async function readNeed(r: Readers, n: Need, address: string): Promise<{ balance
     }
     case "solana-devnet":
       if (n.asset === "SOL") return { balance: await r.solNative(address) };
+      if (n.asset === ACCOUNT_ASSET) return { balance: await r.splAccounts(TOKENS.usdcSolanaDevnet.mint, address) };
       return { balance: await r.splBalance(TOKENS.usdcSolanaDevnet.mint, address) };
   }
 }
 
+/** A need that is an account, not a balance: "sol-payto USDC account exists". */
+export const ACCOUNT_ASSET = "USDC account";
+
 /** -1 from a Lighter read means "no account". */
 function missingText(n: Need, balance: number | null): string | null {
   if (balance === null) return "read failed";
+  if (n.asset === ACCOUNT_ASSET) return balance >= 1 ? null : "no USDC account yet";
   if (balance < 0) return "no account yet";
   if (balance < n.min) return `needs ${n.min} ${n.asset}`;
   return null;
@@ -176,8 +188,9 @@ export async function runDoctor(opts: { readers?: Readers; env?: Record<string, 
 }
 
 export function formatRow(x: NeedResult): string {
-  const bal = x.balance === null ? "n/a" : `${x.balance} ${x.asset}`;
-  return `${x.ok ? "ok  " : "MISS"} ${x.role.padEnd(16)} ${(x.address ?? "-").padEnd(44)} ${x.network.padEnd(18)} ${bal.padEnd(16)} ${x.missing ?? "funded"}${x.ok ? "" : ` (BACKLOG ${x.backlog}: ${x.faucet})`}`;
+  const account = x.asset === ACCOUNT_ASSET;
+  const bal = x.balance === null ? "n/a" : account ? (x.balance >= 1 ? "account" : "no account") : `${x.balance} ${x.asset}`;
+  return `${x.ok ? "ok  " : "MISS"} ${x.role.padEnd(16)} ${(x.address ?? "-").padEnd(44)} ${x.network.padEnd(18)} ${bal.padEnd(16)} ${x.missing ?? (account ? `${x.role} ${x.asset} exists` : "funded")}${x.ok ? "" : ` (BACKLOG ${x.backlog}: ${x.faucet})`}`;
 }
 
 if (import.meta.main) {

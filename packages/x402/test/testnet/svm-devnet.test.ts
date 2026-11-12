@@ -32,8 +32,10 @@ const RPC = process.env.SOLANA_DEVNET_RPC_URL ?? "https://api.devnet.solana.com"
     client.register(NETWORKS.solanaDevnet, new ExactSvmScheme(payer, { rpcUrl: RPC }));
     client.setSpendControls(false);
     const payload = await client.createPaymentPayload({ x402Version: 2, resource: { url: "https://testnet.example/v1/proof" }, accepts: [req] });
+    const v = await service.verify({ x402Version: 2, paymentPayload: payload, paymentRequirements: req });
+    console.log(`devnet verify: ${v.status} isValid=${String((v.body as { isValid?: boolean }).isValid)}${(v.body as { invalidReason?: string }).invalidReason ? ` invalidReason=${(v.body as { invalidReason?: string }).invalidReason}` : ""}${(v.body as { invalidMessage?: string }).invalidMessage ? ` invalidMessage=${(v.body as { invalidMessage?: string }).invalidMessage}` : ""}`);
     const r = await service.settle({ x402Version: 2, paymentPayload: payload, paymentRequirements: req });
-    console.log(`devnet settle: ${r.status} ${r.body.transaction}`);
+    console.log(`devnet settle: ${r.status} ${r.body.transaction}${r.body.success ? "" : ` errorReason=${String((r.body as { errorReason?: string }).errorReason)}${(r.body as { errorMessage?: string }).errorMessage ? ` errorMessage=${(r.body as { errorMessage?: string }).errorMessage}` : ""}`}`);
     expect(r.body.success).toBe(true);
   }, 300_000);
 });
