@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Capstan tech update {{N}}</title>
+<!-- One template for every poster. Colours and type follow web/public/style.css (ink #17385f, sky gradient, Nunito
+     headings, DM Sans body, Instrument Serif italic accents). Fonts are local copies in fonts/ (SIL OFL 1.1). -->
+<style>
+@font-face{font-family:Nunito;src:url("{{BASE}}fonts/nunito-latin-wght-normal.woff2") format("woff2");font-weight:200 1000}
+@font-face{font-family:"DM Sans";src:url("{{BASE}}fonts/dm-sans-latin-wght-normal.woff2") format("woff2");font-weight:100 1000}
+@font-face{font-family:"Instrument Serif";font-style:italic;src:url("{{BASE}}fonts/instrument-serif-latin-400-italic.woff2") format("woff2")}
+*{box-sizing:border-box;margin:0}
+html,body{width:{{WIDTH}}px;height:{{HEIGHT}}px;overflow:hidden}
+body{color:#17385f;font-family:"DM Sans",sans-serif;background:linear-gradient(145deg,#eefaff 0%,#d1edff 67%,#c2e5fc 100%);position:relative}
+.ground{position:absolute;left:-5%;width:110%;border-radius:50% 50% 0 0;background:#f7fbff}
+.brand{font-family:Nunito,sans-serif;font-weight:1000;letter-spacing:-.06em;display:flex;align-items:center}
+.brand .dot{color:#f6ac68}
+.kicker{font-weight:900;letter-spacing:.17em;color:#4b89b5;text-transform:uppercase}
+.num{font-family:"Instrument Serif",serif;font-style:italic;font-weight:400;color:#328ed2;line-height:.8;letter-spacing:-.03em}
+h1{font-family:Nunito,sans-serif;font-weight:1000;letter-spacing:-.045em;line-height:1.02}
+.line{color:#5f7890;line-height:1.45}
+.art{position:absolute;display:grid;place-items:center}
+.circle{position:absolute;inset:0;border-radius:50%;background:#c8eaff;border:3px solid #fff}
+.art img{position:relative;width:96%;filter:drop-shadow(0 22px 16px #5684a055)}
+.foot{position:absolute;display:flex;justify-content:space-between;align-items:center;font-weight:900;letter-spacing:.14em;color:#86a5ba;text-transform:uppercase}
+
+/* wide: 1600 x 900, copy on the left, mascot on the right */
+.wide .brand{position:absolute;left:96px;top:64px;font-size:44px}
+.wide .copy{position:absolute;left:96px;top:170px;width:860px;height:560px;display:flex;flex-direction:column;justify-content:center}
+.wide .kicker{font-size:20px}
+.wide .num{font-size:190px;margin:22px 0 26px}
+.wide h1{font-size:76px}
+.wide .line{font-size:30px;margin-top:28px}
+.wide .art{right:90px;top:150px;width:500px;height:500px}
+.wide .ground{bottom:-260px;height:380px}
+.wide .foot{left:96px;right:96px;bottom:38px;font-size:17px}
+
+/* square: 1080 x 1080, mascot top right, copy below */
+.square .brand{position:absolute;left:80px;top:70px;font-size:42px}
+.square .art{right:70px;top:60px;width:380px;height:380px}
+.square .copy{position:absolute;left:80px;right:80px;top:170px;height:790px;display:flex;flex-direction:column}
+.square .head{width:520px;height:280px;display:flex;flex-direction:column;justify-content:center}
+.square .body{flex:1;display:flex;flex-direction:column;justify-content:center;min-height:0;padding-top:10px}
+.square .kicker{font-size:19px}
+.square .num{font-size:180px;margin-top:22px}
+.square h1{font-size:72px}
+.square .line{font-size:30px;margin-top:26px}
+.square .ground{bottom:-250px;height:350px}
+.square .foot{left:80px;right:80px;bottom:36px;font-size:16px}
+</style>
+</head>
+<body class="{{KIND}}">
+<div class="ground"></div>
+<div class="brand">Capstan<span class="dot">.</span></div>
+<div class="art"><div class="circle"></div><img src="{{MASCOT}}" alt=""></div>
+<div class="copy" id="copy">
+  <div class="head"><div class="kicker">Tech update {{N}} of {{TOTAL}}</div><div class="num">{{N}}</div></div>
+  <div class="body"><h1 id="title">{{TITLE}}</h1><p class="line" id="line">{{LINE}}</p></div>
+</div>
+<div class="foot"><span>get-capstan.com</span><span>Changelog: get-capstan.com/changelog</span></div>
+<script>
+// Shrink the title, then the line, until the copy block fits its box. Runs before the screenshot is taken.
+document.fonts.ready.then(function () {
+  var copy = document.getElementById("copy"), t = document.getElementById("title"), l = document.getElementById("line");
+  function over() { return copy.scrollHeight > copy.clientHeight + 1 || copy.scrollWidth > copy.clientWidth + 1; }
+  var ts = parseFloat(getComputedStyle(t).fontSize), ls = parseFloat(getComputedStyle(l).fontSize);
+  while (over() && ts > 44) { ts -= 2; t.style.fontSize = ts + "px"; }
+  while (over() && ls > 22) { ls -= 1; l.style.fontSize = ls + "px"; }
+  document.body.setAttribute("data-fit", over() ? "overflow" : "ok");
+});
+</script>
+</body>
+</html>
