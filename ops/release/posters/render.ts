@@ -1,5 +1,7 @@
 // Render the release posters: bun ops/release/posters/render.ts --notes <dir> --out <dir> [--only 1,5,9] [--jobs 4]
 //   [--chrome <path>] [--no-fit-check]
+// Bonus updates: --bonus <file.json> (a list of { slug, title, line }) writes bonus-<slug>.png and
+// bonus-<slug>-square.png, labelled "Capstan bonus update" instead of "Tech update N of 72".
 // Reads <notes>/NN.md, writes <out>/update-NN.png (wide, 1600x900, the file the runner attaches and posts) and
 // <out>/update-NN-square.png (1080x1080). Each poster is the HTML template screenshotted by headless Chrome with a
 // throwaway profile, so nothing touches a running browser. Every poster is also checked for text that does not fit.
@@ -9,7 +11,7 @@ import { mkdtempSync, writeFileSync, rmSync, existsSync, mkdirSync, readFileSync
 import { join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { pathToFileURL } from "node:url";
-import { KINDS, SIZES, posterHtml, posterName, readNotes, checkPosterDir, type Kind, type Note } from "./lib";
+import { KINDS, SIZES, posterHtml, noteFile, readBonus, readNotes, checkPosterDir, type Kind, type Note } from "./lib";
 
 const CHROME_PATHS = [
   "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
@@ -55,12 +57,12 @@ export async function renderOne(bin: string, note: Note, kind: Kind, total: numb
   const here = import.meta.dir;
   const base = pathToFileURL(here + "/").href;
   const mascot = pathToFileURL(resolve(here, "../../../web/public/assets/capstan-wave.webp")).href;
-  const page = join(work, `${posterName(note.n, kind)}.html`);
+  const page = join(work, `${noteFile(note, kind)}.html`);
   writeFileSync(page, posterHtml(note, kind, total, base, mascot));
   const url = pathToFileURL(page).href;
   const { width, height } = SIZES[kind];
-  const png = join(out, posterName(note.n, kind));
-  const name = posterName(note.n, kind);
+  const png = join(out, noteFile(note, kind));
+  const name = noteFile(note, kind);
   // A loaded machine can make one Chrome launch fail (exit 2) or stall, so each step gets three tries; a removed old
   // file makes sure a failed screenshot is never hidden by an earlier render.
   rmSync(png, { force: true });
@@ -82,11 +84,14 @@ export async function renderOne(bin: string, note: Note, kind: Kind, total: numb
 
 async function main(argv: string[]) {
   const arg = (k: string) => { const i = argv.indexOf(k); return i >= 0 ? argv[i + 1] : undefined; };
-  const notesDir = arg("--notes"), outDir = arg("--out");
-  if (!notesDir || !outDir) { console.error("usage: render.ts --notes <dir> --out <dir> [--only 1,2] [--jobs 4]"); return 2; }
+  const notesDir = arg("--notes"), bonusFile = arg("--bonus"), outDir = arg("--out");
+  if ((!notesDir && !bonusFile) || !outDir) {
+    console.error("usage: render.ts (--notes <dir> | --bonus <file.json>) --out <dir> [--only 1,2] [--jobs 4]");
+    return 2;
+  }
   const bin = findChrome(arg("--chrome"));
   if (!bin) { console.error("no Chrome or Chromium found (set CHROME_BIN or pass --chrome)"); return 1; }
-  const notes = readNotes(notesDir);
+  const notes = notesDir ? readNotes(notesDir) : readBonus(readFileSync(bonusFile!, "utf8"));
   const only = arg("--only")?.split(",").map(Number);
   const todo = notes.filter((n) => !only || only.includes(n.n)).flatMap((n) => KINDS.map((k) => [n, k] as const));
   mkdirSync(outDir, { recursive: true });
@@ -103,7 +108,7 @@ async function main(argv: string[]) {
     }
   }));
   rmSync(work, { recursive: true, force: true });
-  if (!only) errs.push(...checkPosterDir(outDir, notes.length));
+  if (!only && notesDir) errs.push(...checkPosterDir(outDir, notes.length));
   for (const e of errs) console.error(`not ok - ${e}`);
   console.log(`posters: ${done} rendered, ${errs.length} problems, in ${outDir}`);
   return errs.length ? 1 : 0;

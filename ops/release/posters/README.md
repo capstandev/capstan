@@ -17,6 +17,11 @@ notes folder of `NN.md` files (`# Update N: title`, then `## CHANGELOG entry`).
 ```sh
 bun ops/release/posters/render.ts --notes <notes dir> --out <poster dir>   # all; --only 1,5 for some
 bun test ops/release/posters                                                # POSTERS_DIR=<poster dir> checks all 144
+bun ops/release/posters/render.ts --bonus <file.json> --out <poster dir>     # bonus updates
 ```
+
+A bonus update sits outside the numbered queue. The JSON file is a list of `{ slug, title, line }`; each gives
+`bonus-<slug>.png` (wide) and `bonus-<slug>-square.png`, labelled "Capstan bonus update" with "Bonus" in place of the
+number.
 
 The render shrinks a long title or line until it fits and fails if it still does not. Look at the PNGs before staging.

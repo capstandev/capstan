@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { mkdtempSync, mkdirSync, readFileSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { checkPosterDir, KINDS, parseNote, posterHtml, posterName, pngSize, SIZES, tagOf, type Kind } from "./lib";
+import { checkPosterDir, KINDS, noteFile, parseNote, posterHtml, posterName, pngSize, readBonus, SIZES, tagOf, type Kind } from "./lib";
 import { findChrome, renderOne } from "./render";
 
 const RELEASE = join(import.meta.dir, "..");
@@ -80,6 +80,37 @@ describe("notes", () => {
     expect(html).toContain("&lt;strict&gt; security headers &amp; a CSP");
     expect(html).toContain("Tech update 7 of 72");
     expect(html).toContain('<body class="square">');
+  });
+});
+
+describe("bonus posters", () => {
+  const BONUS = JSON.stringify([
+    { slug: "home-funding", title: "Live funding on the home page", line: "Funding <now> & ranked." },
+    { slug: "lock-calculator", title: "Lock calculator on the pricing page", line: "Locking is never required." },
+  ]);
+
+  test("readBonus gives bonus notes; posterHtml labels them as a bonus update, never 'Tech update N of 72'", () => {
+    const notes = readBonus(BONUS);
+    expect(notes.map((x) => x.bonus)).toEqual(["home-funding", "lock-calculator"]);
+    const html = posterHtml(notes[0]!, "wide", COUNT, "file:///x/", "file:///m.webp");
+    expect(html).not.toContain("{{");
+    expect(html).toContain('<div class="kicker">Capstan bonus update</div><div class="num">Bonus</div>');
+    expect(html).not.toContain("Tech update");
+    expect(html).toContain("Funding &lt;now&gt; &amp; ranked.");
+  });
+
+  test("bonus file names sit apart from the numbered update-NN names", () => {
+    const [b] = readBonus(BONUS);
+    expect(noteFile(b!, "wide")).toBe("bonus-home-funding.png");
+    expect(noteFile(b!, "square")).toBe("bonus-home-funding-square.png");
+    expect(noteFile(parseNote(NOTE), "wide")).toBe(posterName(7, "wide"));
+  });
+
+  test("readBonus refuses a bad slug, an empty line or an em dash", () => {
+    expect(() => readBonus("[]")).toThrow("no entries");
+    expect(() => readBonus(JSON.stringify([{ slug: "Bad Slug", title: "t", line: "l" }]))).toThrow("slug");
+    expect(() => readBonus(JSON.stringify([{ slug: "a", title: "t", line: "" }]))).toThrow("empty line");
+    expect(() => readBonus(JSON.stringify([{ slug: "a", title: "t — x", line: "l" }]))).toThrow("em dash");
   });
 });
 

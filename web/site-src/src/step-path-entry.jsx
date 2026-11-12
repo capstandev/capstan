@@ -4,7 +4,7 @@ import StepPath from './components/StepPath/StepPath.jsx';
 const steps=[
  {title:'Choose',text:'Select a market and understand the venue-specific quote before proceeding.'},
  {title:'Check',text:'Review fees, estimated slippage and funding for the intended holding time.'},
- {title:'Sign locally',text:'The planned SDK verifies the order and signs with a delegated trade-only key.'},
+ {title:'Sign locally',text:'The SDK verifies the order and signs with a delegated trade-only key.'},
  {title:'Keep context',text:'Positions, collateral and liquidation remain separate for every venue.'},
 ];
 const el=document.querySelector('#cap-step-path');

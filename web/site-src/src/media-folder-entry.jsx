@@ -12,7 +12,7 @@ const fallback = [
   ['markets.html','Markets & data','Explore markets, books and funding.'],
   ['quotes.html','Quotes & orders','Review estimated costs before signing.'],
   ['risk.html','Risk & receipts','Understand risk by venue.'],
-  ['developers.html','Build with Capstan','Explore the planned API, SDK and MCP.'],
+  ['developers.html','Build with Capstan','Explore the API, SDK and MCP.'],
 ];
 class FolderBoundary extends React.Component {
   constructor(props){super(props);this.state={failed:false}}

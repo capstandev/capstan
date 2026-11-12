@@ -17,7 +17,12 @@ export interface Note {
   n: number;
   title: string;
   line: string;
+  /** A bonus update (not one of the numbered tech updates): its file name stem, for example "home-funding". */
+  bonus?: string;
 }
+
+export const BONUS_KICKER = "Capstan bonus update";
+export const BONUS_MARK = "Bonus";
 
 /** Same as rr_tag_of in ops/release/lib/common.sh. */
 export function tagOf(n: number): string {
@@ -94,6 +99,31 @@ export function checkPosterDir(dir: string, count: number): string[] {
   return errs;
 }
 
+/** File name of a poster: update-NN(.png|-square.png), or bonus-<slug>(.png|-square.png) for a bonus update. */
+export function noteFile(note: Note, kind: Kind): string {
+  if (!note.bonus) return posterName(note.n, kind);
+  return kind === "wide" ? `bonus-${note.bonus}.png` : `bonus-${note.bonus}-square.png`;
+}
+
+/**
+ * Bonus updates from a JSON list of { slug, title, line }. They sit outside the numbered queue, so the poster says
+ * "Capstan bonus update" instead of "Tech update N of 72" and shows "Bonus" in place of the number.
+ */
+export function readBonus(text: string): Note[] {
+  const list = JSON.parse(text) as { slug?: string; title?: string; line?: string }[];
+  if (!Array.isArray(list) || list.length === 0) throw new Error("bonus file has no entries");
+  return list.map((b, i) => {
+    const slug = (b.slug ?? "").trim(), title = (b.title ?? "").trim(), line = (b.line ?? "").trim();
+    if (!/^[a-z0-9-]+$/.test(slug)) throw new Error(`bonus ${i + 1}: slug must be lower-case words and dashes`);
+    for (const [what, v] of [["title", title], ["line", line]] as const) {
+      if (!v) throw new Error(`bonus ${slug}: empty ${what}`);
+      if (v.includes("—")) throw new Error(`bonus ${slug}: em dash in ${what}`);
+      if (/0x[0-9a-fA-F]{40}/.test(v)) throw new Error(`bonus ${slug}: wallet address in ${what}`);
+    }
+    return { n: i + 1, title, line, bonus: slug };
+  });
+}
+
 export function escapeHtml(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
@@ -104,7 +134,9 @@ export function posterHtml(note: Note, kind: Kind, total: number, base: string, 
   const { width, height } = SIZES[kind];
   const vals: Record<string, string> = {
     BASE: base, MASCOT: mascot, KIND: kind, WIDTH: String(width), HEIGHT: String(height),
-    N: String(note.n), TOTAL: String(total), TITLE: escapeHtml(note.title), LINE: escapeHtml(note.line),
+    TITLE: escapeHtml(note.title), LINE: escapeHtml(note.line),
+    KICKER: note.bonus ? BONUS_KICKER : `Tech update ${note.n} of ${total}`,
+    MARK: note.bonus ? BONUS_MARK : String(note.n),
   };
   return tpl.replace(/\{\{([A-Z]+)\}\}/g, (_, k: string) => {
     if (!(k in vals)) throw new Error(`template field ${k} has no value`);
