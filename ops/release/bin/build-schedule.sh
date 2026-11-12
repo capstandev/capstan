@@ -15,7 +15,8 @@ git -C "$RR_WORK" merge-base --is-ancestor "$base" "$tip" || { echo "build-sched
 if [ -n "$(git -C "$RR_WORK" rev-list --merges "$base..$tip")" ]; then echo "build-schedule: the queue has merge commits" >&2; exit 2; fi
 launch=0
 if [ -n "$launch_iso" ]; then launch=$(rr_iso_to_epoch "$launch_iso") || { echo "build-schedule: launch time must look like 2026-11-20T01:30:00Z" >&2; exit 2; }; fi
-tmp="$RR_SCHEDULE.tmp.$$"
+W=$(mktemp -d "${TMPDIR:-/tmp}/rr-schedule.XXXXXX"); trap 'case "$W" in */rr-schedule.*) rm -rf "$W" ;; esac' EXIT
+tmp="$W/schedule.tsv" # root-owned work file; the runner's copy is written through rr_write (r3d-01)
 {
   printf '# base %s\n# tip %s\n' "$base" "$tip"
   [ -n "$launch_iso" ] && printf '# launch_at %s\n' "$launch_iso"
@@ -32,6 +33,6 @@ for sha in $(git -C "$RR_WORK" rev-list --reverse "$base..$tip"); do
 done
 if [ "$i" -eq 0 ]; then rm -f "$tmp"; echo "build-schedule: no commits in base..tip" >&2; exit 2; fi
 if [ -n "$expected" ] && [ "$i" -ne "$expected" ]; then rm -f "$tmp"; echo "build-schedule: $i updates, expected $expected" >&2; exit 2; fi
-mv "$tmp" "$RR_SCHEDULE"
+rr_write "$RR_SCHEDULE.tmp.$$" < "$tmp" && rr_home_op "$RR_SCHEDULE" mv -f "$RR_SCHEDULE.tmp.$$" "$RR_SCHEDULE" || { echo "build-schedule: could not write $RR_SCHEDULE" >&2; exit 2; }
 rr_fix_owner
 echo "build-schedule: $i updates, base ${base:0:12}, tip ${tip:0:12}"

@@ -78,3 +78,31 @@ both="$(cat /tmp/d1.out /tmp/d2.out)"
 assert_contains "$both" "deploy: ok $D"
 assert_contains "$both" "deploy: skip $D (already live)"
 pass
+
+# r3d-02: capstan-deploy is granted to the release runner with any argument. Only shas reachable from main deploy, and
+# bun installs as the unprivileged install user with --ignore-scripts, never as root; root owns the finished tree.
+T_NAME=main-only-and-unprivileged-install
+reset
+cat > /tmp/fake-bun <<'BUN'
+#!/bin/bash
+printf '%s|%s|%s\n' "$(id -un)" "$PWD" "$*" >> /tmp/bun.log
+BUN
+chmod 0755 /tmp/fake-bun; rm -f /tmp/bun.log; : > /tmp/bun.log; chmod 0666 /tmp/bun.log
+E="$(commit e yes)"
+git -C /tmp/repo checkout -q -b side
+F="$(commit f-off-main yes)"
+git -C /tmp/repo checkout -q main
+out="$(CAPSTAN_INSTALL_CMD= CAPSTAN_BUN=/tmp/fake-bun /bin/bash "$dir/deploy.sh" "$F" 2>&1)"; rc=$?
+[ "$rc" -ne 0 ] || fail "a sha off main deployed: $out"
+assert_contains "$out" "not on main" "refusal names the reason"
+[ ! -e "/opt/capstan/releases/$F" ] || fail "a release dir was made for the off-main sha"
+[ ! -s /tmp/bun.log ] || fail "bun ran for an off-main sha: $(cat /tmp/bun.log)"
+out="$(CAPSTAN_INSTALL_CMD= CAPSTAN_BUN=/tmp/fake-bun /bin/bash "$dir/deploy.sh" "$E" 2>&1)" || fail "sha E on main failed: $out"
+assert_eq "$(cur)" "$E" "E live"
+call="$(cat /tmp/bun.log)"
+assert_contains "$call" "capstan-workers|" "bun ran as the install user, not root"
+assert_not_contains "$call" "root|" "bun ran as root"
+assert_contains "$call" "install --frozen-lockfile --production --ignore-scripts" "lifecycle scripts are off"
+assert_eq "$(stat -c %U "/opt/capstan/releases/$E")" "root" "root owns the release tree"
+[ -z "$(find "/opt/capstan/releases/$E" ! -user root | head -n 1)" ] || fail "files in the release not owned by root"
+pass

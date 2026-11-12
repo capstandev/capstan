@@ -45,12 +45,20 @@ elif ! rr_run PUBLIC_CI_CHECK_CMD >/dev/null 2>&1; then refuse public-ci "public
 p=$(rr_conf_get RELEASE_TOKEN_PROOF "$RR_HOME/release-token.proof"); [ -f "$p" ] || refuse release-token "no draft-release proof (run ghrelease.sh draft-test)"
 p=$(rr_conf_get NOTIFY_PROOF "$RR_HOME/notify.proof"); [ -f "$p" ] || refuse notify "no notify proof (run notify-telegram.sh --test)"
 
-if [ -n "$(git -C "$RR_WORK" config --get-regexp '^url\.' 2>/dev/null || true)" ]; then refuse origins "url.* rewrites are still set"; fi
+# r3d-04: a git that cannot read the checkout (dubious ownership, no repo) must refuse, not pass with nothing read.
+# config --get-regexp exits 1 when nothing matches (the good case) and 128 or more when git failed.
+if ! git -C "$RR_WORK" rev-parse --git-dir >/dev/null 2>&1; then refuse origins "git cannot read the work checkout $RR_WORK"
+else
+  urls=$(git -C "$RR_WORK" config --get-regexp '^url\.' 2>/dev/null); rc=$?
+  if [ "$rc" -gt 1 ]; then refuse origins "git config failed on $RR_WORK (exit $rc)"
+  elif [ -n "$urls" ]; then refuse origins "url.* rewrites are still set"; fi
+fi
 if [ "$(rr_conf_get ALLOW_LOCAL_REMOTES 0)" != "1" ]; then
   for kv in "TELEGRAM_API https://api.telegram.org" "GITHUB_API https://api.github.com" "GITHUB_UPLOADS https://uploads.github.com"; do
     v=$(rr_conf_get "${kv%% *}" "${kv#* }"); [ "${v%/}" = "${kv#* }" ] || refuse origins "${kv%% *} points at a stand-in ($v)"
   done
-  for r in $(git -C "$RR_WORK" remote 2>/dev/null); do
+  remotes=$(git -C "$RR_WORK" remote 2>/dev/null) || refuse origins "git remote failed on $RR_WORK"
+  for r in $remotes; do
     case "$(git -C "$RR_WORK" remote get-url "$r")" in /*|file://*) refuse origins "remote $r points at a local path" ;; esac
   done
 fi

@@ -20,6 +20,8 @@ REL="$CAPSTAN_OPT/releases"
 CUR="$CAPSTAN_OPT/current"
 PREV_FILE="$CAPSTAN_OPT/previous"
 CACHE="$CAPSTAN_OPT/repo.git"
+# r3d-02: the release tree is installed by this unprivileged user with lifecycle scripts off, then handed to root
+INSTALL_USER="${CAPSTAN_INSTALL_USER:-capstan-workers}"
 
 arg="${1:-}"
 [ -n "$arg" ] || die "usage: capstan-deploy <git-sha> | --rollback"
@@ -87,6 +89,9 @@ else
   if [ ! -d "$CACHE" ]; then "$GIT" clone --quiet --bare "$repo" "$CACHE"; fi
   "$GIT" --git-dir="$CACHE" fetch --quiet --force "$repo" '+refs/heads/*:refs/heads/*'
   sha="$("$GIT" --git-dir="$CACHE" rev-parse --verify --quiet "$arg^{commit}")" || die "sha $arg not found in the repo"
+  # r3d-02: only reviewed code deploys. A sha on any other branch (or none) is refused before anything runs.
+  "$GIT" --git-dir="$CACHE" merge-base --is-ancestor "$sha" refs/heads/main 2>/dev/null \
+    || die "sha $arg is not on main of the repo; only commits reachable from origin/main deploy"
 fi
 
 prev="$(current_sha)"
@@ -96,9 +101,17 @@ log "start $sha (previous ${prev:-none}) by ${SUDO_USER:-$(id -un)}"
 
 if [ ! -d "$dir" ]; then
   [ -d "$CACHE" ] || die "release $sha is not on this server and no repo cache exists"
-  /bin/mkdir -p "$dir.tmp"
-  "$GIT" --git-dir="$CACHE" archive "$sha" | /bin/tar -x -C "$dir.tmp"
-  ( cd "$dir.tmp" && if [ -n "${CAPSTAN_INSTALL_CMD:-}" ]; then /bin/bash -c "$CAPSTAN_INSTALL_CMD"; else "$BUN" install --frozen-lockfile --production >> "$CAPSTAN_LOG/ops/deploy.log" 2>&1; fi )
+  /bin/rm -rf "$dir.tmp" "$dir.home"
+  /bin/mkdir -p "$dir.tmp" "$dir.home"
+  "$GIT" --git-dir="$CACHE" archive "$sha" | /bin/tar -x --no-same-owner -C "$dir.tmp"
+  # r3d-02: never run package code as root. bun installs as INSTALL_USER with --ignore-scripts (no lifecycle script of
+  # the root package or any dependency runs), then root takes the tree back so no service user can change the code.
+  /bin/chown -R "$INSTALL_USER:" "$dir.tmp" "$dir.home"
+  ( cd "$dir.tmp" && if [ -n "${CAPSTAN_INSTALL_CMD:-}" ]; then /bin/bash -c "$CAPSTAN_INSTALL_CMD"; else
+      /usr/sbin/runuser -u "$INSTALL_USER" -- /usr/bin/env HOME="$dir.home" BUN_INSTALL_CACHE_DIR="$dir.home/cache" \
+        "$BUN" install --frozen-lockfile --production --ignore-scripts >> "$CAPSTAN_LOG/ops/deploy.log" 2>&1; fi )
+  /bin/rm -rf "$dir.home"
+  /bin/chown -R root:root "$dir.tmp"
   /bin/chmod -R a+rX "$dir.tmp"
   /bin/mv "$dir.tmp" "$dir"
 fi

@@ -7,6 +7,12 @@
 set -u
 . "$(cd "$(dirname "$0")/.." && pwd -P)/lib/common.sh"
 rr_init
+# r3d-03: the gate installs and tests queue code; it never runs as root. The sudo wrapper capstan-release-preflight
+# runs this as the runner user (install.sh); run as root by hand, it refuses before git or the gate starts.
+if [ "$(id -u)" = "0" ]; then
+  echo "preflight: refused as root (the gate runs queue code); use sudo capstan-release-preflight, which runs it as the runner user" >&2
+  exit 2
+fi
 out="$RR_HOME/preflight"; mkdir -p "$out"
 "$RR_ROOT/bin/verify-schedule.sh" > "$out/verify.txt" 2>&1 || { cat "$out/verify.txt"; echo "preflight: stopped, the schedule does not match the checkouts"; exit 2; }
 wt="$out/tree"

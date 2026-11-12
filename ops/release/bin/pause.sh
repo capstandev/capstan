@@ -5,7 +5,7 @@ set -u
 . "$(cd "$(dirname "$0")/.." && pwd -P)/lib/common.sh"
 rr_init
 why="${1:?usage: pause.sh \"<reason>\"}"
-printf 'paused at %s: %s\n' "$(rr_epoch_to_iso "$(rr_now)")" "$why" > "$RR_PAUSE"
+printf 'paused at %s: %s\n' "$(rr_epoch_to_iso "$(rr_now)")" "$why" | rr_write "$RR_PAUSE" || { echo "pause: could not write $RR_PAUSE" >&2; exit 1; }
 rr_log "pause: $why"
 rr_fix_owner
 [ -f "$RR_FLAG" ] && rr_notify "" 0 "paused" "Short planned pause: $why. Nothing is broken and nobody is affected."

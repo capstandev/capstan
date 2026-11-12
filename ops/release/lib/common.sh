@@ -39,11 +39,41 @@ rr_init() { # sets the paths every command uses
   RR_FLAG=$(rr_conf_get FLAG_FILE /etc/capstan-release/ALLOW_REAL_DEPLOY)
   RR_WORK=$(rr_conf_get WORK_DIR "$RR_HOME/backend")
   umask 022
-  mkdir -p "$RR_HOME/log" "$RR_HOME/notify"
-  [ -f "$RR_STATE" ] || : > "$RR_STATE"
-  [ -f "$RR_JOURNAL" ] || : > "$RR_JOURNAL"
   rr_git_as_runner
+  rr_mkdir "$RR_HOME/log"; rr_mkdir "$RR_HOME/notify"
+  rr_exists "$RR_STATE" || : | rr_write "$RR_STATE"
+  rr_exists "$RR_JOURNAL" || : | rr_write "$RR_JOURNAL"
 }
+
+# ---------- files in the runner-owned home (r3d-01) ----------
+# RR_HOME belongs to the runner user, but sudo runs some wrappers as root (announce, ghrelease, notify, pause, status).
+# A link the runner plants there (announce/update-05.txt -> /etc/sudoers.d/x, posters/x.png -> the token file) must
+# never make root write or read another file. So every open of a path under RR_HOME goes through these helpers: as
+# root they run as RUNNER_USER (runuser), so the kernel applies the runner's rights, and on every account they refuse a
+# path that is, or sits under, a symlink inside RR_HOME. Root keeps its own work files in a root-owned mktemp dir.
+rr_in_home() { case "$1" in "$RR_HOME"/*) return 0 ;; *) return 1 ;; esac; }
+rr_nolink() { # 0 when no part of the path below RR_HOME is a symlink (paths outside RR_HOME pass)
+  local p="$1"
+  rr_in_home "$p" || return 0
+  while [ "$p" != "$RR_HOME" ] && [ -n "$p" ]; do
+    [ -L "$p" ] && return 1
+    p="${p%/*}"
+  done
+  return 0
+}
+rr_home_op() { # rr_home_op path cmd args...: refuse links, then run cmd as the runner when root and path in RR_HOME
+  local p="$1"; shift
+  if ! rr_nolink "$p"; then echo "release: refused $p: a symlink in $RR_HOME" >&2; return 1; fi
+  if [ "${RR_DROP:-0}" = "1" ] && rr_in_home "$p"; then command runuser -u "$RR_RUNNER" -- "$@"; else "$@"; fi
+}
+rr_write() { rr_home_op "$1" /bin/sh -c 'cat > "$1"' sh "$1"; }    # stdin -> file (truncate)
+rr_append() { rr_home_op "$1" /bin/sh -c 'cat >> "$1"' sh "$1"; }  # stdin -> file (append)
+rr_read() { # file -> stdout; only a regular file (a fifo or device is refused)
+  rr_home_op "$1" /bin/sh -c '[ -f "$1" ] && [ ! -L "$1" ] && cat "$1"' sh "$1"
+}
+rr_exists() { rr_home_op "$1" /bin/sh -c '[ -f "$1" ] && [ ! -L "$1" ]' sh "$1" 2>/dev/null; }
+rr_mkdir() { rr_home_op "$1" mkdir -p "$1"; }
+rr_rm() { rr_home_op "$1" rm -rf "$1"; }
 
 # Owner commands run as root (arm, set-times, build-schedule). git refuses a repository another user owns ("dubious
 # ownership"): as root every git call on the work checkout failed, so arm.sh refused the schedule and its origins
@@ -53,6 +83,9 @@ rr_git_as_runner() {
   RR_RUNNER=$(rr_conf_get RUNNER_USER "")
   if [ "$(id -u)" = "0" ] && [ -n "$RR_RUNNER" ] && id "$RR_RUNNER" >/dev/null 2>&1 && command -v runuser >/dev/null 2>&1; then
     git() { command runuser -u "$RR_RUNNER" -- git "$@"; }
+    RR_DROP=1
+  else
+    RR_DROP=0
   fi
   return 0
 }
@@ -105,22 +138,22 @@ rr_local_time() { # rr_local_time epoch zone -> "2026-11-19 20:30 EST" in that z
 rr_log() { # one line per stage, UTC, to the runner log (and stderr when RR_VERBOSE=1)
   local line
   line="$(rr_epoch_to_iso "$(rr_now)") $*"
-  printf '%s\n' "$line" >> "$RR_LOG"
+  printf '%s\n' "$line" | rr_append "$RR_LOG" 2>/dev/null || printf '%s\n' "$line" >&2
   [ "${RR_VERBOSE:-0}" = "1" ] && printf '%s\n' "$line" >&2
   return 0
 }
 
 # ---------- schedule.tsv: header lines "# key value", rows "n<TAB>slot_epoch<TAB>sha<TAB>title" ----------
-rr_sched_header() { awk -v k="$1" '$1=="#" && $2==k { print $3; exit }' "$RR_SCHEDULE"; }
-rr_sched_rows() { grep -v '^#' "$RR_SCHEDULE" | grep -v '^[[:space:]]*$' || true; }
+rr_sched_header() { rr_read "$RR_SCHEDULE" | awk -v k="$1" '$1=="#" && $2==k { print $3; exit }'; }
+rr_sched_rows() { rr_read "$RR_SCHEDULE" | grep -v '^#' | grep -v '^[[:space:]]*$' || true; }
 rr_sched_field() { # rr_sched_field n col (1=n 2=slot 3=sha 4=title)
-  awk -F '\t' -v n="$1" -v c="$2" '$1!~/^#/ && $1==n { print $c; exit }' "$RR_SCHEDULE"
+  rr_read "$RR_SCHEDULE" | awk -F '\t' -v n="$1" -v c="$2" '$1!~/^#/ && $1==n { print $c; exit }'
 }
 
 # ---------- state.tsv: "n<TAB>status<TAB>attempts<TAB>at<TAB>note"; a missing row means pending ----------
 rr_state_get() { # rr_state_get n col (2=status 3=attempts 4=at 5=note)
   local v
-  v=$(awk -F '\t' -v n="$1" -v c="$2" '$1==n { v=$c } END { print v }' "$RR_STATE")
+  v=$(rr_read "$RR_STATE" | awk -F '\t' -v n="$1" -v c="$2" '$1==n { v=$c } END { print v }')
   if [ -z "$v" ] && [ "$2" = "2" ]; then v=pending; fi
   if [ -z "$v" ] && [ "$2" = "3" ]; then v=0; fi
   printf '%s' "$v"
@@ -129,9 +162,9 @@ rr_state_get() { # rr_state_get n col (2=status 3=attempts 4=at 5=note)
 rr_state_set() { # rr_state_set n status attempts note (atomic: temp file then mv)
   local n="$1" st="$2" att="$3" note="${4:-}" tmp
   tmp="$RR_STATE.tmp.$$"
-  awk -F '\t' -v n="$n" '$1!=n' "$RR_STATE" > "$tmp"
-  printf '%s\t%s\t%s\t%s\t%s\n' "$n" "$st" "$att" "$(rr_now)" "$note" >> "$tmp"
-  sort -n -k1,1 "$tmp" > "$tmp.s" && mv "$tmp.s" "$RR_STATE" && rm -f "$tmp"
+  { rr_read "$RR_STATE" | awk -F '\t' -v n="$n" '$1!=n'
+    printf '%s\t%s\t%s\t%s\t%s\n' "$n" "$st" "$att" "$(rr_now)" "$note"; } | sort -n -k1,1 | rr_write "$tmp" \
+    && rr_home_op "$tmp" mv -f "$tmp" "$RR_STATE"
 }
 
 rr_count_status() { # how many schedule rows have this status
@@ -143,8 +176,8 @@ rr_count_status() { # how many schedule rows have this status
 }
 
 # ---------- journal: "epoch n sha stage" (lets the next pass adopt work a crash left half done) ----------
-rr_journal() { printf '%s %s %s %s\n' "$(rr_now)" "$1" "$2" "$3" >> "$RR_JOURNAL"; }
-rr_journal_last() { awk -v n="$1" '$2==n { s=$4 } END { print s }' "$RR_JOURNAL"; }
+rr_journal() { printf '%s %s %s %s\n' "$(rr_now)" "$1" "$2" "$3" | rr_append "$RR_JOURNAL"; }
+rr_journal_last() { rr_read "$RR_JOURNAL" | awk -v n="$1" '$2==n { s=$4 } END { print s }'; }
 
 # ---------- commands from config ----------
 rr_run() { # rr_run VAR args...: runs the configured command (split on spaces, no glob); 127 when unset
@@ -166,15 +199,15 @@ rr_armed() { [ -f "$RR_FLAG" ] && [ "${CAPSTAN_RELEASE_RUNNER:-0}" = "1" ]; }
 # ---------- lock: mkdir is atomic everywhere (no flock on macOS); a dead holder's lock is taken over ----------
 rr_lock() {
   local holder
-  if mkdir "$RR_LOCK" 2>/dev/null; then printf '%s\n' "$$" > "$RR_LOCK/pid"; return 0; fi
-  holder=$(cat "$RR_LOCK/pid" 2>/dev/null || true)
+  if rr_home_op "$RR_LOCK" mkdir "$RR_LOCK" 2>/dev/null; then printf '%s\n' "$$" | rr_write "$RR_LOCK/pid"; return 0; fi
+  holder=$(rr_read "$RR_LOCK/pid" 2>/dev/null || true)
   if [ -n "$holder" ] && kill -0 "$holder" 2>/dev/null; then return 1; fi
   rr_log "lock: taking over a stale lock (holder ${holder:-unknown} is gone)"
-  rm -rf "$RR_LOCK"
-  mkdir "$RR_LOCK" 2>/dev/null || return 1
-  printf '%s\n' "$$" > "$RR_LOCK/pid"
+  rr_rm "$RR_LOCK"
+  rr_home_op "$RR_LOCK" mkdir "$RR_LOCK" 2>/dev/null || return 1
+  printf '%s\n' "$$" | rr_write "$RR_LOCK/pid"
 }
-rr_unlock() { rm -rf "$RR_LOCK"; }
+rr_unlock() { rr_rm "$RR_LOCK"; }
 
 # ---------- notify: title as $1, body on stdin; log title and length only, never the text ----------
 rr_notify() { # rr_notify key min_interval_s title body ; key "" = always send
@@ -182,20 +215,20 @@ rr_notify() { # rr_notify key min_interval_s title body ; key "" = always send
   now=$(rr_now)
   if [ -n "$key" ]; then
     stamp="$RR_HOME/notify/$key"
-    last=$(cat "$stamp" 2>/dev/null || true)
+    last=$(rr_read "$stamp" 2>/dev/null || true)
     if [ -n "$last" ] && [ $((now - last)) -lt "$every" ]; then rr_log "notify: '$title' skipped (key $key sent $((now - last)) s ago)"; return 0; fi
   fi
   printf '%s' "$body" | rr_run NOTIFY_CMD "$title"
   rc=$?
   if [ "$rc" -eq 0 ]; then
-    [ -n "$key" ] && printf '%s\n' "$now" > "$stamp"
+    [ -n "$key" ] && printf '%s\n' "$now" | rr_write "$stamp"
     rr_log "notify: sent '$title' (${#body} chars)"
   else
     rr_log "notify: FAILED '$title' (${#body} chars, rc $rc)"
   fi
   return 0
 }
-rr_notify_clear() { rm -f "$RR_HOME/notify/$1"; }
+rr_notify_clear() { rr_home_op "$RR_HOME/notify/$1" rm -f "$RR_HOME/notify/$1"; }
 
 # rr_carries dir sha: 0 when HEAD in dir carries the update: sha is an ancestor and no later revert took it out (a
 # rollback reverts a fast-forwarded update, which leaves its sha an ancestor of main with its changes gone).

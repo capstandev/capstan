@@ -23,7 +23,7 @@ $body"
 text="${text:0:3800}"
 if printf 'url = "%s/bot%s/sendMessage"\ndata-urlencode = "chat_id=%s"\ndata-urlencode = "text=%s"\nsilent\nshow-error\nfail\nmax-time = 20\n' \
   "$api" "$token" "$(esc "$chat")" "$(esc "$text")" | "$curl_bin" -K - -o /dev/null; then
-  [ "$test_mode" = "1" ] && : > "$(rr_conf_get NOTIFY_PROOF "$RR_HOME/notify.proof")"
+  [ "$test_mode" = "1" ] && : | rr_write "$(rr_conf_get NOTIFY_PROOF "$RR_HOME/notify.proof")"
   exit 0
 fi
 rr_log "notify-telegram: send failed for '$title' (${#text} chars)"

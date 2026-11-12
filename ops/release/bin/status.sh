@@ -6,9 +6,9 @@ set -u
 rr_init
 want="${1:-6}"; tz=$(rr_conf_get OWNER_TZ UTC)
 if [ -f "$RR_FLAG" ]; then echo "armed: yes"; else echo "armed: no"; fi
-if [ -f "$RR_PAUSE" ]; then echo "paused: yes ($(cat "$RR_PAUSE"))"; else echo "paused: no"; fi
-if [ -d "$RR_LOCK" ]; then echo "running: yes (pid $(cat "$RR_LOCK/pid" 2>/dev/null))"; else echo "running: no"; fi
-if [ ! -f "$RR_SCHEDULE" ]; then echo "schedule: none"; exit 0; fi
+if rr_exists "$RR_PAUSE"; then echo "paused: yes ($(rr_read "$RR_PAUSE"))"; else echo "paused: no"; fi
+if [ -d "$RR_LOCK" ]; then echo "running: yes (pid $(rr_read "$RR_LOCK/pid" 2>/dev/null))"; else echo "running: no"; fi
+if ! rr_exists "$RR_SCHEDULE"; then echo "schedule: none"; exit 0; fi
 la=$(rr_sched_header launch_at); echo "launch_at: ${la:-not set}"
 total=$(rr_sched_rows | wc -l | tr -d ' ')
 echo "updates: $total; released $(rr_count_status released); publish owed $(rr_count_status publish_pending); held $(rr_count_status held); pending $(rr_count_status pending)"

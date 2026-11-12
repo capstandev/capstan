@@ -14,14 +14,16 @@ read_env() { grep -E "^$1=" "$envf" 2>/dev/null | tail -n 1 | sed -E "s/^$1=//; 
 json_str() { printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' -e 's/\t/\\t/g' | awk 'BEGIN { ORS = "" } NR > 1 { print "\\n" } { print }'; }
 token=$(read_env GITHUB_RELEASE_TOKEN); repo=$(read_env GITHUB_RELEASE_REPO)
 [ -n "$token" ] || { rr_log "ghrelease: no token saved"; exit 3; }
+# r3d-01: root's request, answer and poster copy live in a root-owned mktemp dir, never in the runner-owned RR_HOME
+W=$(mktemp -d "${TMPDIR:-/tmp}/rr-ghrel.XXXXXX"); trap 'case "$W" in */rr-ghrel.*) rm -rf "$W" ;; esac' EXIT
 case "$repo" in */*) ;; *) rr_log "ghrelease: GITHUB_RELEASE_REPO must be owner/repo"; exit 2 ;; esac
 api() { # api METHOD URL [body-file] -> prints body, returns HTTP status in $code_file
   local m="$1" u="$2" f="${3:-}"
   { printf 'header = "Authorization: Bearer %s"\nheader = "Accept: application/vnd.github+json"\nheader = "X-GitHub-Api-Version: 2022-11-28"\n' "$token"
     printf 'request = "%s"\nurl = "%s"\nsilent\nmax-time = 30\nwrite-out = "%%{http_code}"\n' "$m" "$u"
     [ -n "$f" ] && printf 'data-binary = "@%s"\nheader = "Content-Type: application/json"\n' "$f"
-  } | "$curl_bin" -K - -o "$RR_HOME/ghrel.body" > "$RR_HOME/ghrel.code" 2>/dev/null
-  cat "$RR_HOME/ghrel.code" 2>/dev/null
+  } | "$curl_bin" -K - -o "$W/ghrel.body" > "$W/ghrel.code" 2>/dev/null
+  cat "$W/ghrel.code" 2>/dev/null
 }
 auth_or_fail() { case "$1" in 401|403) rr_log "ghrelease: auth refused ($1)"; exit 3 ;; *) rr_log "ghrelease: GitHub answered $1"; exit 1 ;; esac; }
 gh_api=$(rr_conf_get GITHUB_API https://api.github.com); gh_api="${gh_api%/}"       # tests: a local stand-in
@@ -29,11 +31,11 @@ gh_up=$(rr_conf_get GITHUB_UPLOADS https://uploads.github.com); gh_up="${gh_up%/
 B="$gh_api/repos/$repo"
 case "${1:-}" in
   draft-test)
-    printf '{"tag_name":"release-token-test-%s","name":"token test","draft":true,"body":"Draft made to prove the release token. Deleted at once."}' "$(rr_now)" > "$RR_HOME/ghrel.req"
-    c=$(api POST "$B/releases" "$RR_HOME/ghrel.req"); [ "$c" = "201" ] || auth_or_fail "$c"
-    id=$(grep -o '"id": *[0-9]*' "$RR_HOME/ghrel.body" | head -n 1 | tr -dc '0-9')
+    printf '{"tag_name":"release-token-test-%s","name":"token test","draft":true,"body":"Draft made to prove the release token. Deleted at once."}' "$(rr_now)" > "$W/ghrel.req"
+    c=$(api POST "$B/releases" "$W/ghrel.req"); [ "$c" = "201" ] || auth_or_fail "$c"
+    id=$(grep -o '"id": *[0-9]*' "$W/ghrel.body" | head -n 1 | tr -dc '0-9')
     c=$(api DELETE "$B/releases/$id"); [ "$c" = "204" ] || { rr_log "ghrelease: draft $id made but not deleted ($c); delete it by hand"; exit 1; }
-    : > "$(rr_conf_get RELEASE_TOKEN_PROOF "$RR_HOME/release-token.proof")"
+    : | rr_write "$(rr_conf_get RELEASE_TOKEN_PROOF "$RR_HOME/release-token.proof")"
     echo "ghrelease: draft release made and deleted; token proven"; exit 0 ;;
   create)
     tag="${2:-}"; sha="${3:-}"; title="${4:-}"
@@ -44,13 +46,13 @@ case "${1:-}" in
     c=$(api GET "$B/releases/tags/$tag")
     if [ "$c" = "200" ]; then echo "ghrelease: $tag exists"
     elif [ "$c" = "404" ]; then
-      printf '{"tag_name":"%s","target_commitish":"%s","name":"%s","body":"%s","make_latest":"true"}' "$tag" "$sha" "$(json_str "$title")" "$(json_str "$notes")" > "$RR_HOME/ghrel.req"
-      c=$(api POST "$B/releases" "$RR_HOME/ghrel.req"); [ "$c" = "201" ] || auth_or_fail "$c"
+      printf '{"tag_name":"%s","target_commitish":"%s","name":"%s","body":"%s","make_latest":"true"}' "$tag" "$sha" "$(json_str "$title")" "$(json_str "$notes")" > "$W/ghrel.req"
+      c=$(api POST "$B/releases" "$W/ghrel.req"); [ "$c" = "201" ] || auth_or_fail "$c"
       echo "ghrelease: $tag created"
     else auth_or_fail "$c"; fi
-    poster="$RR_HOME/posters/$tag.png"
-    if [ -f "$poster" ] && ! grep -q "\"name\": *\"$tag.png\"" "$RR_HOME/ghrel.body"; then
-      id=$(grep -o '"id": *[0-9]*' "$RR_HOME/ghrel.body" | head -n 1 | tr -dc '0-9')
+    poster="$W/poster.png" # read as the runner user (links refused), then sent from root's own copy
+    if rr_read "$RR_HOME/posters/$tag.png" > "$poster" 2>/dev/null && ! grep -q "\"name\": *\"$tag.png\"" "$W/ghrel.body"; then
+      id=$(grep -o '"id": *[0-9]*' "$W/ghrel.body" | head -n 1 | tr -dc '0-9')
       { printf 'header = "Authorization: Bearer %s"\nheader = "Content-Type: image/png"\nrequest = "POST"\n' "$token"
         printf 'url = "%s/repos/%s/releases/%s/assets?name=%s.png"\ndata-binary = "@%s"\nsilent\nmax-time = 60\n' "$gh_up" "$repo" "$id" "$tag" "$poster"
       } | "$curl_bin" -K - -o /dev/null || rr_log "ghrelease: poster upload for $tag failed (release is fine)"

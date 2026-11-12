@@ -40,18 +40,24 @@ case "$tag" in update-[0-9][0-9]|bonus-[0-9][0-9]|fix-20[0-9][0-9]-[0-1][0-9]-[0
 case "$tag" in *[!A-Za-z0-9-]*) echo "announce: bad tag" >&2; exit 2 ;; esac
 [ -n "$title" ] || { echo "usage: announce-telegram.sh [--dry-run] <tag> <title> < notes" >&2; exit 2; }
 
-A="$RR_HOME/announce"; mkdir -p "$A"
-poster="$RR_HOME/posters/$tag.png"
+# r3d-01: this runs as root (sudo) but RR_HOME belongs to the runner. Progress files are read and written through
+# rr_read/rr_write (as the runner user, links refused); root's own work files, and its copy of the poster, live in a
+# root-owned mktemp dir, so curl as root only ever opens a file root made.
+W=$(mktemp -d "${TMPDIR:-/tmp}/rr-announce.XXXXXX"); trap 'case "$W" in */rr-announce.*) rm -rf "$W" ;; esac' EXIT
+A="$RR_HOME/announce"; rr_mkdir "$A" || exit 1
+poster="$W/poster.png"
+rr_read "$RR_HOME/posters/$tag.png" > "$poster" 2>/dev/null || : > "$poster"
 text_f="$A/$tag.txt"; parts_f="$A/$tag.parts"; done_f="$A/$tag.done"
-if [ -f "$done_f" ]; then echo "announce: $tag already posted"; exit 0; fi
+if rr_exists "$done_f"; then echo "announce: $tag already posted"; exit 0; fi
+parts() { rr_read "$parts_f" 2>/dev/null; }
 
 notes=""; [ -t 0 ] || notes=$(head -c 60000)
-if [ -f "$text_f" ]; then text=$(cat "$text_f") # a retry posts the text of the first try, byte for byte
+if rr_exists "$text_f"; then text=$(rr_read "$text_f") # a retry posts the text of the first try, byte for byte
 else
   text="$title"; [ -n "$notes" ] && text="$title
 
 $notes"
-  [ "$dry" = "1" ] || printf '%s' "$text" > "$text_f"
+  [ "$dry" = "1" ] || printf '%s' "$text" | rr_write "$text_f" || exit 1
 fi
 
 # cut_text limit: CUT_HEAD gets at most <limit> bytes from the front of CUT_REST, cut at a line end (or a space) in
@@ -84,21 +90,21 @@ Poster missing: $2. This post is text only."; fi
 
 # Where an earlier try stopped: "photo" once the poster went out, "text <reason>" once a text-only part went out.
 mode=""; reason=""
-if grep -qx photo "$parts_f" 2>/dev/null; then mode=photo
-elif grep -q '^text ' "$parts_f" 2>/dev/null; then mode=text; reason=$(sed -n 's/^text //p' "$parts_f" | head -n 1)
+if parts | grep -qx photo; then mode=photo
+elif parts | grep -q '^text '; then mode=text; reason=$(parts | sed -n 's/^text //p' | head -n 1)
 elif [ -s "$poster" ]; then mode=photo
 else mode=text; reason="no poster was staged for $tag"; fi
 
 if [ "$dry" = "1" ]; then
-  D="$A/$tag.dry"; rm -rf "$D"; mkdir -p "$D"
+  D="$A/$tag.dry"; rr_rm "$D" && rr_mkdir "$D" || exit 1
   plan "$mode" "$reason"
   if [ -n "$(read_env TELEGRAM_BOT_TOKEN)" ] && [ -n "$(read_env TELEGRAM_CHAT_ID)" ]; then tk=set; else tk=missing; fi
   if [ "$mode" = "photo" ]; then
-    printf '%s' "$CAPTION" > "$D/caption.txt"
+    printf '%s' "$CAPTION" | rr_write "$D/caption.txt"
     out="dry run: $tag: sendPhoto posters/$tag.png ($(wc -c < "$poster" | tr -d ' ') bytes) with a ${#CAPTION}-char caption"
   else out="dry run: $tag: poster missing ($reason), text only"; fi
   i=1; lens=""
-  while [ "$i" -le "$MSG_N" ]; do eval "m=\$MSG_$i"; printf '%s' "$m" > "$D/message-$i.txt"; lens="$lens ${#m}"; i=$((i + 1)); done
+  while [ "$i" -le "$MSG_N" ]; do eval "m=\$MSG_$i"; printf '%s' "$m" | rr_write "$D/message-$i.txt"; lens="$lens ${#m}"; i=$((i + 1)); done
   echo "$out, then $MSG_N sendMessage (lengths:${lens:- none}); token $tk; nothing sent"
   rr_log "announce: dry run for $tag ($mode, $MSG_N messages); nothing sent"
   exit 0
@@ -108,8 +114,6 @@ fi
 if [ ! -f "$RR_FLAG" ]; then rr_log "announce: $tag not armed (no flag file); nothing sent"; echo "announce: not armed; nothing sent" >&2; exit 4; fi
 token=$(read_env TELEGRAM_BOT_TOKEN); chat=$(read_env TELEGRAM_CHAT_ID)
 if [ -z "$token" ] || [ -z "$chat" ]; then rr_log "announce: no token or chat id in $envf ($tag not posted)"; exit 3; fi
-W=$(mktemp -d "${TMPDIR:-/tmp}/rr-announce.XXXXXX"); trap 'case "$W" in */rr-announce.*) rm -rf "$W" ;; esac' EXIT
-
 post() { # post method text: one call; prints the HTTP code (000 when nothing answered)
   { printf 'url = "%s/bot%s/%s"\nsilent\nmax-time = %s\nwrite-out = "%%{http_code}"\n' "$api" "$token" "$1" "$maxt"
     if [ "$1" = "sendPhoto" ]; then
@@ -142,9 +146,9 @@ send() { # send method text label: 0 delivered, 1 failed after its tries, 2 refu
   done
 }
 
-if [ "$mode" = "photo" ] && ! grep -qx photo "$parts_f" 2>/dev/null; then
+if [ "$mode" = "photo" ] && ! parts | grep -qx photo; then
   plan photo ""
-  if send sendPhoto "$CAPTION" poster; then echo photo >> "$parts_f"
+  if send sendPhoto "$CAPTION" poster; then echo photo | rr_append "$parts_f" || exit 1
   else
     mode=text; reason="the poster upload failed (answer $LAST_CODE)"
     rr_log "announce: $tag poster not posted; falling back to text only"
@@ -153,15 +157,15 @@ fi
 plan "$mode" "$reason"
 i=1
 while [ "$i" -le "$MSG_N" ]; do
-  if ! grep -qx "msg $i" "$parts_f" 2>/dev/null; then
+  if ! parts | grep -qx "msg $i"; then
     eval "m=\$MSG_$i"
     send sendMessage "$m" "message $i of $MSG_N" || { echo "announce: $tag message $i of $MSG_N not posted" >&2; exit 1; }
-    if [ "$mode" = "text" ] && ! grep -q '^text ' "$parts_f" 2>/dev/null; then printf 'text %s\n' "$reason" >> "$parts_f"; fi
-    echo "msg $i" >> "$parts_f"
+    if [ "$mode" = "text" ] && ! parts | grep -q '^text '; then printf 'text %s\n' "$reason" | rr_append "$parts_f" || exit 1; fi
+    echo "msg $i" | rr_append "$parts_f" || exit 1
   fi
   i=$((i + 1))
 done
-: > "$done_f"
+: | rr_write "$done_f" || exit 1
 rr_log "announce: $tag posted ($mode, $MSG_N follow-up messages)"
 echo "announce: $tag posted ($mode, $MSG_N messages)"
 exit 0

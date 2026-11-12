@@ -41,6 +41,15 @@ t_guards_each_one_alone() {
   done
 }
 
+# r3d-04: as root, git refused the runner's checkout ("dubious ownership"), the guard read nothing and passed. Any git
+# failure on the checkout must refuse the origins guard. GIT_DIR at a missing repo makes every git call fail here.
+t_origins_refuse_when_git_cannot_read_the_checkout() {
+  sandbox; good_setup
+  export GIT_DIR="$T/no-such.git"; arm LAUNCH_AT="$LAUNCH_ISO"; unset GIT_DIR
+  assert_eq "$rc" 1 "arm must refuse"; assert_contains "$out" "REFUSED origins: git cannot read the work checkout"
+  assert_no_file "$T/flag"
+}
+
 t_report_for_another_queue_refused() {
   sandbox; good_setup; printf 'Queue tip: 0000000\nResult: PASS\n' > "$T/stress.md"
   arm LAUNCH_AT="$LAUNCH_ISO"; refused_only stress-report

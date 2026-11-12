@@ -326,8 +326,32 @@ want '[ "$(main_sha)" = "$(prod_sha)" ]' "production is not private main"
 for i in 1 2 3 4 5 6; do want "prod_has $i" "u$i not in production"; done
 pub=$(git --git-dir="$SB/repos/public.git" log --reverse --format='%s|%an' main | tr '\n' ' ')
 want '[ "$pub" = "Update 1|Capstan Update 2|Capstan Update 3|Capstan Update 4|Capstan Update 5|Capstan Update 6|Capstan " ]' "public history: $pub"
-want '[ -z "$(find "$RH" -user root -newer "$SB/install.out" ! -path "$RH/announce*" ! -name "ghrel.*" ! -name "*.proof" | head -n 3)" ]' "root-owned runner files: $(find "$RH" -user root -newer "$SB/install.out" ! -path "$RH/announce*" ! -name 'ghrel.*' ! -name '*.proof' | head -n 3 | tr '\n' ' ')"
+want '[ -z "$(find "$RH" -user root -newer "$SB/install.out" | head -n 3)" ]' "root-owned runner files (root wrappers write RR_HOME only as the runner): $(find "$RH" -user root -newer "$SB/install.out" | head -n 3 | tr '\n' ' ')"
 endcase end-state "production = private main, all 6 live; public history 1..6 once each, one author; no root-owned runner state"
+
+# 12b. r3d-01, r3d-03: links the runner plants in its home never steer the root wrappers; preflight never runs as root
+V=/etc/r3d-victim; rm -f "$V".*
+asr ln -sfn "$V.text" "$RH/announce/update-09.txt"
+printf 'notes' | /usr/local/sbin/capstan-release-announce update-09 "Link test 9" > /dev/null 2>&1
+want '[ ! -e "$V.text" ]' "announce wrote its text through a planted link"
+asr rm -f "$RH/announce/update-09.txt"; asr ln -sfn /etc/capstan-release/telegram.env "$RH/posters/update-08.png"
+printf 'notes' | /usr/local/sbin/capstan-release-announce update-08 "Link test 8" > /dev/null 2>&1
+want '[ "$(calls count telegram sendPhoto 200 "Link test 8")" -eq 0 ]' "announce uploaded the token file as the poster"
+want '[ -z "$(find "$RH/announce" -user root | head -n 1)" ]' "announce left root-owned progress files"
+asr ln -sfn "$V.req" "$RH/ghrel.req"; asr ln -sfn "$V.body" "$RH/ghrel.body"; asr ln -sfn /etc/capstan-release/github-release.env "$RH/posters/update-09.png"
+/usr/local/sbin/capstan-release-ghrelease create update-09 "$(main_sha)" "Link test 9" < /dev/null > /dev/null 2>&1
+want '[ ! -e "$V.req" ] && [ ! -e "$V.body" ]' "ghrelease wrote work files through planted links"
+want '! calls assets | grep -q "^update-09.png"' "ghrelease uploaded the token file as the poster"
+asr mv "$RH/log/runner.log" "$RH/log/runner.log.keep"; asr ln -sfn "$V.log" "$RH/log/runner.log"
+TELEGRAM_ENV=/nonexistent /usr/local/sbin/capstan-release-notify "planted log line" < /dev/null > /dev/null 2>&1
+asr rm -f "$RH/log/runner.log"; asr mv "$RH/log/runner.log.keep" "$RH/log/runner.log"
+want '[ ! -e "$V.log" ]' "root appended its log through a planted link"
+asr ln -sfn "$V.pause" "$RH/PAUSE"; /usr/local/sbin/capstan-release-pause "link test" > /dev/null 2>&1; asr rm -f "$RH/PAUSE"
+want '[ ! -e "$V.pause" ]' "pause wrote through a planted link"
+asr rm -f "$RH/posters/update-08.png" "$RH/posters/update-09.png" "$RH/ghrel.req" "$RH/ghrel.body"
+out=$(asroot /opt/capstan-release/bin/preflight.sh 2>&1); rc=$?
+want '[ "$rc" -ne 0 ] && printf "%s" "$out" | grep -q "refused as root"' "preflight ran as root (rc $rc)"
+endcase root-wrappers-no-links "announce, ghrelease, notify and pause as root wrote nothing and sent nothing through runner links; preflight refused root"
 
 # 13. the timer starts passes by itself; disarm stops them
 before=$(wc -l < "$RH/log/runner.log"); systemctl start capstan-release.timer
@@ -338,5 +362,5 @@ want 'tail -n 1 "$RH/log/runner.log" | grep -q "pass: not armed"' "a pass ran ar
 endcase timer-disarm "the enabled timer ran a pass on its own; after disarm.sh a pass does nothing"
 
 kill "$STANDIN_PID" 2>/dev/null
-echo "sandbox: $((13 - failed)) of 13 cases PASS"
+echo "sandbox: $((14 - failed)) of 14 cases PASS"
 [ "$failed" -eq 0 ]

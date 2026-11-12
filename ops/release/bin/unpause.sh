@@ -3,9 +3,9 @@
 set -u
 . "$(cd "$(dirname "$0")/.." && pwd -P)/lib/common.sh"
 rr_init
-rm -f "$RR_PAUSE"
+rr_home_op "$RR_PAUSE" rm -f "$RR_PAUSE"
 rr_journal 0 - resumed # the crash count of an adopted update starts again
-if rr_lock; then rm -f "$RR_HOME/ABORT"; rr_unlock; fi
+if rr_lock; then rr_home_op "$RR_HOME/ABORT" rm -f "$RR_HOME/ABORT"; rr_unlock; fi
 next=""; for n in $(rr_sched_rows | cut -f1); do [ "$(rr_state_get "$n" 2)" = "pending" ] && { next="$n"; break; }; done
 msg="Resumed."
 [ -n "$next" ] && msg="Resumed. Next: Update $next at $(rr_epoch_to_iso "$(rr_sched_field "$next" 2)")."
