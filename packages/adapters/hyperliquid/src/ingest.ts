@@ -39,6 +39,73 @@ export interface HlIngest {
   pollOnce(): Promise<HlPollReport>;
   stop(): void;
   readonly markets: string[];
+  /** Cache writes waiting (at most one book and one mark per market) and in flight (at most one batch). */
+  pending(): WriterStats;
+}
+
+export interface WriterStats {
+  queued: number;
+  inFlight: number;
+  maxQueued: number;
+  maxInFlight: number;
+  written: number;
+}
+
+/**
+ * Cache writes for the stream. Only the latest book and mark per market wait, and one batch is in flight at a time,
+ * so a slow or stalled Redis holds at most one book and one mark per market instead of one promise per frame.
+ * The cache keeps 1 s values, so an older book that never got written is not lost data.
+ */
+export function coalescingWriter(cache: MarketDataCache, log?: Pick<Logger, "error">) {
+  const books = new Map<string, OrderBook>();
+  const marks = new Map<string, { mark: string; asOf: string }>();
+  let inFlight = 0;
+  const st = { maxQueued: 0, maxInFlight: 0, written: 0 };
+  const queued = () => books.size + marks.size;
+  const fail = (err: unknown) => log?.error("ingest-hl: cache write failed", { error: String(err) });
+  async function drain() {
+    while (queued() > 0) {
+      const bs = [...books.values()];
+      const ms = [...marks.entries()];
+      books.clear();
+      marks.clear();
+      inFlight = bs.length + ms.length;
+      st.maxInFlight = Math.max(st.maxInFlight, inFlight);
+      const rs = await Promise.allSettled([...bs.map((b) => cache.putBook(b)), ...ms.map(([id, m]) => cache.putMark(id, m.mark, m.asOf))]);
+      // one line per batch, not per write: a down Redis must not turn into a log storm
+      const bad = rs.filter((r): r is PromiseRejectedResult => r.status === "rejected");
+      if (bad.length) log?.error("ingest-hl: cache write failed", { failed: bad.length, of: rs.length, error: String(bad[0]!.reason) });
+      st.written += rs.length;
+      inFlight = 0;
+    }
+  }
+  let running: Promise<void> | null = null;
+  const kick = () => {
+    st.maxQueued = Math.max(st.maxQueued, queued());
+    if (running) return;
+    running = drain()
+      .catch(fail)
+      .finally(() => {
+        running = null;
+      });
+  };
+  return {
+    book(b: OrderBook) {
+      books.set(b.marketId, b);
+      kick();
+    },
+    mark(id: string, mark: string, asOf: string) {
+      marks.set(id, { mark, asOf });
+      kick();
+    },
+    stats(): WriterStats {
+      return { queued: queued(), inFlight, ...st };
+    },
+    /** Resolves once everything queued so far is written (tests). */
+    async idle() {
+      while (running) await running;
+    },
+  };
 }
 
 export const DEFAULT_INGEST_DEXES: (string | null)[] = [null, "xyz", "io", "para"];
@@ -54,6 +121,7 @@ export function createHlIngest(o: HlIngestOptions): HlIngest {
   let polled: (string | null)[] = wanted;
   let unsub: (() => void) | null = null;
   const marketIds: string[] = [];
+  const writer = coalescingWriter(o.cache, o.log);
 
   async function start() {
     if (started) return started;
@@ -73,8 +141,8 @@ export function createHlIngest(o: HlIngestOptions): HlIngest {
     if (skipped.length) o.log?.warn("ingest-hl: subscription capacity reached", { skipped: skipped.length });
     marketIds.push(...take.map((m: HlMarket) => m.id));
     unsub = o.reader.streamMarket(marketIds, (e) => {
-      const p = e.kind === "book" ? o.cache.putBook(e.book) : e.kind === "mark" ? o.cache.putMark(e.marketId, e.mark, e.asOf) : null;
-      p?.catch((err) => o.log?.error("ingest-hl: cache write failed", { error: String(err) }));
+      if (e.kind === "book") writer.book(e.book);
+      else if (e.kind === "mark") writer.mark(e.marketId, e.mark, e.asOf);
     });
     started = { subscribed: take.length, skipped, skippedDexes };
     o.log?.info("ingest-hl: streaming", { markets: take.length, dexes: dexCount });
@@ -123,6 +191,7 @@ export function createHlIngest(o: HlIngestOptions): HlIngest {
   return {
     start,
     pollOnce,
+    pending: () => writer.stats(),
     stop() {
       unsub?.();
       unsub = null;

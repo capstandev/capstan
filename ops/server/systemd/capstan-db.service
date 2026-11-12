@@ -10,6 +10,9 @@ RemainAfterExit=yes
 WorkingDirectory=/opt/capstan/compose
 EnvironmentFile=/etc/capstan/db/env
 ExecStart=/usr/bin/docker compose -p capstan-db -f /opt/capstan/compose/capstan-compose.yaml up -d --wait
+# Memory caps: this unit runs only the compose client (the containers live in Docker's own cgroups).
+MemoryHigh=512M
+MemoryMax=768M
 ExecStop=/usr/bin/docker compose -p capstan-db -f /opt/capstan/compose/capstan-compose.yaml stop
 TimeoutStartSec=300
 

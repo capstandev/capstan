@@ -14,6 +14,9 @@ Group=capstan-relay
 EnvironmentFile=/etc/capstan/relay/env
 WorkingDirectory=/opt/capstan/current
 ExecStart=/usr/local/bin/bun /opt/capstan/current/apps/relay/src/index.ts
+# Memory caps: about 35 to 60 MB measured; MemoryHigh throttles and reclaims, MemoryMax ends a runaway before the box swaps.
+MemoryHigh=512M
+MemoryMax=768M
 Restart=on-failure
 RestartSec=5
 StandardOutput=append:/var/log/capstan/relay/relay.jsonl

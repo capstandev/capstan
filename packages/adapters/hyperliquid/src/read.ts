@@ -508,23 +508,36 @@ export function createHlReader(cfg: HlConfig, http: VenueHttp, cache: MarketData
       dexes.add(dex ?? "");
     }
     const unsubs: Unsubscribe[] = [];
-    const onMsg = (m: unknown) => {
+    // The pool hands every frame on a connection to every subscriber on it (one connection carries up to 1,000
+    // subscriptions). Each handler therefore takes only its own frames: an l2Book handler its own coin, and each frame
+    // is turned into events once (the pool parses a frame once and passes the same object to every subscriber).
+    // Without this, 196 books on one connection turned every frame into 198 copies of its events.
+    const seen = new WeakSet<object>();
+    const firstSight = (m: unknown): boolean => {
+      if (!m || typeof m !== "object" || seen.has(m)) return false;
+      seen.add(m);
+      return true;
+    };
+    const onBook = (coin: string) => (m: unknown) => {
       const msg = m as { channel?: string; data?: unknown };
-      if (msg?.channel === "l2Book") {
-        const b = msg.data as HlL2Book;
-        const id = byCoin.get(b?.coin);
-        if (id) onEvent({ kind: "book", book: toBook(id, b) });
-      } else if (msg?.channel === "allMids") {
-        const mids = (msg.data as { mids?: Record<string, string> })?.mids ?? {};
-        const asOf = new Date(now()).toISOString();
-        for (const [coin, px] of Object.entries(mids)) {
-          const id = byCoin.get(coin);
-          if (id) onEvent({ kind: "mark", marketId: id, mark: String(px), asOf });
-        }
+      if (msg?.channel !== "l2Book") return;
+      const b = msg.data as HlL2Book;
+      if (b?.coin !== coin || !firstSight(m)) return;
+      const id = byCoin.get(coin);
+      if (id) onEvent({ kind: "book", book: toBook(id, b) });
+    };
+    const onMids = (m: unknown) => {
+      const msg = m as { channel?: string; data?: unknown };
+      if (msg?.channel !== "allMids" || !firstSight(m)) return;
+      const mids = (msg.data as { mids?: Record<string, string> })?.mids ?? {};
+      const asOf = new Date(now()).toISOString();
+      for (const [coin, px] of Object.entries(mids)) {
+        const id = byCoin.get(coin);
+        if (id) onEvent({ kind: "mark", marketId: id, mark: String(px), asOf });
       }
     };
-    for (const coin of byCoin.keys()) unsubs.push(pool.subscribe({ method: "subscribe", subscription: { type: "l2Book", coin } }, onMsg));
-    for (const dex of dexes) unsubs.push(pool.subscribe({ method: "subscribe", subscription: dex ? { type: "allMids", dex } : { type: "allMids" } }, onMsg));
+    for (const coin of byCoin.keys()) unsubs.push(pool.subscribe({ method: "subscribe", subscription: { type: "l2Book", coin } }, onBook(coin)));
+    for (const dex of dexes) unsubs.push(pool.subscribe({ method: "subscribe", subscription: dex ? { type: "allMids", dex } : { type: "allMids" } }, onMids));
     return () => {
       for (const u of unsubs) u();
     };

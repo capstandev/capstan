@@ -41,7 +41,7 @@ for t in provision permissions keys deploy backup firewall config sharedhost; do
   while IFS= read -r l; do record "$l"; done <<< "$lines"
   printf '%s\n' "$lines"
 done
-for t in bash32 tracked; do
+for t in bash32 tracked memory; do
   echo "run-all: $t.test.sh (host)"
   out="$(/bin/bash "$here/$t.test.sh" 2>&1)"
   lines="$(printf '%s\n' "$out" | grep -E '^(PASS|FAIL) ' || echo "FAIL $t.test.sh: $(printf '%s' "$out" | tail -n 3 | tr '\n' ' ')")"
