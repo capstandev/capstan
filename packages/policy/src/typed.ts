@@ -1,6 +1,8 @@
 // CapstanAgentPolicy v1 (spec 7.6): EIP-712 typed data signed by the MAIN wallet. The chain id scopes the domain only
 // (nothing is sent to a chain). Times are unix milliseconds as uint64 (reduceOnlyAfter 0 = none); allowedMarkets '*'
-// is encoded as ["*"], so a policy and its digest are one to one.
+// is encoded as ["*"], so a policy and its digest are one to one. The message is plain JSON (uint64 times are safe
+// integer numbers, never BigInt): it travels in the onboarding bundle, is stored as jsonb and goes to the wallet as
+// eth_signTypedData_v4 JSON. EIP-712 hashes a number and the same BigInt alike, so the digest does not change.
 import { secp256k1 } from "@noble/curves/secp256k1.js";
 import type { AgentPolicy, Hex, TypedDataPayload } from "@capstan/schema";
 import { bytesToHex, hashTypedData, hexToBytes } from "viem";
@@ -59,8 +61,8 @@ export function policyMessage(p: AgentPolicy): Record<string, unknown> {
     allowedMarkets: p.allowedMarkets === "*" ? ["*"] : [...p.allowedMarkets],
     allowedVenues: [...p.allowedVenues],
     maxOrdersPerDay: uint32(p.maxOrdersPerDay, "maxOrdersPerDay"),
-    reduceOnlyAfter: BigInt(p.reduceOnlyAfter === undefined || p.reduceOnlyAfter === "" ? 0 : policyTimeMs(p.reduceOnlyAfter)),
-    expiresAt: BigInt(policyTimeMs(p.expiresAt)),
+    reduceOnlyAfter: p.reduceOnlyAfter === undefined || p.reduceOnlyAfter === "" ? 0 : policyTimeMs(p.reduceOnlyAfter),
+    expiresAt: policyTimeMs(p.expiresAt),
     nonce: p.nonce,
   };
 }

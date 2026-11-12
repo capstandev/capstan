@@ -7,8 +7,8 @@ import { rowToMarket } from "@capstan/catalog";
 import { createAdapter as createLighterAdapter, lighterConfigsFor } from "@capstan/adapter-lighter";
 import { createMarketDataCache, createRedis, schema, type Db, type MarketDataCache, type Redis } from "@capstan/core";
 import { declarationStep } from "@capstan/eligibility";
-import { policyTypedData, type KillAdapter } from "@capstan/policy";
-import { venueNetwork, venueUrlOverride, type AgentPolicy, type BuildContext, type Hex, type OnboardingBundle, type OnboardingStep, type UnsignedVenuePayload, type VenueAdapter, type VenueId, type VenueIdentity } from "@capstan/schema";
+import { PolicyFormatError, policyTypedData, type KillAdapter } from "@capstan/policy";
+import { CapstanError, venueNetwork, venueUrlOverride, type AgentPolicy, type BuildContext, type Hex, type OnboardingBundle, type OnboardingStep, type UnsignedVenuePayload, type VenueAdapter, type VenueId, type VenueIdentity } from "@capstan/schema";
 import { egressIdOf, createGovernor, venueHttp, type Governor } from "@capstan/venue-client";
 import { and, eq, inArray, sql } from "drizzle-orm";
 
@@ -46,7 +46,16 @@ export function dbBundles(db: Db) {
   };
 }
 
-export const policyStepOf = (policy: unknown): OnboardingStep | null => (policy ? { kind: "agent_policy", signer: "main_wallet", typedData: policyTypedData(policy as AgentPolicy) } : null);
+/** The agent_policy step for a request's policy (null without one). A policy the typed data cannot encode is INVALID_INPUT. */
+export function policyStepOf(policy: unknown): OnboardingStep | null {
+  if (!policy) return null;
+  try {
+    return { kind: "agent_policy", signer: "main_wallet", typedData: policyTypedData(policy as AgentPolicy) };
+  } catch (e) {
+    if (e instanceof PolicyFormatError) throw new CapstanError("INVALID_INPUT", `policy: ${e.message}`);
+    throw e;
+  }
+}
 
 /** Gone HIP-3 dexes from the catalog (dexes.status 'gone') with their stored markets rows. */
 export async function lastKnownHlDexes(db: Db): Promise<LastKnownDex[]> {

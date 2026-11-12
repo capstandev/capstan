@@ -3,6 +3,7 @@ import { afterAll, describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { logger } from "@capstan/core";
 import { createApp, MountError } from "../src/app";
 
 const dirs: string[] = [];
@@ -70,5 +71,25 @@ describe("api mount", () => {
     const text = await res.text();
     expect(text).not.toContain("hunter2");
     expect(JSON.parse(text)).toEqual({ error: { code: "INTERNAL_ERROR", message: "Internal error." } });
+  });
+
+  test("a 500 leaves one log line with a request id and the error class", async () => {
+    // found on the fork: agent-safe onboarding answered 500 and the api log had nothing about it
+    const boom = routesDir({ "a.routes.ts": `export const routes = [{ method: "POST", path: "/boom/:id", auth: "public", handler: () => { JSON.stringify({ t: 1n, password: "hunter2", key: "0x${"ab".repeat(32)}" }); } }];\n` });
+    const lines: string[] = [];
+    const { app } = await createApp({ routesDir: boom, log: logger("api", { sink: (l) => lines.push(l) }) });
+    const res = await app.request("/v1/boom/0xfeed", { method: "POST", headers: { authorization: "Bearer secret-token-value" }, body: "{\"secret\":\"hunter2\"}" });
+    expect(res.status).toBe(500);
+    const id = res.headers.get("x-request-id");
+    expect(id).toMatch(/^[0-9A-HJKMNP-TV-Z]{26}$/);
+    expect(lines).toHaveLength(1);
+    const rec = JSON.parse(lines[0]!) as Record<string, unknown>;
+    expect(rec).toMatchObject({ level: "error", service: "api", msg: "unhandled error", requestId: id, route: "POST /v1/boom/:id", errorClass: "TypeError" });
+    expect(String(rec.at)).toMatch(/a\.routes\.ts:\d+$/);
+    for (const leak of ["hunter2", "secret-token-value", "0xfeed", "abab"]) expect(lines[0]).not.toContain(leak);
+    // a CapstanError answer is the caller's error, not ours: no line
+    lines.length = 0;
+    expect((await app.request("/v1/nothing-here")).status).toBe(404);
+    expect(lines).toHaveLength(0);
   });
 });

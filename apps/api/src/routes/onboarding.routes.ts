@@ -9,7 +9,7 @@ import { createDb, schema, type Db, type RouteSpec } from "@capstan/core";
 import { capstanAgentName } from "@capstan/adapter-hyperliquid";
 import { drafts, type ReceiptDraft } from "@capstan/receipts";
 import { sha256Jcs } from "@capstan/relay";
-import { CapstanError, errorBody, OnboardingBuildZ, OnboardingPreflightQueryZ, OnboardingSubmitZ, type Hex, type OnboardingBundle, type OnboardingRequest, type VenueId } from "@capstan/schema";
+import { AgentPolicyZ, CapstanError, errorBody, OnboardingBuildZ, OnboardingPreflightQueryZ, OnboardingSubmitZ, type Hex, type OnboardingBundle, type OnboardingRequest, type VenueId } from "@capstan/schema";
 import { recordOnboardingPrompt } from "@capstan/telemetry";
 import { edgeScopeMatches, storeDeclaration } from "@capstan/eligibility";
 import { and, eq, ne } from "drizzle-orm";
@@ -93,6 +93,11 @@ export function createOnboardingRoutes(getDeps: () => Promise<OnboardingRouteDep
         const body = await json(c);
         const p = OnboardingBuildZ.safeParse(body);
         if (!p.success) return c.json(errorBody("INVALID_INPUT", issues(p.error)), 400);
+        // an agent-safe policy is checked here, so a malformed one is the caller's 400, never a 500 from the step
+        if (p.data.policy !== undefined) {
+          const pz = AgentPolicyZ.safeParse(p.data.policy);
+          if (!pz.success) return c.json(errorBody("INVALID_INPUT", `policy: ${issues(pz.error)}`), 400);
+        }
         const deps = await getDeps();
         const authed = ctxGet(c, "owner");
         if (typeof authed === "string" && authed.toLowerCase() !== p.data.owner.toLowerCase()) return c.json(errorBody("UNAUTHORIZED", "The signature does not belong to this owner."), 401);

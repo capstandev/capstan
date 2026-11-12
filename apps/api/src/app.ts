@@ -1,10 +1,10 @@
 // @capstan/api: Hono REST app. Routes are drop-in files (src/routes/*.routes.ts, each exporting `routes: RouteSpec[]`),
 // found by a sorted glob scan at boot. Every route is wrapped by authGate(spec.auth); a route without a known auth
 // value is refused at mount (deny by default), and auth kinds with no verifier registered answer 401.
-import { logger, ROUTE_AUTHS, type RouteAuth, type RouteSpec, type RouteWrite } from "@capstan/core";
+import { logger, ROUTE_AUTHS, ulid, type Logger, type RouteAuth, type RouteSpec, type RouteWrite } from "@capstan/core";
 import { CapstanError, errorBody } from "@capstan/schema";
 import { Hono, type Context, type MiddlewareHandler } from "hono";
-import { join, relative } from "node:path";
+import { basename, join, relative } from "node:path";
 import { CREDIT_REFUND } from "./auth/index";
 import { corsFor } from "./cors";
 import { mountTrpc } from "./trpc";
@@ -30,7 +30,23 @@ export interface CreateAppOptions {
   corsOrigins?: readonly string[];
   /** Request log per route (request-log.ts), outermost so it sees refusals as well as answers. */
   requestLog?: (spec: RouteSpec) => MiddlewareHandler;
+  /** Where an unexpected error (a 500) is logged. Default the api JSON-lines logger on stdout. */
+  log?: Logger;
 }
+
+/** The first stack frame inside this repo as file:line (no values from the request), or null. */
+export function errorSite(err: unknown): string | null {
+  const stack = err instanceof Error && typeof err.stack === "string" ? err.stack : "";
+  for (const line of stack.split("\n").slice(1)) {
+    const m = /\(?((?:\/|[A-Za-z]:)[^():]+):(\d+):\d+\)?\s*$/.exec(line.trim());
+    if (!m || m[1]!.includes("/node_modules/")) continue;
+    const rel = relative(join(import.meta.dir, "../../.."), m[1]!);
+    return `${rel.startsWith("..") ? basename(m[1]!) : rel}:${m[2]}`;
+  }
+  return null;
+}
+
+const errorClass = (err: unknown): string => (err instanceof Error ? err.constructor?.name || err.name || "Error" : typeof err);
 
 export interface MountedRoute {
   method: RouteSpec["method"];
@@ -180,8 +196,14 @@ export async function createApp(opts: CreateAppOptions = {}): Promise<{ app: Hon
   app.route("/v1", v1);
   mountTrpc(app, mounted);
   app.notFound((c) => c.json(errorBody("NOT_FOUND"), 404));
+  const log = opts.log ?? logger("api");
   app.onError((err, c) => {
     if (err instanceof CapstanError) return c.json(err.toBody(), err.status as 400);
+    // a 500 always leaves one log line: a request id (also sent back as x-request-id), the route pattern and the
+    // error class with where it was thrown. Never the message, the body or a header: those can carry caller data.
+    const requestId = ulid();
+    log.error("unhandled error", { requestId, route: `${c.req.method} ${c.req.routePath}`, errorClass: errorClass(err), at: errorSite(err) });
+    c.header("x-request-id", requestId);
     return c.json(errorBody("INTERNAL_ERROR"), 500);
   });
   return { app, routes: mounted };

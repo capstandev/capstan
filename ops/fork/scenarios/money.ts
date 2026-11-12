@@ -44,13 +44,20 @@ export async function ensureMarkets(ctx: Ctx, ids: string[] = [BTC]): Promise<vo
 }
 
 /** The HL onboarding template the server builds today, for the SDK pins (release pins are filled at launch). */
-async function hlTemplatePin(): Promise<Hex> {
+/** The fork's Hyperliquid template pins: the plain bundle and the agent-safe one (with the agent_policy step). */
+async function hlTemplatePins(): Promise<Hex[]> {
   const k = await api<{ key: string }>("POST", "/account/keys", { owner: null });
   if (k.status !== 200 && k.status !== 201) throw new Error(`anonymous key: ${k.status} ${JSON.stringify(k.body)}`);
-  const probe = freshWallet();
-  const b = await api<OnboardingBundle>("POST", "/onboarding/build", { venue: "hyperliquid", owner: probe.address.toLowerCase(), agentAddress: freshWallet().address.toLowerCase(), builderMaxBps: 3, mode: "relay" }, { authorization: `Bearer ${k.body.key}` });
-  if (b.status !== 200) throw new Error(`template probe build: ${b.status} ${JSON.stringify(b.body)}`);
-  return hlTemplateHash(b.body);
+  const out: Hex[] = [];
+  for (const withPolicy of [false, true]) {
+    const probe = freshWallet();
+    const agent = freshWallet().address.toLowerCase();
+    const policy = withPolicy ? { owner: probe.address.toLowerCase(), agents: [{ venue: "hyperliquid", agentRef: `hl:${agent}` }], maxNotionalPerOrderUsd: "1", maxGrossNotionalUsd: "1", maxLeverage: 1, allowedMarkets: "*", allowedVenues: ["hyperliquid"], maxOrdersPerDay: 1, expiresAt: new Date(Date.now() + 86_400_000).toISOString(), nonce: "template-probe" } : undefined;
+    const b = await api<OnboardingBundle>("POST", "/onboarding/build", { venue: "hyperliquid", owner: probe.address.toLowerCase(), agentAddress: agent, builderMaxBps: 3, mode: "relay", ...(policy ? { policy } : {}) }, { authorization: `Bearer ${k.body.key}` });
+    if (b.status !== 200) throw new Error(`template probe build${withPolicy ? " (policy)" : ""}: ${b.status} ${JSON.stringify(b.body)}`);
+    out.push(hlTemplateHash(b.body));
+  }
+  return out;
 }
 
 export async function forkPins(ctx: Ctx): Promise<PinsOverride> {
@@ -60,7 +67,7 @@ export async function forkPins(ctx: Ctx): Promise<PinsOverride> {
       mainnet: {
         ...PINS.networks.mainnet,
         builders: { hyperliquid: stateAddr("builder").toLowerCase() as Hex, aster: null },
-        templateHashes: { ...PINS.networks.mainnet.templateHashes, hyperliquid: [await hlTemplatePin()] },
+        templateHashes: { ...PINS.networks.mainnet.templateHashes, hyperliquid: await hlTemplatePins() },
         receiptSigners: [{ address: stateAddr("receipt").toLowerCase() as Hex }],
         anchor: { chainId: 4663, address: ctx.deployed.anchor.toLowerCase() as Hex },
       },
