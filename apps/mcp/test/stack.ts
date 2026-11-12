@@ -137,7 +137,7 @@ export async function e2eStack(o: StackOptions = {}) {
   const agents = killSwitch ? createAgentRoutes(() => ({ db, killSwitch, nonces: memoryNonceStore(), receipts: { issue }, adapters: new Map<VenueId, KillAdapter>([["hyperliquid", hlBuilder as unknown as KillAdapter]]), host: API_HOST, now: () => NOW })) : [];
   const geo = staticGeo({ [AGENT_IP]: "DE", [REFUSED_IP]: "US" });
   const eligibility = createEligibilityRoutes(() => ({ db, geo, now: () => new Date(NOW), ipOf: (c) => c.req.header("x-forwarded-for") ?? null }));
-  const routes: RouteSpec[] = [...quote, ...createOrderRoutes(() => ordersDeps), ...createClaimRoutes(() => ordersDeps), ...createReceiptRoutes(() => dbReceiptDeps(db, { signers: [receiptSigner.address], readRoot: o.readRoot ?? (async () => null) })), ...agents, ...eligibility];
+  const routes: RouteSpec[] = [...quote, ...createOrderRoutes(() => ordersDeps), ...createClaimRoutes(() => ordersDeps), ...createReceiptRoutes(() => ({ ...dbReceiptDeps(db, { signers: [receiptSigner.address], readRoot: o.readRoot ?? (async () => null) }), now: () => NOW })), ...agents, ...eligibility];
   // the agent host's key was made for the owner's wallet (an api_key acts only for its own wallet, r1 R1-04)
   const check = apiKeyCheck({ verify: async (k) => (k === API_KEY ? { id: "acct-e2e", ownerWallet: owner, tier: "pro" } : null) });
   const { app: api } = await createApp({

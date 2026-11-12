@@ -59,6 +59,10 @@ jobs:
         run: bun run db:migrate
       - name: tests (includes the invariant check tests and the database tests)
         run: bun test --timeout 30000
+      - uses: foundry-rs/foundry-toolchain@908c540300062bd5a7e473851cdb4282204cee09 # v1.9.1
+        with: { version: v1.8.4 }
+      - name: anvil tests (every ANVIL_URL-gated file on a local anvil, chain 31337; a skip fails the step)
+        run: bun run check:anvil
 
   coverage:
     runs-on: ubuntu-latest

@@ -38,7 +38,7 @@ export interface AgentRun {
   build: UnsignedVenuePayload;
   submit: { order: Record<string, unknown>; receiptId: string };
   receipt: Receipt;
-  verify: { valid: boolean; checks: Record<string, unknown> };
+  verify: { valid: boolean; status?: string; checks: Record<string, unknown> };
 }
 
 const structured = <T>(r: CallToolResult, what: string): T => {
@@ -118,8 +118,10 @@ async function runLocal(): Promise<number> {
       nowMs: T0,
       log: (l) => console.log(l),
     });
-    const ok = run.receipt.builder?.feeBps === 2 && run.verify.valid === true;
-    console.log(JSON.stringify({ ok, receiptId: run.receipt.receiptId, builder: run.receipt.builder, onChainRoot: run.verify.checks.onChainRoot }));
+    // the local stack has no chain, so its hour is never anchored: the best answer is "pending" (signature, leaf and
+    // proof hold, the root may still come). Never "valid" without the posted root (security r1 F1).
+    const ok = run.receipt.builder?.feeBps === 2 && run.verify.status === "pending" && run.verify.checks.onChainRoot === "not_posted";
+    console.log(JSON.stringify({ ok, receiptId: run.receipt.receiptId, builder: run.receipt.builder, status: run.verify.status, onChainRoot: run.verify.checks.onChainRoot }));
     keystore.close?.();
     return ok ? 0 : 1;
   } finally {

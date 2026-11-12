@@ -1,7 +1,7 @@
 // R3, R4 (todo 32, spec D3): the agent end to end on the local stack. The example host quotes a "short 2 ETH-equivalent
 // of TSLA" intent on Hyperliquid xyz:TSLA and a Lighter-RH TSLA market, builds on xyz:TSLA, checks and signs locally with
 // a memory key store, submits through capstan_submit, gets a receipt whose builder fee is 2 bps, and
-// capstan_verify_receipt answers valid with onChainRoot 'not_posted', then true after the hour's root is posted to a
+// capstan_verify_receipt answers pending with onChainRoot 'not_posted', then valid after the hour's root is posted to a
 // CapstanReceiptAnchor on anvil by the todo 28 anchor job. A spy on every inbound MCP request finds no key material.
 // Needs DATABASE_URL and ANVIL_URL (skips without them).
 import { afterAll, describe, expect, test } from "bun:test";
@@ -73,9 +73,9 @@ d("agent end to end", () => {
     expect(run.receipt.builder).toMatchObject({ address: BUILDER, feeBps: 2, rawUnit: "f=20" });
     expect(run.receipt.owner).toBe(stack.owner);
     expect(run.receipt.signedPayloadHash).toBeDefined();
-    // verified now: signature, leaf and proof hold; the root is not on chain yet
-    expect(run.verify.valid).toBe(true);
-    expect(run.verify.checks.onChainRoot).toBe("not_posted");
+    // checked now: signature, leaf and proof hold; the root is not on chain yet, so the receipt is pending, not valid
+    // (security r1 F1: verification never fails open). The stack's clock is the receipt's clock, so the hour is open.
+    expect(run.verify).toMatchObject({ valid: false, status: "pending", checks: { signature: true, leaf: true, proof: true, onChainRoot: "not_posted" } });
     // the anchor job posts the hour's root on anvil; the same tool now sees it on chain
     const hour = hourEpochOf(run.receipt.ts);
     const posted = await anchorHour(hour, f.deps());
@@ -84,10 +84,9 @@ d("agent end to end", () => {
     const { StreamableHTTPClientTransport } = await import("@modelcontextprotocol/sdk/client/streamableHttp.js");
     const client = new Client({ name: "verify-again", version: "1" });
     await client.connect(new StreamableHTTPClientTransport(new URL(stack.mcpUrl), { fetch: stack.mcpFetch }));
-    const again = (await client.callTool({ name: "capstan_verify_receipt", arguments: { receiptId: run.receipt.receiptId } })) as unknown as { structuredContent: { valid: boolean; checks: { onChainRoot: unknown } } };
+    const again = (await client.callTool({ name: "capstan_verify_receipt", arguments: { receiptId: run.receipt.receiptId } })) as unknown as { structuredContent: { valid: boolean; status: string; checks: { onChainRoot: unknown } } };
     await client.close();
-    expect(again.structuredContent.valid).toBe(true);
-    expect(again.structuredContent.checks.onChainRoot).toBe(true);
+    expect(again.structuredContent).toMatchObject({ valid: true, status: "valid", checks: { signature: true, leaf: true, proof: true, onChainRoot: true } });
     keystore.close?.();
   }, 120_000);
 
