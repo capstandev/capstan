@@ -37,6 +37,8 @@ P_HL=${FORK_P_HL:-22420}; P_RH=${FORK_P_RH:-22421}; P_LM=${FORK_P_LM:-22422}; P_
 P_ANVIL_IN=${FORK_P_ANVIL_IN:-22449}; P_BASE_IN=${FORK_P_BASE_IN:-22450} # anvil itself; P_ANVIL and P_BASE are fee-shim front doors with the real chains' tips
 P_WEB=${FORK_P_WEB:-22473}; P_REDIS=${FORK_P_REDIS:-22479}
 
+. "$here/db-wait.sh"
+
 listening() { /usr/sbin/lsof -nP -iTCP:"$1" -sTCP:LISTEN >/dev/null 2>&1; }
 alive() { [ -n "$1" ] && kill -0 "$1" 2>/dev/null; }
 pid_of() { awk -v n="$1" '$1==n {p=$2} END {print p}' "$pids"; }
@@ -182,10 +184,14 @@ chain() {
   echo "fork: RHC block $("$CAST" block-number --rpc-url "http://127.0.0.1:$P_ANVIL"), Base block $("$CAST" block-number --rpc-url "http://127.0.0.1:$P_BASE")" | tee "$state/fork-blocks.txt"
 }
 
+migrate_once() { (cd "$root" && DATABASE_URL="postgres://capstan:capstan@127.0.0.1:$P_PG/capstan" "$BUN" packages/core/src/migrate.ts); }
+
 db() {
   (cd "$root" && CAPSTAN_PG_PORT=$P_PG CAPSTAN_REDIS_PORT=$P_REDIS "$DOCKER" compose -p "$COMPOSE_PROJECT" up -d --wait >"$logs/compose.log" 2>&1) || { echo "fail: docker compose (log: $logs/compose.log)"; tail -5 "$logs/compose.log"; exit 1; }
   echo "up: docker compose project $COMPOSE_PROJECT (Postgres $P_PG, Redis $P_REDIS)"
-  (cd "$root" && DATABASE_URL="postgres://capstan:capstan@127.0.0.1:$P_PG/capstan" "$BUN" packages/core/src/migrate.ts >"$logs/migrate.log" 2>&1) || { echo "fail: migrations (log: $logs/migrate.log)"; tail -5 "$logs/migrate.log"; exit 1; }
+  # Postgres can pass its health check once and still answer "the database system is starting up": the migration is
+  # the first database call, so it runs in a bounded retry loop (FORK_DB_TRIES tries, FORK_DB_WAIT seconds apart)
+  retry_cmd "${FORK_DB_TRIES:-20}" "${FORK_DB_WAIT:-2}" "$logs/migrate.log" migrate_once || { echo "fail: migrations after ${FORK_DB_TRIES:-20} tries (log: $logs/migrate.log)"; tail -5 "$logs/migrate.log"; exit 1; }
   echo "up: migrations applied"
 }
 
@@ -245,11 +251,14 @@ status() {
 
 case "$cmd" in
   all)
+    # the ready marker exists only while a full start has finished: every-tx.ts refuses to run without it
+    rm -f "$state/ready"
     keys; payto; geo
     chain
     db
     start fake-venues "$P_HL" "$BUN" "$here/fake-venues.ts" --hl "$P_HL" --lighter-rh "$P_RH" --lighter "$P_LM"
     apps
+    date -u +%FT%TZ > "$state/ready"
     echo "ready: api http://127.0.0.1:$P_API/v1, web http://127.0.0.1:$P_WEB, RPC http://127.0.0.1:$P_ANVIL (chain 4663)"
     ;;
   apps) payto; apps ;;

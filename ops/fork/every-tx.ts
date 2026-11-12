@@ -10,6 +10,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import type { PrivateKeyAccount } from "viem/accounts";
 import { API, budgetRetries, DATABASE_URL, freshWallet, PORTS, REDIS_URL, rhc, ROOT, setBalance, STATE, type ForkSafe, type Row } from "./lib";
+import { assertStackHealthy, StackNotReady } from "./preflight";
 import type { Deployed } from "./scenarios/s1-deploy";
 
 export interface Ctx {
@@ -67,7 +68,9 @@ async function scenarios(): Promise<Scenario[]> {
 }
 
 export async function main(argv = process.argv.slice(2)): Promise<{ rows: Row[]; passed: number; total: number; report: string }> {
-  if (!existsSync(join(STATE, "stack.env"))) throw new Error("start the stack first: bash ops/fork/up.sh");
+  if (!existsSync(join(STATE, "stack.env"))) throw new StackNotReady(["stack env: ops/fork/.state/stack.env is missing"]);
+  // a half-started stack (up.sh failed part way) must never be scored: refuse before any scenario runs
+  await assertStackHealthy();
   loadStackEnv();
   if ((await rhc.getChainId()) !== 4663) throw new Error("the RHC fork must answer chain id 4663");
   const runId = new Date().toISOString().replace(/[-:]/g, "").replace(/\..*/, "Z");
@@ -151,7 +154,13 @@ function writeReport(ctx: Ctx, rows: Row[], byId: Map<string, boolean>, ms: numb
 }
 
 if (import.meta.main) {
-  const r = await main();
-  process.exit(r.passed === r.total ? 0 : 1);
+  try {
+    const r = await main();
+    process.exit(r.passed === r.total ? 0 : 1);
+  } catch (e) {
+    if (!(e instanceof StackNotReady)) throw e;
+    console.error(e.message);
+    process.exit(2);
+  }
 }
 void API;

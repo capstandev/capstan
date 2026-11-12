@@ -8,6 +8,7 @@ root="$(cd "$here/../.." && pwd -P)"
 pids="$here/.pids"
 DOCKER="/opt/homebrew/bin/docker"
 [ -x "$DOCKER" ] || DOCKER="$(command -v docker)"
+rm -f "$here/.state/ready" # a stack that is going down is not ready: every-tx.ts refuses to run without this marker
 alive() { [ -n "$1" ] && kill -0 "$1" 2>/dev/null; }
 if [ -f "$pids" ]; then
   # newest first, so the apps stop before the chain they read
