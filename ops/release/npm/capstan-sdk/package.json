@@ -13,6 +13,7 @@
   "bugs": { "url": "https://github.com/capstandev/capstan/security/advisories/new" },
   "keywords": ["perps", "hyperliquid", "lighter", "aster", "non-custodial", "sdk", "robinhood-chain", "receipts"],
   "sideEffects": false,
+  "publishConfig": { "access": "public", "provenance": true },
   "scripts": {
     "build": "bun build.ts",
     "prepack": "bun build.ts",

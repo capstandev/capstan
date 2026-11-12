@@ -10,7 +10,9 @@
   "engines": { "node": ">=20" },
   "homepage": "https://get-capstan.com/docs",
   "repository": { "type": "git", "url": "git+https://github.com/capstandev/capstan.git", "directory": "ops/release/npm/capstan-mcp" },
+  "bugs": { "url": "https://github.com/capstandev/capstan/security/advisories/new" },
   "keywords": ["mcp", "model-context-protocol", "ai-agents", "perps", "hyperliquid", "lighter", "aster", "robinhood-chain"],
+  "publishConfig": { "access": "public", "provenance": true },
   "scripts": {
     "prepack": "node -e \"require('fs').copyFileSync('../../../../LICENSE','LICENSE')\"",
     "test": "node smoke.mjs"
