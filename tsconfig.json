@@ -12,5 +12,6 @@
     "packages/signers/*/test",
     "ops/**/*.ts",
     "drizzle.config.ts"
-  ]
+  ],
+  "exclude": ["ops/videos/record.ts"]
 }

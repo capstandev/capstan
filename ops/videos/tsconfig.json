@@ -1,0 +1,13 @@
+// The recorder drives the site with playwright-core, a web/ dependency, and reuses web/test/browser.ts, so it is
+// typechecked here against web's packages, not in the root program (the root tsconfig excludes record.ts).
+// typeRoots keeps one copy of the Node and Bun globals (web's); mixing the root's and web's copies breaks
+// Response(Buffer) in web/test/browser.ts.
+// Run from the repo root after `cd web && bun install`: bunx tsc --noEmit -p ops/videos
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "typeRoots": ["../../web/node_modules/@types"],
+    "paths": { "playwright-core": ["../../web/node_modules/playwright-core"] }
+  },
+  "include": ["*.ts", "test/*.ts"]
+}
