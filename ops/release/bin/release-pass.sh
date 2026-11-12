@@ -82,20 +82,42 @@ rollback() { # rollback n applied_sha prev_sha
   return 0
 }
 
+# GitHub Release for update n. A failure (GitHub down, token refused) leaves it owed in the journal (ghrel_owed);
+# retry_owed_ghrel makes it on a later pass (stress 2026-11-11: a GitHub outage at the slot used to lose the page).
+ghrel() { # ghrel n sha title
+  local n="$1" sha="$2" title="$3" rc
+  rr_run GHREL_CMD create "$(rr_tag_of "$n")" "$sha" "Update $n: $title"; rc=$?
+  if [ "$rc" -eq 0 ]; then
+    [ "$(ghrel_stage "$n")" = ghrel_owed ] && rr_journal "$n" "$sha" ghrel_done
+    rr_notify_clear ghrel-auth; rr_notify_clear "ghrel-$n"; return 0
+  fi
+  case $rc in
+    127) rr_notify ghrel-off 21600 "GitHub releases are OFF" "No release command or token is set. Updates are live; Release pages are not made until the owner saves the token."; return 1 ;;
+    3) rr_notify ghrel-auth 21600 "GITHUB RELEASES BLOCKED (token permission)" "The release token is missing or lacks Contents read and write. Updates are live; only the Release pages wait. The owner saves the token, then the next pass fills them in." ;;
+    *) rr_notify "ghrel-$n" 3600 "GITHUB RELEASE FAILED $(rr_tag_of "$n")" "The Release page for update $n failed. The update itself is live. The next pass tries again." ;;
+  esac
+  [ "$(ghrel_stage "$n")" = ghrel_owed ] || rr_journal "$n" "$sha" ghrel_owed
+  return 1
+}
+ghrel_stage() { awk -v n="$1" '$2==n && ($4=="ghrel_owed" || $4=="ghrel_done") { s=$4 } END { print s }' "$RR_JOURNAL" 2>/dev/null; }
+# One owed GitHub Release per pass, oldest first.
+retry_owed_ghrel() {
+  local n sha
+  for n in $(awk '$4=="ghrel_owed" || $4=="ghrel_done" { s[$2]=$4 } END { for (k in s) if (s[k]=="ghrel_owed") print k }' "$RR_JOURNAL" 2>/dev/null | sort -n); do
+    case "$(rr_state_get "$n" 2)" in released|publish_pending) ;; *) continue ;; esac
+    sha=$(awk -v n="$n" '$2==n && $4=="ghrel_owed" { s=$3 } END { print s }' "$RR_JOURNAL")
+    ghrel "$n" "$sha" "$(rr_title_of "$n")" && rr_log "update $n: owed GitHub Release made"
+    return 0
+  done
+}
+
 publish() { # publish n sha title: side channel, never blocks a release
   local n="$1" sha="$2" title="$3"
   rr_journal "$n" "$sha" publishing
   if rr_run PUBLISH_CMD "$n" "$sha"; then
     rr_journal "$n" "$sha" published
     rr_notify_clear "publish-fail"
-    if rr_run GHREL_CMD create "$(rr_tag_of "$n")" "$sha" "Update $n: $title"; then rr_notify_clear ghrel-auth
-    else
-      case $? in
-        127) rr_notify ghrel-off 21600 "GitHub releases are OFF" "No release command or token is set. Updates are live; Release pages are not made until the owner saves the token." ;;
-        3) rr_notify ghrel-auth 21600 "GITHUB RELEASES BLOCKED (token permission)" "The release token is missing or lacks Contents read and write. Updates are live; only the Release pages wait. The owner saves the token, then the next pass fills them in." ;;
-        *) rr_notify "ghrel-$n" 3600 "GITHUB RELEASE FAILED $(rr_tag_of "$n")" "The Release page for update $n failed. The update itself is live. The next pass tries again." ;;
-      esac
-    fi
+    ghrel "$n" "$sha" "$title"
     return 0
   fi
   rr_journal "$n" "$sha" publish_failed
@@ -199,7 +221,7 @@ adopt_crashed() { # returns 1 when it paused the runner (an update that keeps cr
     rr_journal "$n" - adopted
     rr_log "update $n: adopting a crashed release (last stage: ${stage:-none}, crash $crashes of at most $CRASH_MAX)"
     case "$stage" in
-      checked|publishing|published|publish_failed)
+      checked|publishing|published|publish_failed|ghrel_owed|ghrel_done)
         finish_release "$n" "$sha" "$(rr_title_of "$n")" "$(rr_state_get "$n" 3)" ;;
       *) # before the checks passed: production may run it, may not; redo from the start (deploy is idempotent)
         rr_state_set "$n" pending "$(rr_state_get "$n" 3)" "adopted after a crash at stage ${stage:-start}" ;;
@@ -301,6 +323,7 @@ main() {
   adopt_crashed || exit 0
   retry_owed_publish
   retry_owed_announce
+  retry_owed_ghrel
   n=$(next_due)
   if [ -n "$n" ]; then release_one "$n"; else rr_log "pass: nothing due"; fi
   public_ci_tick

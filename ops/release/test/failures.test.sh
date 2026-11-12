@@ -114,4 +114,18 @@ t_crash_loop_pauses_with_one_alert() {
   pass_at $((LAUNCH + 600)); assert_eq "$(st 1)" released "after the owner resumes, the update is adopted again"
 }
 
+# GitHub down at the slot: the update is live, its Release page is owed and made by a later pass, once (stress
+# 2026-11-11 on the real queue: the page used to be lost, nothing retried it).
+t_github_outage_release_page_made_later() {
+  sandbox; echo 1 > "$T/ghrel-code"; pass_at "$LAUNCH"
+  assert_eq "$(st 1)" released "the update is live during a GitHub outage"
+  assert_eq "$(lines "$T/ghrel.log")" 0 "no Release made while GitHub is down"
+  pass_at $((LAUNCH + 600)); assert_eq "$(lines "$T/ghrel.log")" 0 "still down: still owed"
+  rm -f "$T/ghrel-code"; pass_at $((LAUNCH + 1200))
+  assert_eq "$(grep -c '^create update-01 ' "$T/ghrel.log")" 1 "owed Release made once GitHub is back"
+  pass_at $((LAUNCH + 1800)); assert_eq "$(grep -c '^create update-01 ' "$T/ghrel.log")" 1 "never made twice"
+  pass_at $((LAUNCH + 3600)); assert_eq "$(st 2)" released "later updates not blocked"
+  assert_eq "$(grep -c '^create update-0[12] ' "$T/ghrel.log")" 2 "one Release each"
+}
+
 run_tests "$0"

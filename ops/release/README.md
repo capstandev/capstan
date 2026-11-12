@@ -25,7 +25,7 @@ Linux bash 5.
 | Rollback fails | `PAUSE` file written, alert, update marked held (never left half done) |
 | Crash or reboot mid-release | The next pass reads the journal and finishes or redoes it; the public copy is never made twice |
 | The same update crashes its pass again and again | After `CRASH_MAX` (3) adoptions: `PAUSE` file, one alert; resuming starts the count again |
-| Public copy or Release fails | The update stays live; it is retried later; later updates are not blocked |
+| Public copy or Release fails | The update stays live; it is retried later (an owed Release page, one per pass); later updates are not blocked |
 | Team post fails | The update stays live; the post is owed and retried each pass (no part twice); one alert after `ANNOUNCE_MAX_PASSES` |
 | Main moved under the queue | That update is held with one "queue needs a rebase" alert |
 
@@ -70,3 +70,15 @@ Telegram and GitHub APIs on 127.0.0.1:25520 and 25521). 13 cases, one PASS or FA
 ```bash
 bash ops/release/test/sandbox/run.sh
 ```
+
+Stress test on the real queue (`test/sandbox/stress72.sh`, the same container): every update of the queue released in
+order at compressed slots, each with its own content check, with a gate failure, a deploy failure after the switch,
+the stand-in APIs and the queue repo unreachable, a deploy that switched nothing, kill -9 in the gate, the check and
+after the public copy, clock skew both ways and a slow update overrunning its slot; then the end state. About 10
+minutes for 72 updates. Run from a clone outside ~/Documents:
+```bash
+git clone -q --bare <backend> /tmp/q.git
+STRESS_REPO=/tmp/q.git STRESS_BASE=<main sha> STRESS_TIP=<queue tip sha> [STRESS_NOTES=<notes dir>] \
+  [STRESS_REPORT_FILE=<report.md>] [STRESS_ARM_ONLY=1] bash ops/release/test/sandbox/run.sh
+```
+With `STRESS_REPORT_FILE` it also prints the `arm.sh --check` refusal list before and after that report.
