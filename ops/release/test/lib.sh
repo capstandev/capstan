@@ -110,6 +110,7 @@ echo "\$*" >> "$T/ghrel.log"
 EOF
   cat > "$T/fake/notify" <<EOF
 #!/bin/bash
+[ -f "$T/fail-notify" ] && { cat > /dev/null; exit 1; }
 printf '%s|%s\n' "\$1" "\$(cat)" >> "$T/notify.log"
 EOF
   cat > "$T/fake/announce" <<EOF

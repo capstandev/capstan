@@ -42,6 +42,39 @@ t_alerts_keyed_by_cause() {
   RR_NOW=5000 rr_notify cause-x 3600 "SAME CAUSE" "body"; assert_eq "$(grep -c 'SAME CAUSE' "$T/notify.log")" 2
 }
 
+# Stress 2026-11-11: an alert sent while Telegram was down was logged "notify: FAILED" and never resent.
+t_alert_while_telegram_down_is_resent_once() {
+  sandbox; : > "$T/fail-notify"; echo 1 > "$T/fail-gate-1"; pass_at "$LAUNCH"
+  assert_eq "$(st 1)" held; assert_not_contains "$(notes)" "HELD Update 1" "Telegram was down"
+  assert_contains "$(cat "$T/home/log/runner.log")" "notify: owed"
+  rm -f "$T/fail-notify"; pass_at $((LAUNCH + 60))
+  assert_eq "$(grep -c 'HELD Update 1' "$T/notify.log")" 1 "resent on the next pass"
+  assert_contains "$(notes)" "Sent late: Telegram could not be reached at"
+  pass_at $((LAUNCH + 120)); assert_eq "$(grep -c 'HELD Update 1' "$T/notify.log")" 1 "resent once, not every pass"
+  assert_eq "$(ls "$T/home/notify/owed" | wc -l | tr -d ' ')" 0 "nothing left owed"
+}
+
+t_owed_alerts_keyed_once_and_kept_while_down() {
+  sandbox; : > "$T/fail-notify"
+  RR_NOW=1000 rr_notify cause-y 3600 "CAUSE Y" "first"; RR_NOW=1100 rr_notify cause-y 3600 "CAUSE Y" "second"
+  RR_NOW=1200 rr_notify "" 0 "PLAIN" "plain body"
+  assert_eq "$(ls "$T/home/notify/owed" | wc -l | tr -d ' ')" 2 "one per key, plus the unkeyed one"
+  RR_NOW=1300 rr_notify_retry_owed; assert_eq "$(lines "$T/notify.log")" 0 "still down: nothing sent"
+  assert_eq "$(ls "$T/home/notify/owed" | wc -l | tr -d ' ')" 2 "still down: still owed"
+  rm -f "$T/fail-notify"; RR_NOW=1400 rr_notify_retry_owed
+  assert_eq "$(grep -c 'CAUSE Y' "$T/notify.log")" 1; assert_contains "$(notes)" "second"; assert_not_contains "$(notes)" "first"
+  assert_eq "$(grep -c 'PLAIN' "$T/notify.log")" 1
+  RR_NOW=1500 rr_notify cause-y 3600 "CAUSE Y" "again"; assert_eq "$(grep -c 'CAUSE Y' "$T/notify.log")" 1 "resend set the key stamp"
+  : > "$T/fail-notify"; RR_NOW=9000 rr_notify cause-z 60 "CAUSE Z" "z"; rm -f "$T/fail-notify"
+  RR_NOW=9100 rr_notify cause-z 60 "CAUSE Z" "z"; assert_no_file "$T/home/notify/owed/k-cause-z" "a later send clears the owed copy"
+}
+
+t_owed_alert_refuses_a_planted_link() {
+  sandbox; : > "$T/fail-notify"; mkdir -p "$T/home/notify"; ln -s "$T/elsewhere" "$T/home/notify/owed"
+  RR_NOW=1000 rr_notify cause-l 60 "LINKED" "body" 2>/dev/null
+  assert_no_file "$T/elsewhere/k-cause-l" "wrote through a link in the runner home"
+}
+
 t_ghrelease_exit_codes() {
   sandbox; fake_curl; printf 'GITHUB_RELEASE_ENV=%s\n' "$T/gh.env" >> "$T/release.conf"
   rc=0; "$BIN/ghrelease.sh" create update-01 "$BASE" "Update 1: x" < /dev/null > /dev/null || rc=$?; assert_eq "$rc" 3 "no token"

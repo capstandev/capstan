@@ -10,6 +10,7 @@ import { packagesLineCoverage } from "./check-coverage";
 import { findKeyIdentifiers } from "./check-key-identifiers";
 import { contractsIn, missingNotices } from "./check-natspec";
 import { findPinProblems } from "./check-pins";
+import { PUBLISH_WORKFLOW, publishWorkflowProblems } from "./check-publish-workflow";
 import { findKeyishNames } from "./check-vector-files";
 import { deploymentDrift, END, renderTable, renderWebJson, START, WEB_JSON } from "./deployments";
 import { generateDeployments } from "./gen-deployments";
@@ -147,6 +148,53 @@ describe("ci runs the web package", () => {
     expect(web).toContain("bun run test");
     expect(web).toContain("bun run check:copy");
     expect(job("ci-summary")).toMatch(/needs: \[[^\]]*\bweb\b[^\]]*\]/);
+  });
+});
+
+// r3d-05: the npm publish job gave id-token: write to every step, including bun install, tests and node smoke.mjs.
+describe("npm publish workflow (r3d-05)", () => {
+  const CO = "actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0";
+  const DL = "actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333";
+  const OLD = [
+    "on: workflow_dispatch",
+    "permissions:\n  contents: read\n  id-token: write",
+    "jobs:\n  publish:\n    runs-on: ubuntu-24.04\n    steps:",
+    `      - uses: ${CO}`,
+    "      - run: bun install --frozen-lockfile",
+    "      - run: node smoke.mjs",
+    "      - run: npm publish --provenance\n        env:\n          NODE_AUTH_TOKEN: x",
+  ].join("\n");
+  const NEW = [
+    "on: workflow_dispatch",
+    "permissions:\n  contents: read",
+    "jobs:",
+    "  build:\n    runs-on: ubuntu-24.04\n    steps:",
+    `      - uses: ${CO}`,
+    "      - run: bun install --frozen-lockfile",
+    "  publish:\n    needs: build\n    environment: npm-publish\n    permissions:\n      contents: read\n      id-token: write\n    steps:",
+    `      - uses: ${DL}`,
+    "      - run: npm publish ./*.tgz --provenance\n        env:\n          NODE_AUTH_TOKEN: x",
+  ].join("\n");
+  test("the old single-job shape fails", () => {
+    const p = publishWorkflowProblems(OLD);
+    expect(p).toContain("workflow-level permissions grant id-token: write (every job gets it)");
+    expect(p).toContain("job publish: has id-token: write but no environment (no reviewer gates the publish)");
+    expect(p.some((x) => x.includes("runs project or dependency code"))).toBe(true);
+    expect(p).toContain("job publish: checks out the repo in the id-token job");
+  });
+  test("the split, gated shape passes", () => expect(publishWorkflowProblems(NEW)).toEqual([]));
+  test("id-token in the build job, a missing environment or a job-level token each fail", () => {
+    expect(publishWorkflowProblems(NEW.replace("  build:\n    runs-on: ubuntu-24.04\n", "  build:\n    runs-on: ubuntu-24.04\n    permissions:\n      id-token: write\n"))).toContain("id-token: write must be in exactly one job, found 2 (build, publish)");
+    expect(publishWorkflowProblems(NEW.replace("    environment: npm-publish\n", ""))).toContain("job publish: has id-token: write but no environment (no reviewer gates the publish)");
+    expect(publishWorkflowProblems(NEW.replace("    needs: build\n", "    needs: build\n    env:\n      NODE_AUTH_TOKEN: x\n"))).toContain("job publish: NODE_AUTH_TOKEN is set at job level, not on the publish step");
+    expect(publishWorkflowProblems(NEW.replace(`      - uses: ${DL}`, `      - uses: ${DL}\n      - run: bun install`)).some((x) => x.includes("runs project or dependency code"))).toBe(true);
+  });
+  test("the real workflow passes and gates publish on the npm-publish environment", () => {
+    const text = readFileSync(join(REAL, PUBLISH_WORKFLOW), "utf8");
+    expect(publishWorkflowProblems(text)).toEqual([]);
+    const wf = Bun.YAML.parse(text) as { jobs: Record<string, { environment?: string; needs?: string }> };
+    expect(wf.jobs.publish?.environment).toBe("npm-publish");
+    expect(wf.jobs.publish?.needs).toBe("build");
   });
 });
 

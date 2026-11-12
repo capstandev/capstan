@@ -218,17 +218,63 @@ rr_notify() { # rr_notify key min_interval_s title body ; key "" = always send
     last=$(rr_read "$stamp" 2>/dev/null || true)
     if [ -n "$last" ] && [ $((now - last)) -lt "$every" ]; then rr_log "notify: '$title' skipped (key $key sent $((now - last)) s ago)"; return 0; fi
   fi
-  printf '%s' "$body" | rr_run NOTIFY_CMD "$title"
-  rc=$?
+  rc=0; printf '%s' "$body" | rr_run NOTIFY_CMD "$title" || rc=$? # also safe under set -e
   if [ "$rc" -eq 0 ]; then
     [ -n "$key" ] && printf '%s\n' "$now" | rr_write "$stamp"
+    [ -n "$key" ] && rr_exists "$RR_HOME/notify/owed/k-$key" && rr_rm "$RR_HOME/notify/owed/k-$key" # sent now: not owed
     rr_log "notify: sent '$title' (${#body} chars)"
   else
     rr_log "notify: FAILED '$title' (${#body} chars, rc $rc)"
+    rr_notify_owe "$key" "$now" "$title" "$body"
   fi
   return 0
 }
 rr_notify_clear() { rr_home_op "$RR_HOME/notify/$1" rm -f "$RR_HOME/notify/$1"; }
+
+# ---------- owed alerts: an alert NOTIFY_CMD could not send (Telegram down) is resent on a later pass ----------
+# Stress 2026-11-11: such alerts were logged "notify: FAILED" and lost. Now each one is kept in notify/owed/ (line 1
+# epoch, line 2 title, then the body; runner-owned files through the rr_* helpers) and rr_notify_retry_owed sends it
+# once, oldest first, on the next pass that reaches Telegram. A keyed alert is owed at most once per key (the newest
+# wins, and a later successful send of the same key clears it). At most RR_OWED_MAX are kept; the oldest go first.
+RR_OWED_MAX=50
+rr_notify_owe() { # rr_notify_owe key epoch title body
+  local key="$1" at="$2" title="$3" body="$4" dir="$RR_HOME/notify/owed" f
+  rr_mkdir "$dir" || return 0
+  if [ -n "$key" ]; then f="$dir/k-$key"; else f="$dir/a-$at-$$-$RANDOM"; fi
+  printf '%s\n%s\n%s' "$at" "$(printf '%s' "$title" | tr '\n' ' ')" "$body" | rr_write "$f" || return 0
+  rr_log "notify: owed '$title' (resent on a later pass)"
+  rr_notify_owed_list | sed -n "$((RR_OWED_MAX + 1)),\$p" | while IFS=' ' read -r _ old; do
+    rr_rm "$dir/$old"; rr_log "notify: dropped owed alert $old (more than $RR_OWED_MAX owed)"
+  done
+}
+rr_notify_owed_list() { # "epoch file" per owed alert, newest first
+  local dir="$RR_HOME/notify/owed" f at
+  [ -d "$dir" ] || return 0
+  for f in $(rr_home_op "$dir" ls "$dir" 2>/dev/null); do
+    case "$f" in k-*|a-*) ;; *) continue ;; esac
+    at=$(rr_read "$dir/$f" 2>/dev/null | sed -n 1p)
+    case "$at" in ''|*[!0-9]*) continue ;; esac
+    printf '%s %s\n' "$at" "$f"
+  done | sort -rn
+}
+rr_notify_retry_owed() { # oldest first; stops at the first failure (Telegram still down) and keeps the rest owed
+  local dir="$RR_HOME/notify/owed" at f text title body key
+  for f in $(rr_notify_owed_list | sort -n | awk '{ print $2 }'); do
+    text=$(rr_read "$dir/$f" 2>/dev/null) || continue
+    at=$(printf '%s\n' "$text" | sed -n 1p); title=$(printf '%s\n' "$text" | sed -n 2p); body=$(printf '%s\n' "$text" | sed '1,2d')
+    body="$body
+
+(Sent late: Telegram could not be reached at $(rr_epoch_to_iso "$at").)"
+    if printf '%s' "$body" | rr_run NOTIFY_CMD "$title"; then
+      rr_rm "$dir/$f"
+      case "$f" in k-*) key=${f#k-}; printf '%s\n' "$(rr_now)" | rr_write "$RR_HOME/notify/$key" ;; esac
+      rr_log "notify: resent owed '$title' (from $(rr_epoch_to_iso "$at"))"
+    else
+      rr_log "notify: owed '$title' still not sent (next pass tries again)"; return 0
+    fi
+  done
+  return 0
+}
 
 # rr_carries dir sha: 0 when HEAD in dir carries the update: sha is an ancestor and no later revert took it out (a
 # rollback reverts a fast-forwarded update, which leaves its sha an ancestor of main with its changes gone).

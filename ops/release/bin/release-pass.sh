@@ -297,6 +297,7 @@ main() {
   local launch n
   launch=$(rr_iso_to_epoch "$(rr_sched_header launch_at)") || { rr_log "pass: the schedule has no launch_at (run arm.sh)"; exit 1; }
   if [ "$(rr_now)" -lt "$launch" ]; then rr_log "pass: before launch"; exit 0; fi
+  rr_notify_retry_owed # alerts Telegram missed on an earlier pass, before any new one
   adopt_crashed || exit 0
   retry_owed_publish
   retry_owed_announce

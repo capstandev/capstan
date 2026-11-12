@@ -2,8 +2,13 @@ name: npm publish
 
 # Publishes one package (capstan-sdk or capstan-mcp) from ops/release/npm/<package>/ to npm with provenance, so the npm
 # page links this exact commit and run. Manual only (Actions, "npm publish", Run workflow, branch main) and only in the
-# PUBLIC repository. First publish: the NPM_TOKEN secret (a short granular token the owner made). Once trusted
-# publishing is set on npmjs.com, delete the secret: the same step then publishes through OIDC with no token.
+# PUBLIC repository. First publish: the NPM_TOKEN secret (a short granular token the owner made), stored on the
+# npm-publish environment. Once trusted publishing is set on npmjs.com, delete the secret: the same step then publishes
+# through OIDC with no token.
+#
+# Two jobs (r3d-05). "build" installs, tests and packs with no id-token and no secret, and uploads the tarball. "publish"
+# runs no project or dependency code: it downloads that tarball and publishes it. Only "publish" has id-token: write and
+# NODE_AUTH_TOKEN, and it waits on the npm-publish environment, which needs a reviewer to approve each run.
 on:
   workflow_dispatch:
     inputs:
@@ -15,27 +20,25 @@ on:
 
 permissions:
   contents: read
-  id-token: write # provenance, and trusted publishing (OIDC)
 
 concurrency:
   group: npm-publish
   cancel-in-progress: false
 
 jobs:
-  publish:
+  build:
     if: ${{ !github.event.repository.private && github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: "24" # trusted publishing needs Node >= 22.14
-          registry-url: "https://registry.npmjs.org"
-      - name: npm new enough for trusted publishing (>= 11.5.1)
-        run: npm install -g "npm@11.6.2" && npm --version
+          node-version: "24"
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with: { bun-version: 1.4.4 }
       - name: Install dependencies (frozen lockfile)
@@ -45,25 +48,59 @@ jobs:
       - name: SDK tests (the code the package carries)
         if: ${{ inputs.package == 'capstan-sdk' }}
         run: bun test --timeout 30000 packages/sdk packages/receipts
-      - name: Build, pack and run under Node (no network)
+      - name: Build, run under Node (no network) and pack
         working-directory: ops/release/npm/${{ inputs.package }}
         run: |
           if [ -f build.ts ]; then bun build.ts; fi
           node smoke.mjs
+          mkdir -p "$RUNNER_TEMP/pack"
+          npm pack --ignore-scripts --pack-destination "$RUNNER_TEMP/pack"
+          ls -l "$RUNNER_TEMP/pack"
+          test "$(find "$RUNNER_TEMP/pack" -name '*.tgz' | wc -l)" -eq 1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: npm-tarball
+          path: ${{ runner.temp }}/pack/*.tgz
+          if-no-files-found: error
+          retention-days: 3
+
+  publish:
+    needs: build
+    if: ${{ !github.event.repository.private && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment: npm-publish # required reviewer: the owner approves every publish
+    permissions:
+      contents: read
+      id-token: write # provenance, and trusted publishing (OIDC); this job runs no project or dependency code
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: npm-tarball
+          path: ${{ runner.temp }}/pack
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24" # trusted publishing needs Node >= 22.14
+          registry-url: "https://registry.npmjs.org"
+      - name: npm new enough for trusted publishing (>= 11.5.1)
+        run: npm install -g --ignore-scripts "npm@11.6.2" && npm --version
       - name: This version is not on npm yet
-        working-directory: ops/release/npm/${{ inputs.package }}
+        working-directory: ${{ runner.temp }}/pack
         run: |
-          name=$(node -p "require('./package.json').name"); version=$(node -p "require('./package.json').version")
+          tgz=$(ls ./*.tgz); test "$(echo "$tgz" | wc -l)" -eq 1
+          tar -xOzf "$tgz" package/package.json > pkg.json
+          name=$(node -p "require('./pkg.json').name"); version=$(node -p "require('./pkg.json').version")
+          test "$name" = "${{ inputs.package }}" || { echo "tarball is $name, expected ${{ inputs.package }}" >&2; exit 1; }
           if npm view "$name@$version" version >/dev/null 2>&1; then
             echo "$name@$version is already on npm: bump package.json (and server.json), then run this again." >&2; exit 1
           fi
       - name: Publish with provenance
-        working-directory: ops/release/npm/${{ inputs.package }}
+        working-directory: ${{ runner.temp }}/pack
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         # With the secret set, npm uses the token; with no secret and a trusted publisher configured, npm uses OIDC.
-        # The value is never echoed. --ignore-scripts: the build above already ran from this commit's source.
+        # The value is never echoed. --ignore-scripts: the build job already built the tarball from this commit.
         run: |
           if [ -n "$NODE_AUTH_TOKEN" ]; then echo "Publishing with the NPM_TOKEN secret (first publish)."
           else echo "No NPM_TOKEN secret: publishing through trusted publishing (OIDC)."; fi
-          npm publish --provenance --access public --ignore-scripts
+          npm publish ./*.tgz --provenance --access public --ignore-scripts
