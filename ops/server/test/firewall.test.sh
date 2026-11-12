@@ -12,7 +12,7 @@ extra="$(printf '%s\n' "$st" | grep 'ALLOW IN' | grep -vE '^(22|80|443)/tcp( \(v
 # every published port in the production compose file is on 127.0.0.1
 ports="$(grep -E '^\s+ports:' "$SRC/capstan-compose.yaml")"
 assert_eq "$(printf '%s\n' "$ports" | wc -l | tr -d ' ')" "2" "two services publish ports"
-printf '%s\n' "$ports" | grep -vqE '"127\.0\.0\.1:[0-9]+:[0-9]+"' && fail "a port is not bound to 127.0.0.1: $ports"
+printf '%s\n' "$ports" | grep -vqE '"127\.0\.0\.1:([0-9]+|\$\{CAPSTAN_DB_PORT:-[0-9]+\}):[0-9]+"' && fail "a port is not bound to 127.0.0.1: $ports"
 # Caddy proxies only to 127.0.0.1; env files point the apps at 127.0.0.1 databases
 grep -E 'reverse_proxy' "$SRC/Caddyfile.tmpl" | grep -vq '127.0.0.1:' && fail "Caddy proxies to a non-local address"
 grep -hE '^(DATABASE_URL|REDIS_URL)=' /etc/capstan/*/env | grep -vqE '@127\.0\.0\.1:|//127\.0\.0\.1:' && fail "an env file points at a non-local database"

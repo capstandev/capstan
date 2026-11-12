@@ -7,6 +7,11 @@
 #   /bin/bash ops/server/provision.sh <ssh-host-alias> [--egress-ip <server public IP>] [--domain get-capstan.com]
 # On the server (what the Mac step runs):
 #   sudo /bin/bash /tmp/capstan-provision/server/provision.sh --local [--egress-ip IP] [--domain D]
+# Options for a shared host (Ubuntu 26.04 Cherry box, 2026-11-12):
+#   --db-port N           publish Postgres on 127.0.0.1:N (default 5432; stored as DB_PORT in server.conf)
+#   --firewall-additive   keep the host's own ufw rules: only make sure ufw is on, deny in, 22/tcp open, and open
+#                         80/443 once a Caddy site is installed. Never removes a rule.
+# Supported systems: Debian 12 and Ubuntu 26.04.
 #
 # Stages: OS check, packages, Docker repo and engine, Bun 1.4.4 (checksum verified), Unix users (one per service),
 # folders and modes, database password (made here, never printed), env files, server.conf, compose file, systemd
@@ -22,20 +27,23 @@ BUN_VERSION="1.4.4"
 # sha256 of the official release zips (github.com/oven-sh/bun/releases/download/bun-v1.4.4/SHASUMS256.txt, read 2026-11-06)
 BUN_SHA256_X64="bf8ccbfb2b0b80159e0f9a6d15c55317add8077534dbc6130a3edb52fccb395c" # not-a-key
 BUN_SHA256_ARM64="baa6bb36f51d6e58561e02bbea825038a9df454f673d6d776e8bbf86f8c7850e" # not-a-key
-# Docker's apt signing key fingerprint (docs.docker.com/engine/install/debian)
+# Docker's apt signing key fingerprint (docs.docker.com/engine/install/debian and /ubuntu: the same key)
 DOCKER_KEY_FPR="9DC858229FC7DD38854AE2D88D81803C0EBFCD88"
 PACKAGES="ca-certificates curl gnupg unzip git jq age ufw unattended-upgrades logrotate sudo caddy util-linux rsync"
 DOCKER_PACKAGES="docker-ce docker-ce-cli containerd.io docker-compose-plugin"
 
-usage() { die "usage: provision.sh <ssh-host-alias> [--egress-ip IP] [--domain DOMAIN] | --local [--egress-ip IP] [--domain DOMAIN]"; }
+usage() { die "usage: provision.sh <ssh-host-alias> | --local [--egress-ip IP] [--domain DOMAIN] [--db-port N] [--firewall-additive]"; }
 
 [ "$#" -ge 1 ] || usage
 mode="$1"; shift
-egress=""; domain=""
+egress=""; domain=""; dbport=""; fwadd=0
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --egress-ip) egress="${2:-}"; shift 2 ;;
     --domain) domain="${2:-}"; shift 2 ;;
+    --db-port) dbport="${2:-}"; shift 2
+      printf '%s' "$dbport" | /usr/bin/grep -qE '^[0-9]{2,5}$' || die "--db-port needs a port number" ;;
+    --firewall-additive) fwadd=1; shift ;;
     *) usage ;;
   esac
 done
@@ -47,6 +55,8 @@ if [ "$mode" != "--local" ]; then
   extra=""
   [ -n "$egress" ] && extra="$extra --egress-ip $egress"
   [ -n "$domain" ] && extra="$extra --domain $domain"
+  [ -n "$dbport" ] && extra="$extra --db-port $dbport"
+  [ "$fwadd" = "1" ] && extra="$extra --firewall-additive"
   say "stage: copy ops/server to $host:/tmp/capstan-provision"
   /usr/bin/tar -C "$here/.." -cf - server | /usr/bin/ssh "$host" '/bin/rm -rf /tmp/capstan-provision && /bin/mkdir -p /tmp/capstan-provision && /bin/tar -C /tmp/capstan-provision -xf -'
   say "stage: run provision on $host (sudo asks for your password on the server)"
@@ -62,12 +72,17 @@ mark() { changed=$((changed + 1)); stage_done "$1"; }
 LOGF="/var/log/capstan-provision.log"
 quiet() { "$@" >> "$LOGF" 2>&1; }
 
-# OS
+# OS: Debian 12 or Ubuntu 26.04. The Docker repository follows the OS.
+os_id="debian"; os_code="bookworm"
 if [ "${CAPSTAN_SKIP_OS_CHECK:-0}" != "1" ]; then
   . /etc/os-release
-  [ "${ID:-}" = "debian" ] && [ "${VERSION_ID:-}" = "12" ] || die "Debian 12 expected, found ${ID:-?} ${VERSION_ID:-?}"
+  case "${ID:-}:${VERSION_ID:-}" in
+    debian:12) os_id="debian"; os_code="bookworm" ;;
+    ubuntu:26.04) os_id="ubuntu"; os_code="${VERSION_CODENAME:-}"; [ -n "$os_code" ] || die "no VERSION_CODENAME in /etc/os-release" ;;
+    *) die "Debian 12 or Ubuntu 26.04 expected, found ${ID:-?} ${VERSION_ID:-?}" ;;
+  esac
 fi
-stage_skip "os check (debian 12)"
+stage_skip "os check ($os_id $os_code)"
 
 missing_pkgs() {
   out=""
@@ -90,11 +105,11 @@ fi
 # Docker engine from Docker's own repository, key checked by fingerprint
 arch="$(/usr/bin/dpkg --print-architecture)"
 src="/etc/apt/sources.list.d/docker.list"
-want_src="deb [arch=$arch signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian bookworm stable"
+want_src="deb [arch=$arch signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/$os_id $os_code stable"
 if [ -f /etc/apt/keyrings/docker.asc ] && [ "$(/bin/cat "$src" 2>/dev/null)" = "$want_src" ]; then stage_skip "docker repo"; else
   /bin/mkdir -p /etc/apt/keyrings
   tmpk="$(/bin/mktemp)"
-  /usr/bin/curl -fsSL https://download.docker.com/linux/debian/gpg -o "$tmpk"
+  /usr/bin/curl -fsSL "https://download.docker.com/linux/$os_id/gpg" -o "$tmpk"
   fpr="$(/usr/bin/gpg --show-keys --with-colons "$tmpk" 2>/dev/null | /usr/bin/awk -F: '$1 == "fpr" { print $10; exit }')"
   [ "$fpr" = "$DOCKER_KEY_FPR" ] || { /bin/rm -f "$tmpk"; die "docker key fingerprint mismatch: $fpr"; }
   /bin/mv "$tmpk" /etc/apt/keyrings/docker.asc
@@ -192,6 +207,16 @@ if [ -n "$egress" ]; then
     mark "relay egress ip"
   fi
 fi
+if [ -n "$dbport" ]; then
+  if [ "$(conf_get DB_PORT)" = "$dbport" ]; then stage_skip "database port"; else conf_set DB_PORT "$dbport" "$CAPSTAN_SERVER_CONF"; mark "database port"; fi
+fi
+# compose reads CAPSTAN_DB_PORT from capstan-db.service's EnvironmentFile (/etc/capstan/db/env)
+pgport="$(conf_get DB_PORT)"; [ -n "$pgport" ] || pgport=5432
+if [ "$pgport" = "5432" ] || [ "$(conf_get CAPSTAN_DB_PORT "$CAPSTAN_ETC/db/env")" = "$pgport" ]; then :; else
+  [ -f "$CAPSTAN_ETC/db/env" ] || { (umask 077 && : > "$CAPSTAN_ETC/db/env"); }
+  conf_set CAPSTAN_DB_PORT "$pgport" "$CAPSTAN_ETC/db/env"
+  mark "database port in db/env"
+fi
 if [ -n "$domain" ]; then
   if [ "$(conf_get DOMAIN)" = "$domain" ]; then stage_skip "domain"; else conf_set DOMAIN "$domain" "$CAPSTAN_SERVER_CONF"; mark "domain"; fi
 fi
@@ -205,7 +230,7 @@ eip="$(conf_get RELAY_EGRESS_IP)"
 for s in $CAPSTAN_SERVICES; do
   f="$CAPSTAN_ETC/$s/env"
   if [ -f "$f" ]; then continue; fi
-  (umask 027 && /bin/sed -e "s|@DB_PASSWORD@|$dbpw|" -e "s|@API_HOST@|$apihost|" -e "s|@RELAY_EGRESS_IP@|$eip|" -e "s|@SVC@|$s|g" "$here/etc/$s.env" > "$f")
+  (umask 027 && /bin/sed -e "s|@DB_PASSWORD@|$dbpw|" -e "s|@API_HOST@|$apihost|" -e "s|@RELAY_EGRESS_IP@|$eip|" -e "s|@SVC@|$s|g" -e "s|@127.0.0.1:5432/|@127.0.0.1:$pgport/|" "$here/etc/$s.env" > "$f")
   /bin/chmod 640 "$f"; /bin/chown "root:capstan-$s" "$f"
   n=$((n + 1))
 done
@@ -281,7 +306,11 @@ if [ "$n" -eq 0 ]; then stage_skip "log retention"; else mark "log retention"; f
 # unattended upgrades
 tmpu="$(/bin/mktemp)"
 printf '%s\n' 'APT::Periodic::Update-Package-Lists "1";' 'APT::Periodic::Unattended-Upgrade "1";' > "$tmpu"
-if same_content "$tmpu" /etc/apt/apt.conf.d/20auto-upgrades; then stage_skip "unattended upgrades"; else
+if same_content "$tmpu" /etc/apt/apt.conf.d/20auto-upgrades; then stage_skip "unattended upgrades"
+elif [ -f /etc/apt/apt.conf.d/20auto-upgrades ] && /bin/grep -q '^APT::Periodic::Update-Package-Lists "1";' /etc/apt/apt.conf.d/20auto-upgrades \
+  && /bin/grep -q '^APT::Periodic::Unattended-Upgrade "1";' /etc/apt/apt.conf.d/20auto-upgrades; then
+  stage_skip "unattended upgrades (host file already sets both)"
+else
   /usr/bin/install -m 0644 "$tmpu" /etc/apt/apt.conf.d/20auto-upgrades; mark "unattended upgrades"
 fi
 /bin/rm -f "$tmpu"
@@ -313,7 +342,24 @@ fw_ok() {
   extra="$(printf '%s\n' "$st" | /bin/grep -E "ALLOW IN" | /bin/grep -vE "^(22|80|443)/tcp( \(v6\))? +ALLOW IN" || true)"
   [ -z "$extra" ]
 }
-if fw_ok; then stage_skip "firewall (22, 80, 443)"; else
+# --firewall-additive (shared host): never remove or object to the host's own rules
+fw_add_ok() {
+  st="$(/usr/sbin/ufw status verbose 2>/dev/null || true)"
+  printf '%s\n' "$st" | /bin/grep -q "^Status: active" || return 1
+  printf '%s\n' "$st" | /bin/grep -q "Default: deny (incoming)" || return 1
+  for p in $1; do printf '%s\n' "$st" | /bin/grep -qE "^$p(/tcp)? +ALLOW IN +Anywhere" || return 1; done
+}
+if [ "$fwadd" = "1" ]; then
+  fwports="22"; [ -n "$(conf_get DOMAIN)" ] && [ -n "$(conf_get ACME_EMAIL)" ] && fwports="22 80 443"
+  if fw_add_ok "$fwports"; then stage_skip "firewall (additive: $fwports)"; else
+    for p in $fwports; do quiet /usr/sbin/ufw allow "$p/tcp"; done
+    quiet /usr/sbin/ufw default deny incoming
+    quiet /usr/sbin/ufw default allow outgoing
+    quiet /usr/sbin/ufw --force enable
+    fw_add_ok "$fwports" || die "firewall is not in the expected state (see /usr/sbin/ufw status verbose)"
+    mark "firewall (additive: $fwports)"
+  fi
+elif fw_ok; then stage_skip "firewall (22, 80, 443)"; else
   quiet /usr/sbin/ufw default deny incoming
   quiet /usr/sbin/ufw default allow outgoing
   for p in 22 80 443; do quiet /usr/sbin/ufw allow "$p/tcp"; done
