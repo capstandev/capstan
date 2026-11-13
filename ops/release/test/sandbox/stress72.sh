@@ -13,6 +13,7 @@ set -u
 SRC=/src/release; Q=/src/queue; SB=/srv/sandbox; RH=/var/lib/capstan-release; CONF=/etc/capstan-release/release.conf
 TG_PORT=25530; GH_PORT=25531
 TG_TOKEN="123456789:SandboxStandinTokenNotRealCCCCCCCC"; GH_TOKEN="sandbox-standin-not-a-real-token"
+PUB_EMAIL=1+capstandev@users.noreply.github.com; WORD=zebracorn   # stands in for the owner's forbidden words
 U=capstan-release; NOW=0; QBASE="${STRESS_BASE:?STRESS_BASE}"; QTIP="${STRESS_TIP:?STRESS_TIP}"
 export GIT_CONFIG_NOSYSTEM=1
 failed=0; cases=0
@@ -71,6 +72,12 @@ for r in private queue public; do $G init -q --bare -b main "$SB/repos/$r.git"; 
 pgit fetch -q "$Q" "refs/heads/main:refs/heads/main" 2>/dev/null || pgit fetch -q "$Q" "+$QBASE:refs/heads/main"
 [ "$(pgit rev-parse main)" = "$QBASE" ] || pgit update-ref refs/heads/main "$QBASE"
 $G --git-dir="$SB/repos/queue.git" fetch -q "$Q" "+refs/heads/*:refs/remotes/src/*"
+# the public copy, bootstrapped as publish-public.sh does (one signed empty commit by capstandev, a throwaway key)
+mkdir -p "$SB/keys"; ssh-keygen -q -t ed25519 -N '' -C sandbox-public-sync -f "$SB/keys/sign"
+PUB_BASE=$(GIT_AUTHOR_NAME=capstandev GIT_AUTHOR_EMAIL=$PUB_EMAIL GIT_COMMITTER_NAME=capstandev GIT_COMMITTER_EMAIL=$PUB_EMAIL \
+  $G --git-dir="$SB/repos/public.git" -c gpg.format=ssh -c user.signingkey="$SB/keys/sign" commit-tree -S "$($G --git-dir="$SB/repos/public.git" hash-object -t tree /dev/null)" -m "chore: start the public repository")
+$G --git-dir="$SB/repos/public.git" update-ref refs/heads/main "$PUB_BASE"
+printf '%s %s\n' "$PUB_EMAIL" "$(cat "$SB/keys/sign.pub")" > "$SB/keys/allowed"
 qref=$($G --git-dir="$SB/repos/queue.git" for-each-ref --format='%(refname)' --contains "$QTIP" refs/remotes/src | head -n 1)
 $G --git-dir="$SB/repos/queue.git" update-ref refs/heads/tu-queue "$QTIP"
 COUNT=$($G --git-dir="$SB/repos/queue.git" rev-list --count "$QBASE..$QTIP")
@@ -102,18 +109,11 @@ if [ -f "$SB/inject/gate-crash-\$1" ]; then rm -f "$SB/inject/gate-crash-\$1"; k
 [ "\$(git rev-parse HEAD^{tree})" = "\$(git rev-parse "\$q^{tree}")" ] || { echo "gated tree is not the queue tree of update \$1"; exit 1; }
 exit 0
 EOF
+# public sync: the REAL bin/public-sync.sh as installed; this wrapper only adds the kill -9 injection after the copy
 cat > "$SB/bin/public-sync" <<EOF
 #!/bin/bash
-set -u
-n="\$2"; sha="\$4"; w="$SB/public-work"
-g() { git -c user.name="Capstan" -c user.email=release@example.invalid -c commit.gpgsign=false "\$@"; }
-[ -d "\$w/.git" ] || g clone -q "$SB/repos/public.git" "\$w" 2>/dev/null
-g -C "\$w" fetch -q origin 2>/dev/null; g -C "\$w" checkout -q -B main origin/main 2>/dev/null || g -C "\$w" checkout -q --orphan main
-g -C "\$w" log --format=%s 2>/dev/null | grep -qx "Update \$n" && exit 0
-find "\$w" -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
-git --git-dir="$SB/repos/private.git" archive "\$sha" | tar -x -C "\$w"
-g -C "\$w" add -A && g -C "\$w" commit -q --allow-empty -m "Update \$n" && g -C "\$w" push -q origin HEAD:main || exit 1
-if [ -f "$SB/inject/publish-crash-\$n" ]; then rm -f "$SB/inject/publish-crash-\$n"; kill -9 "\$(cat $RH/run.lock/pid)"; sleep 5; fi
+/opt/capstan-release/bin/public-sync.sh "\$@" || exit \$?
+if [ -f "$SB/inject/publish-crash-\$2" ]; then rm -f "$SB/inject/publish-crash-\$2"; kill -9 "\$(cat $RH/run.lock/pid)"; sleep 5; fi
 exit 0
 EOF
 printf '#!/bin/bash\nexit 0\n' > "$SB/bin/public-ci"
@@ -132,6 +132,9 @@ SIGN_CHERRY_PICKS=0
 ALLOW_LOCAL_REMOTES=1
 GATE_CMD=$SB/bin/gate
 PUBLIC_SYNC_CMD=$SB/bin/public-sync
+PUBLIC_REMOTE_URL=$SB/repos/public.git
+PUBLIC_PUSH_KEY=
+PUBLIC_KNOWN_HOSTS=
 PUBLIC_CI_CHECK_CMD=$SB/bin/public-ci
 TELEGRAM_API=http://127.0.0.1:$TG_PORT
 GITHUB_API=http://127.0.0.1:$GH_PORT
@@ -142,6 +145,15 @@ ANNOUNCE_MAX_TIME_S=10
 EOF
 (umask 077; printf 'TELEGRAM_BOT_TOKEN=%s\nTELEGRAM_CHAT_ID=-1001234567890\n' "$TG_TOKEN" > /etc/capstan-release/telegram.env
  printf 'GITHUB_RELEASE_TOKEN=%s\nGITHUB_RELEASE_REPO=capstan-sandbox/public\n' "$GH_TOKEN" > /etc/capstan-release/github-release.env)
+python3 - "$QBASE" "$PUB_BASE" "$PUB_EMAIL" "$WORD" > /etc/capstan-release/public/state.json <<'PY2'
+import json, sys
+priv, pub, email, word = sys.argv[1:5]
+print(json.dumps({"privateSha": priv, "publicSha": pub, "name": "capstandev", "email": email, "signingKey": "/unused.pub",
+                  "publicRemote": "public", "branch": "main", "projectName": "Capstan", "scrub": {}, "forbidden": word,
+                  "publicUrl": "/unused"}, indent=1))
+PY2
+install -o root -g "$U" -m 0640 "$SB/keys/sign" /etc/capstan-release/public/id_ed25519_sign
+chown root:"$U" /etc/capstan-release/public/state.json; chmod 0640 /etc/capstan-release/public/state.json
 chown -R "$U:" "$SB/repos"; chown "$U:" "$SB"; chmod 0777 "$SB/inject"
 asr git config --global user.name "Capstan Release"; asr git config --global user.email release@example.invalid
 asr git clone -q "$SB/repos/private.git" "$RH/backend"
@@ -254,7 +266,7 @@ while [ "$n" -le "$COUNT" ]; do
     release_at "$n" $((s + 60)) nopre
     want "log_has 'update $n: adopting a crashed release'" "crash of $n not adopted"
     if [ "$n" = 33 ]; then
-      want '[ "$(git --git-dir="$SB/repos/public.git" log --format=%s main | grep -c "^Update 3[01]$")" -eq 2 ]' "public copy of 30 or 31 not exactly once"
+      want '[ "$(git --git-dir="$SB/repos/public.git" rev-list --count --first-parent "$PUB_BASE..main")" -eq "$(pgit rev-list --count --first-parent "$QBASE..main")" ]' "public copy of 30 or 31 not exactly once"
       endcase crash-mid-pass "killed -9 in the check (30), after the public copy (31), in the gate (33): each adopted from the journal next pass, released once, public copy once"
     fi ;;
   40) # clock skew: back two hours after 40, then forward five slots: no repeat, no burst, gap kept
@@ -290,18 +302,20 @@ endcase all-in-order "$COUNT updates released in order at their slots; productio
 
 # ---------- end state ----------
 pass_at $(( $(slot "$COUNT") + 600 ))   # one more pass: anything owed is retried
-pub=$(git --git-dir="$SB/repos/public.git" log --reverse --format='%s|%an' main)
-exp=$(for i in $(seq "$COUNT"); do echo "Update $i|Capstan"; done)
+pub=$(git --git-dir="$SB/repos/public.git" log --reverse --first-parent --format='%s|%an' "$PUB_BASE..main")
+exp=$(pgit log --reverse --first-parent --format='%s|capstandev' "$QBASE..main")
+unsigned=$(git --git-dir="$SB/repos/public.git" -c gpg.ssh.allowedSignersFile="$SB/keys/allowed" log --format='%G?' main | grep -vc '^G$')
 want '[ "$(pgit rev-parse main)" = "$(prod_sha)" ]' "production $(prod_sha | head -c 7) is not private main $(pgit rev-parse main | head -c 7)"
 want '[ "$(pgit rev-parse main^{tree})" = "$(qtree "$QTIP")" ]' "private main tree is not the queue tip tree"
-want '[ "$pub" = "$exp" ]' "public history is not Update 1..$COUNT once each by one author"
+want '[ -n "$exp" ] && [ "$pub" = "$exp" ]' "public history is not the private first-parent history once each by one author"
+want '[ "$unsigned" -eq 0 ]' "$unsigned public commits not signed by the capstandev key"
 want '[ "$(git --git-dir="$SB/repos/public.git" rev-parse main^{tree})" = "$(qtree "$QTIP")" ]' "public tree is not the queue tip tree"
 live=$(calls live | sort -n | uniq -c | awk '$1!=1' | head -n 3)
 want '[ "$(calls live | sort -n | uniq | wc -l)" -eq "$COUNT" ] && [ -z "$live" ]' "team posts not once each: $(calls live | sort -n | uniq | wc -l) distinct, repeats: $live"
 tags=$(calls released_tags | sort | uniq | wc -l)
 want '[ "$tags" -eq "$COUNT" ]' "$tags of $COUNT GitHub Releases made"
 want '[ "$(awk -F "\t" "\$2==\"released\"" "$RH/state.tsv" | wc -l)" -eq "$COUNT" ] && [ ! -e "$RH/PAUSE" ]' "not every update released, or paused"
-endcase end-state "production = private main tip, tree = queue tip ${QTIP:0:7}; public history Update 1..$COUNT once each, one author; $COUNT team posts once each; $tags Releases"
+endcase end-state "production = private main tip, tree = queue tip ${QTIP:0:7}; public history = private first-parent history once each (real public sync), signed, one author; $COUNT team posts once each; $tags Releases"
 
 standin_down
 echo "stress: $((cases - failed)) of $cases cases PASS"

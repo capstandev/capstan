@@ -7,6 +7,9 @@ t_installs_unarmed_and_idempotent() {
   mkdir -p "$T/root/etc/capstan-release"; : > "$T/root/etc/capstan-release/ALLOW_REAL_DEPLOY"
   DESTDIR="$T/root" /bin/bash "$T_ROOT/install.sh" > /dev/null
   assert_file "$T/root/opt/capstan-release/bin/release-pass.sh"; assert_file "$T/root/etc/systemd/system/capstan-release.timer"
+  assert_file "$T/root/opt/capstan-release/bin/public-sync.sh"; assert_file "$T/root/opt/capstan-release/lib/sync-public.py"
+  assert_contains "$(cat "$T/root/install-actions.log")" "chown root:capstan-release /etc/capstan-release/public"
+  assert_contains "$(cat "$T/root/etc/capstan-release/release.conf")" "PUBLIC_SYNC_CMD=/opt/capstan-release/bin/public-sync.sh"
   assert_no_file "$T/root/etc/capstan-release/ALLOW_REAL_DEPLOY"
   assert_contains "$(cat "$T/root/install-actions.log")" "systemctl disable capstan-release.timer"
   assert_not_contains "$(cat "$T/root/install-actions.log")" "enable" "never enables the timer"

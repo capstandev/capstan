@@ -12,7 +12,7 @@ here="$(cd "$(dirname "$0")" && pwd -P)"
 rel="$(cd "$here/../.." && pwd -P)"
 DOCKER="${DOCKER:-$(command -v docker || echo /opt/homebrew/bin/docker)}"
 BASE="debian:12@sha256:268fb24c39bca92d326dd83ea3abebe4a3f7751c804ffef23bb6d857dd343ff8" # not-a-key
-TOOLS="systemd systemd-sysv sudo git curl python3 procps ca-certificates"
+TOOLS="systemd systemd-sysv sudo git curl python3 procps ca-certificates openssh-client"
 IMAGE="capstan-sandbox:base-$(printf '%s %s' "$BASE" "$TOOLS" | shasum -a 256 | cut -c1-12)"
 NAME="capstan-sandbox-$$"
 LABEL="com.docker.compose.project=capstan-sandbox"
@@ -40,7 +40,7 @@ if [ -n "${STRESS_REPO:-}" ]; then
   envs=(-e "STRESS_BASE=${STRESS_BASE:?}" -e "STRESS_TIP=${STRESS_TIP:?}" -e "STRESS_ARM_ONLY=${STRESS_ARM_ONLY:-0}")
 fi
 "$DOCKER" run -d --name "$NAME" --label "$LABEL" --privileged --cgroupns=host -v /sys/fs/cgroup:/sys/fs/cgroup:rw \
-  --tmpfs /run --tmpfs /run/lock -v "$rel:/src/release:ro" ${extra[@]+"${extra[@]}"} "$IMAGE" /lib/systemd/systemd >/dev/null \
+  --tmpfs /run --tmpfs /run/lock -v "$rel:/src/release:ro" -v "$rel/../public:/src/public:ro" ${extra[@]+"${extra[@]}"} "$IMAGE" /lib/systemd/systemd >/dev/null \
   || { echo "sandbox: cannot start the container"; exit 1; }
 for _ in $(seq 60); do
   s=$("$DOCKER" exec "$NAME" systemctl is-system-running 2>/dev/null || true)

@@ -35,6 +35,23 @@ ROLLBACK_CMD=sudo -n /usr/local/sbin/capstan-deploy
 # Content checks per update (each one FAILS on production before the release and passes after).
 CHECK_CMD=/opt/capstan-release/bin/check-update.sh
 PUBLISH_CMD=/opt/capstan-release/bin/publish-public.sh
+# Public copy of each update (bin/public-sync.sh, run by publish-public.sh as the runner): sync-public.py with the
+# state template below, signed and pushed as capstandev. Prints the public sha (the GitHub Release targets it).
+# The words and keys are set up once by the operator (README "Public copy: one-time server setup"); never in this file.
+PUBLIC_SYNC_CMD=/opt/capstan-release/bin/public-sync.sh
+# Root-owned template (root:capstan-release 0640): name, email, scrub rules, forbidden words, privateSha/publicSha.
+PUBLIC_STATE=/etc/capstan-release/public/state.json
+# capstandev SSH signing key (private key file, root:capstan-release 0640; its .pub is a signing key on capstandev).
+PUBLIC_SIGNING_KEY=/etc/capstan-release/public/id_ed25519_sign
+# Push key (write deploy key on capstandev/capstan) and pinned github.com host keys. Empty PUBLIC_PUSH_KEY: the
+# runner's own ~/.ssh/config alias in PUBLIC_REMOTE_URL is used instead.
+PUBLIC_PUSH_KEY=/etc/capstan-release/public/id_ed25519_push
+PUBLIC_KNOWN_HOSTS=/etc/capstan-release/public/known_hosts
+PUBLIC_REMOTE_URL=git@github.com:capstandev/capstan.git
+# Optional, owner-only: {"<private sha>": "<public message>"} for a message that cannot go out as it is.
+PUBLIC_MESSAGE_OVERRIDES=/etc/capstan-release/public/message-overrides.json
+# Runner-owned work dir (0700): the copy repo, the live state and its map. Default $RR_HOME/public.
+# PUBLIC_SYNC_HOME=/var/lib/capstan-release/public
 GHREL_CMD=sudo -n /usr/local/sbin/capstan-release-ghrelease
 NOTIFY_CMD=sudo -n /usr/local/sbin/capstan-release-notify
 # Team post per release: poster $RR_HOME/posters/<tag>.png plus notes $RR_HOME/notes/<tag>.txt (both staged by the

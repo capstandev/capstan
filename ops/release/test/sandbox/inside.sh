@@ -10,6 +10,7 @@ SRC=/src/release; SB=/srv/sandbox; RH=/var/lib/capstan-release; CONF=/etc/capsta
 TG_PORT=25520; GH_PORT=25521
 TG_TOKEN="123456789:SandboxStandinTokenNotRealCCCCCCCC"; GH_TOKEN="sandbox-standin-not-a-real-token"
 U=capstan-release; NOW=0
+PUB_EMAIL=1+capstandev@users.noreply.github.com; WORD=zebracorn   # WORD stands in for the owner's forbidden words
 export GIT_CONFIG_NOSYSTEM=1
 failed=0
 
@@ -62,6 +63,13 @@ setup_world() {
   echo base > "$SB/seed/base.txt"; $g -C "$SB/seed" add -A; $g -C "$SB/seed" commit -q -m "chore: base"
   $g -C "$SB/seed" push -q "$SB/repos/private.git" main
   BASE=$($g -C "$SB/seed" rev-parse HEAD)
+  # the public copy, bootstrapped as publish-public.sh does: one signed empty commit by the public user, signed with
+  # a throwaway key (the real bin/public-sync.sh copies every later update onto it)
+  mkdir -p "$SB/keys"; ssh-keygen -q -t ed25519 -N '' -C sandbox-public-sync -f "$SB/keys/sign"
+  PUB_BASE=$(GIT_AUTHOR_NAME=capstandev GIT_AUTHOR_EMAIL=$PUB_EMAIL GIT_COMMITTER_NAME=capstandev GIT_COMMITTER_EMAIL=$PUB_EMAIL \
+    $g -C "$SB/seed" -c gpg.format=ssh -c user.signingkey="$SB/keys/sign" commit-tree -S "$($g -C "$SB/seed" hash-object -t tree /dev/null)" -m "chore: start the public repository")
+  $g -C "$SB/seed" push -q "$SB/repos/public.git" "$PUB_BASE:refs/heads/main"
+  printf '%s %s\n' "$PUB_EMAIL" "$(cat "$SB/keys/sign.pub")" > "$SB/keys/allowed"
   $g -C "$SB/seed" checkout -q -b tu-queue
   for i in 1 2 3 4 5 6; do
     echo "update $i" > "$SB/seed/u$i.txt"; $g -C "$SB/seed" add -A; $g -C "$SB/seed" commit -q -m "feat(api): sandbox update $i"
@@ -90,19 +98,11 @@ EOF
 [ "\$(cat "u\$1.txt" 2>/dev/null)" = "update \$1" ] || { echo "u\$1.txt missing from the gated tree"; exit 1; }
 exit 0
 EOF
-  # stand-in public sync: copies the released tree to public.git as one commit "Update N"; a no-op when done
+  # public sync: the REAL bin/public-sync.sh as installed; this wrapper only adds the kill -9 injection after the copy
   cat > "$SB/bin/public-sync" <<EOF
 #!/bin/bash
-set -u
-n="\$2"; sha="\$4"; w="$SB/public-work"
-g() { git -c user.name="Capstan" -c user.email=release@example.invalid -c commit.gpgsign=false "\$@"; }
-[ -d "\$w/.git" ] || g clone -q "$SB/repos/public.git" "\$w" 2>/dev/null
-g -C "\$w" fetch -q origin 2>/dev/null; g -C "\$w" checkout -q -B main origin/main 2>/dev/null || g -C "\$w" checkout -q --orphan main
-g -C "\$w" log --format=%s 2>/dev/null | grep -qx "Update \$n" && exit 0
-find "\$w" -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
-git --git-dir="$SB/repos/private.git" archive "\$sha" | tar -x -C "\$w"
-g -C "\$w" add -A && g -C "\$w" commit -q -m "Update \$n" && g -C "\$w" push -q origin HEAD:main || exit 1
-if [ -f "$SB/inject/publish-crash-\$n" ]; then rm -f "$SB/inject/publish-crash-\$n"; kill -9 "\$(cat $RH/run.lock/pid)"; sleep 5; fi
+/opt/capstan-release/bin/public-sync.sh "\$@" || exit \$?
+if [ -f "$SB/inject/publish-crash-\$2" ]; then rm -f "$SB/inject/publish-crash-\$2"; kill -9 "\$(cat $RH/run.lock/pid)"; sleep 5; fi
 exit 0
 EOF
   cat > "$SB/bin/public-ci" <<EOF
@@ -129,6 +129,9 @@ SIGN_CHERRY_PICKS=0
 ALLOW_LOCAL_REMOTES=1
 GATE_CMD=$SB/bin/gate
 PUBLIC_SYNC_CMD=$SB/bin/public-sync
+PUBLIC_REMOTE_URL=$SB/repos/public.git
+PUBLIC_PUSH_KEY=
+PUBLIC_KNOWN_HOSTS=
 PUBLIC_CI_CHECK_CMD=$SB/bin/public-ci
 TELEGRAM_API=http://127.0.0.1:$TG_PORT
 GITHUB_API=http://127.0.0.1:$GH_PORT
@@ -139,6 +142,16 @@ ANNOUNCE_MAX_TIME_S=10
 EOF
   (umask 077; printf 'TELEGRAM_BOT_TOKEN=%s\nTELEGRAM_CHAT_ID=-1001234567890\n' "$TG_TOKEN" > /etc/capstan-release/telegram.env
    printf 'GITHUB_RELEASE_TOKEN=%s\nGITHUB_RELEASE_REPO=capstan-sandbox/public\n' "$GH_TOKEN" > /etc/capstan-release/github-release.env)
+  # one-time public sync setup (README "Public copy: one-time server setup"): template + signing key, root:runner 0640
+  python3 - "$BASE" "$PUB_BASE" "$PUB_EMAIL" "$WORD" > /etc/capstan-release/public/state.json <<'PY2'
+import json, sys
+priv, pub, email, word = sys.argv[1:5]
+print(json.dumps({"privateSha": priv, "publicSha": pub, "name": "capstandev", "email": email, "signingKey": "/unused.pub",
+                  "publicRemote": "public", "branch": "main", "projectName": "Capstan", "scrub": {}, "forbidden": word,
+                  "publicUrl": "/unused"}, indent=1))
+PY2
+  install -o root -g "$U" -m 0640 "$SB/keys/sign" /etc/capstan-release/public/id_ed25519_sign
+  chown root:"$U" /etc/capstan-release/public/state.json; chmod 0640 /etc/capstan-release/public/state.json
   # the queue repo belongs to the runner on the server too (git refuses a local repo another user owns)
   chown -R "$U:" "$SB/repos/private.git" "$SB/repos/public.git" "$SB/repos/queue.git"
   mkdir -p "$SB/public-work"; chown "$U:" "$SB/public-work"; rmdir "$SB/public-work"
@@ -307,7 +320,7 @@ want '[ "$(st 6)" = in_progress ]' "crash at publishing left no in_progress stat
 pass_at $((L + 5 * H + 60))
 want 'log_has "update 6: adopting a crashed release (last stage: publishing, crash 1 of"' "crash at publishing not adopted"
 want '[ "$(st 6)" = released ] && prod_has 6' "update 6 not released after adoption"
-want '[ "$(git --git-dir="$SB/repos/public.git" log --format=%s main | grep -c "^Update 6$")" -eq 1 ]' "public copy of 6 made twice"
+want '[ "$(git --git-dir="$SB/repos/public.git" log --format=%s main | grep -c "^feat(api): sandbox update 6$")" -eq 1 ]' "public copy of 6 made twice"
 endcase crash-adoption "killed -9 in the check (5): next pass took the stale lock, redid it from the start; killed after the public copy (6): next pass finished it, public copy once"
 
 # 11. the announcer posted the poster, once per update, in order; Releases with the poster attached
@@ -324,10 +337,35 @@ endcase announcer-poster "6 sendPhoto posts, in order, each with its own poster 
 # 12. end state: production snapshot, public copy, private main
 want '[ "$(main_sha)" = "$(prod_sha)" ]' "production is not private main"
 for i in 1 2 3 4 5 6; do want "prod_has $i" "u$i not in production"; done
-pub=$(git --git-dir="$SB/repos/public.git" log --reverse --format='%s|%an' main | tr '\n' ' ')
-want '[ "$pub" = "Update 1|Capstan Update 2|Capstan Update 3|Capstan Update 4|Capstan Update 5|Capstan Update 6|Capstan " ]' "public history: $pub"
+# the real public sync copies every first-parent private commit (reverts and re-applies too) exactly once, as capstandev
+pub=$(git --git-dir="$SB/repos/public.git" log --reverse --first-parent --format='%s|%an' "$PUB_BASE..main" | tr '\n' ' ')
+priv=$(git --git-dir="$SB/repos/private.git" log --reverse --first-parent --format='%s|capstandev' "$BASE..main" | tr '\n' ' ')
+want '[ -n "$priv" ] && [ "$pub" = "$priv" ]' "public history: $pub; private: $priv"
+want '[ "$(git --git-dir="$SB/repos/public.git" rev-parse main^{tree})" = "$(git --git-dir="$SB/repos/private.git" rev-parse main^{tree})" ]' "public tree is not private main's tree"
 want '[ -z "$(find "$RH" -user root -newer "$SB/install.out" | head -n 3)" ]' "root-owned runner files (root wrappers write RR_HOME only as the runner): $(find "$RH" -user root -newer "$SB/install.out" | head -n 3 | tr '\n' ' ')"
-endcase end-state "production = private main, all 6 live; public history 1..6 once each, one author; no root-owned runner state"
+endcase end-state "production = private main, all 6 live; public history = private first-parent history once each (real public sync), one author, same tree; no root-owned runner state"
+
+# 12a. the real public sync: signed, Releases target public commits, runner-only state, refusals push nothing
+bad=$(git --git-dir="$SB/repos/public.git" -c gpg.ssh.allowedSignersFile="$SB/keys/allowed" log --format='%G?' main | grep -vc '^G$')
+want '[ "$bad" -eq 0 ]' "$bad public commits not signed by the capstandev key"
+for t in $(calls released_tags | cut -d' ' -f2); do
+  want "git --git-dir=$SB/repos/public.git merge-base --is-ancestor $t main 2>/dev/null" "a Release targets $t, not a public commit"
+done
+want '[ "$(stat -c %a "$RH/public")" = 700 ] && [ "$(stat -c %U "$RH/public/state.json")" = "$U" ]' "public sync work dir not runner-only"
+want '! sudo -u nobody cat /etc/capstan-release/public/state.json >/dev/null 2>&1' "the template is readable by others"
+want 'asr /opt/capstan-release/bin/public-sync.sh --check >/dev/null 2>&1' "check mode as the runner failed"
+rc=0; asroot /opt/capstan-release/bin/public-sync.sh --check >/dev/null 2>&1 || rc=$?
+want '[ "$rc" -eq 2 ]' "public-sync ran as root (rc $rc)"
+tip=$(git --git-dir="$SB/repos/public.git" rev-parse main)
+asr git -C "$RH/backend" checkout -q main; echo "by $WORD" | asr tee "$RH/backend/leak.txt" >/dev/null
+asr git -C "$RH/backend" add leak.txt; asr git -C "$RH/backend" -c commit.gpgsign=false commit -q -m "chore: leak"
+leak=$(asr git -C "$RH/backend" rev-parse HEAD)
+rc=0; out=$(asr /opt/capstan-release/bin/public-sync.sh --update 7 --private-sha "$leak" 2>"$SB/leak.err") || rc=$?
+want '[ "$rc" -eq 1 ] && [ -z "$out" ]' "a forbidden word did not refuse (rc $rc)"
+want '[ "$(git --git-dir="$SB/repos/public.git" rev-parse main)" = "$tip" ]' "a forbidden word was pushed"
+want '! grep -q "$WORD" "$SB/leak.err"' "the refusal printed the word"
+asr git -C "$RH/backend" reset -q --hard HEAD~1
+endcase public-sync-real "every public commit signed by capstandev; Releases target public commits; state runner-only, template not world-readable; --check ok as the runner, refused as root; a forbidden word refused, nothing pushed, word not printed"
 
 # 12b. r3d-01, r3d-03: links the runner plants in its home never steer the root wrappers; preflight never runs as root
 V=/etc/r3d-victim; rm -f "$V".*
@@ -362,5 +400,5 @@ want 'tail -n 1 "$RH/log/runner.log" | grep -q "pass: not armed"' "a pass ran ar
 endcase timer-disarm "the enabled timer ran a pass on its own; after disarm.sh a pass does nothing"
 
 kill "$STANDIN_PID" 2>/dev/null
-echo "sandbox: $((14 - failed)) of 14 cases PASS"
+echo "sandbox: $((15 - failed)) of 15 cases PASS"
 [ "$failed" -eq 0 ]

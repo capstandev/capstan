@@ -13,10 +13,18 @@ mkdir -p "$D/opt/capstan-release" "$D/etc/capstan-release" "$D/var/lib/capstan-r
 rm -rf "$D/opt/capstan-release/bin" "$D/opt/capstan-release/lib"
 cp -R "$src/bin" "$src/lib" "$D/opt/capstan-release/"
 chmod 0755 "$D/opt/capstan-release/bin/"*.sh
+# The public copy tool (PUBLIC_SYNC_CMD = bin/public-sync.sh runs it): a root-owned copy, so an update in the queue
+# never changes the tool that publishes it. Its state (with the forbidden words) and the keys are set up by hand.
+[ -f "$src/../public/sync-public.py" ] || { echo "install: ops/public/sync-public.py not found next to ops/release" >&2; exit 1; }
+install -m 0644 "$src/../public/sync-public.py" "$D/opt/capstan-release/lib/sync-public.py"
+mkdir -p "$D/etc/capstan-release/public"
 [ -f "$D/etc/capstan-release/release.conf" ] || cp "$src/etc/release.conf.example" "$D/etc/capstan-release/release.conf"
 cp "$src/systemd/capstan-release.service" "$src/systemd/capstan-release.timer" "$D/etc/systemd/system/"
 if id capstan-release >/dev/null 2>&1 || [ -n "$D" ]; then :; else run useradd --system --home-dir /var/lib/capstan-release --shell /usr/sbin/nologin capstan-release; fi
 run chown -R capstan-release:capstan-release /var/lib/capstan-release
+# /etc/capstan-release/public: the public sync state and keys, root-owned, readable by the runner group only
+run chown root:capstan-release /etc/capstan-release/public
+run chmod 0750 /etc/capstan-release/public
 if [ -n "$D" ]; then cp "$src/sudoers/capstan-release" "$D/etc/sudoers.d/capstan-release"
 else
   visudo -cf "$src/sudoers/capstan-release" || { echo "install: sudoers file refused by visudo; nothing installed there" >&2; exit 1; }

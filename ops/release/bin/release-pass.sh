@@ -113,11 +113,16 @@ retry_owed_ghrel() {
 
 publish() { # publish n sha title: side channel, never blocks a release
   local n="$1" sha="$2" title="$3"
+  local out="$RR_HOME/publish.out" pub
   rr_journal "$n" "$sha" publishing
-  if rr_run PUBLISH_CMD "$n" "$sha"; then
+  # stdout to a file, not $(...): the command stays a direct child of this pass (a crash test kills its parent)
+  if rr_run PUBLISH_CMD "$n" "$sha" > "$out"; then
     rr_journal "$n" "$sha" published
     rr_notify_clear "publish-fail"
-    ghrel "$n" "$sha" "$title"
+    # the public sync prints the public sha of the update: the Release on the public repo must target that commit
+    # (the private sha does not exist there). A command that prints none keeps the old target.
+    pub=$(grep -E '^[0-9a-f]{40}$' "$out" | tail -n 1)
+    ghrel "$n" "${pub:-$sha}" "$title"
     return 0
   fi
   rr_journal "$n" "$sha" publish_failed
