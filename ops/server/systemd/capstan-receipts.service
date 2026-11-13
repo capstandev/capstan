@@ -17,6 +17,7 @@ ExecStart=/usr/local/bin/bun /opt/capstan/current/apps/workers/src/index.ts
 # Memory caps: about 35 to 60 MB measured; MemoryHigh throttles and reclaims, MemoryMax ends a runaway before the box swaps.
 MemoryHigh=512M
 MemoryMax=768M
+MemorySwapMax=256M
 Restart=on-failure
 RestartSec=5
 StandardOutput=append:/var/log/capstan/receipts/receipts.jsonl

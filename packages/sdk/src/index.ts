@@ -20,4 +20,5 @@ export { capstanMessage, type CapstanMessageFields, type SignedPurpose } from ".
 export { defaultStepPresenter, resolvePresenter, stepsText, STEPS_HEADING, type StepPresenter } from "./present";
 export { intentFromPayload } from "./intent";
 export { SdkError, SDK_ERROR_CODES, type SdkErrorCode } from "./errors";
+export { RATE_LIMIT_RETRY_DEFAULTS, retryAfterMs, type RateLimitRetry } from "./api";
 export { clientSpreadPorts, executeSpread, executeSpreadPlan, spreadAckMessage, SPREAD_ACK_TEXT, type ExecuteResult, type ExecutorEvent, type ExecutorPorts, type SpreadPortOptions } from "./spreads";

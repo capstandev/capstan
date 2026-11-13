@@ -10,4 +10,5 @@ ExecStart=/usr/local/sbin/capstan-backup
 # Memory caps: pg_dump and the encryption step; generous so a large dump is never killed.
 MemoryHigh=1024M
 MemoryMax=1536M
+MemorySwapMax=256M
 Nice=10

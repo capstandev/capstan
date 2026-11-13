@@ -236,6 +236,23 @@ for s in $CAPSTAN_SERVICES; do
 done
 dbpw=""
 if [ "$n" -eq 0 ]; then stage_skip "env files"; else mark "env files ($n written)"; fi
+# env files kept from an earlier run: once DOMAIN is set, PUBLIC_API_HOST follows it, and the first MCP_ALLOWED_HOSTS
+# entry (the api host, see etc/mcp.env) does too. Other entries and every other line stay as the owner left them.
+if [ -n "$dom" ]; then
+  n=0
+  for s in $CAPSTAN_SERVICES; do
+    f="$CAPSTAN_ETC/$s/env"; [ -f "$f" ] || continue; u=0
+    cur="$(conf_get PUBLIC_API_HOST "$f")"
+    if [ -n "$cur" ] && [ "$cur" != "$apihost" ]; then conf_set PUBLIC_API_HOST "$apihost" "$f"; u=1; fi
+    cur="$(conf_get MCP_ALLOWED_HOSTS "$f")"
+    if [ -n "$cur" ] && [ "${cur%%,*}" != "$apihost" ]; then
+      rest=""; case "$cur" in *,*) rest=",${cur#*,}" ;; esac
+      conf_set MCP_ALLOWED_HOSTS "$apihost$rest" "$f"; u=1
+    fi
+    n=$((n + u))
+  done
+  if [ "$n" -eq 0 ]; then stage_skip "env api host ($apihost)"; else mark "env api host ($apihost, $n files)"; fi
+fi
 
 # compose file
 if same_content "$here/capstan-compose.yaml" "$CAPSTAN_OPT/compose/capstan-compose.yaml"; then stage_skip "compose file"; else
@@ -315,11 +332,16 @@ else
 fi
 /bin/rm -f "$tmpu"
 
-# Caddyfile (needs DOMAIN and ACME_EMAIL in server.conf)
+# Caddyfile (needs DOMAIN in server.conf). ACME_EMAIL is optional: empty drops the email line, and Let's Encrypt
+# issues without a contact address (the Cherry box runs this way since 2026-11-12).
 dom="$(conf_get DOMAIN)"; mail="$(conf_get ACME_EMAIL)"
-if [ -z "$dom" ] || [ -z "$mail" ]; then stage_skip "caddyfile (DOMAIN or ACME_EMAIL not set)"; else
+if [ -z "$dom" ]; then stage_skip "caddyfile (DOMAIN not set)"; else
   tmpc="$(/bin/mktemp)"
-  /bin/sed -e "s|@DOMAIN@|$dom|g" -e "s|@ACME_EMAIL@|$mail|g" "$here/Caddyfile.tmpl" > "$tmpc"
+  if [ -n "$mail" ]; then
+    /bin/sed -e "s|@DOMAIN@|$dom|g" -e "s|@ACME_EMAIL@|$mail|g" "$here/Caddyfile.tmpl" > "$tmpc"
+  else
+    /bin/sed -e "s|@DOMAIN@|$dom|g" -e '/^[[:space:]]*email @ACME_EMAIL@$/d' "$here/Caddyfile.tmpl" > "$tmpc"
+  fi
   # test stand-in only (ops/server/test/standin): certificates from Caddy's own local CA instead of ACME
   if [ "${CAPSTAN_CADDY_LOCAL_CA:-0}" = "1" ]; then /bin/sed -i -e 's|^\tadmin off$|\tadmin off\n\tlocal_certs|' "$tmpc"; fi
   if same_content "$tmpc" /etc/caddy/Caddyfile; then stage_skip "caddyfile"; else
@@ -350,7 +372,7 @@ fw_add_ok() {
   for p in $1; do printf '%s\n' "$st" | /bin/grep -qE "^$p(/tcp)? +ALLOW IN +Anywhere" || return 1; done
 }
 if [ "$fwadd" = "1" ]; then
-  fwports="22"; [ -n "$(conf_get DOMAIN)" ] && [ -n "$(conf_get ACME_EMAIL)" ] && fwports="22 80 443"
+  fwports="22"; [ -n "$(conf_get DOMAIN)" ] && fwports="22 80 443"
   if fw_add_ok "$fwports"; then stage_skip "firewall (additive: $fwports)"; else
     for p in $fwports; do quiet /usr/sbin/ufw allow "$p/tcp"; done
     quiet /usr/sbin/ufw default deny incoming

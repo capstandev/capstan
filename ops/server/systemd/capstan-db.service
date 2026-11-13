@@ -13,6 +13,7 @@ ExecStart=/usr/bin/docker compose -p capstan-db -f /opt/capstan/compose/capstan-
 # Memory caps: this unit runs only the compose client (the containers live in Docker's own cgroups).
 MemoryHigh=512M
 MemoryMax=768M
+MemorySwapMax=256M
 ExecStop=/usr/bin/docker compose -p capstan-db -f /opt/capstan/compose/capstan-compose.yaml stop
 TimeoutStartSec=300
 

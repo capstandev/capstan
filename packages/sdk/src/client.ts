@@ -4,7 +4,7 @@
 import type { AgentPolicy, CancelIntent, CanonicalAsset, DelegationState, FundingSnapshot, Hex, Market, OnboardingBundle, Order, OrderIntent, QuoteRequest, Receipt, RouteQuote, SignedEnvelope, UnsignedVenuePayload, VenueCapabilities, VenueId } from "@capstan/schema";
 import { digestTrade, queryString, type Param } from "@capstan/signer-aster";
 import type { LighterChainId } from "@capstan/signer-lighter-wasm";
-import { createApi, type Api, type RequestAuth } from "./api";
+import { createApi, type Api, type RateLimitRetry, type RequestAuth } from "./api";
 import { eqAddr, toHex } from "./bytes";
 import { checkBuild, checkCancelBuild, type CheckContext } from "./check";
 import { postDirect, type DirectResult } from "./direct";
@@ -61,6 +61,12 @@ export interface CapstanClientOptions {
    * Pass false to turn it off; that is the only way to skip it.
    */
   presentSteps?: StepPresenter | false;
+  /**
+   * A 429 VENUE_RATE_LIMITED with Retry-After is sent again after the server's delay: at most 2 retries and 10 s of
+   * waiting per call by default, and never past a relay build's expiry. false turns it off (the SdkError then
+   * carries retryAfterMs).
+   */
+  rateLimitRetry?: RateLimitRetry | false;
   now?: () => number;
 }
 
@@ -174,7 +180,8 @@ export function createClient(o: CapstanClientOptions): CapstanClient {
   const ks = o.keystore;
   const baseFetch = o.fetch ?? fetch;
   const apiFetch = o.x402 ? payingFetch(baseFetch, o.x402.payer, o.x402.controls ?? sdkSpendControls(o.network, o.x402.maxUsdPerCall), o.x402.maxUsdPerCall) : baseFetch;
-  const api: Api = createApi(o.apiBase, apiFetch, o.apiKey ? { headers: () => ({ authorization: `Bearer ${o.apiKey}` }) } : {});
+  const retry: RateLimitRetry | false = o.rateLimitRetry === false ? false : { now, ...(o.rateLimitRetry ?? {}) };
+  const api: Api = createApi(o.apiBase, apiFetch, { ...(o.apiKey ? { headers: () => ({ authorization: `Bearer ${o.apiKey}` }) } : {}), retry });
   const venueFetch = o.venueFetch ?? fetch;
   const hosts: Record<string, string> = { ...defaultVenueHosts(o.network), ...(o.venueHosts ?? {}) } as Record<string, string>;
   const markets: MarketSource = o.markets ?? publicVenueMarkets({ network: o.network, fetch: venueFetch, hosts });
@@ -637,7 +644,7 @@ export function createClient(o: CapstanClientOptions): CapstanClient {
 
   async function submitEnvelope(cb: CheckedBuild, env: SignedEnvelope): Promise<SubmitOutcome> {
     if (cb.mode === "relay") {
-      const r = await api.post<SubmitOutcome>("/orders/submit", { buildId: cb.build.buildId, signedEnvelope: env }, { auth: authAs(agents.get(cb.agentRef)) });
+      const r = await api.post<SubmitOutcome>("/orders/submit", { buildId: cb.build.buildId, signedEnvelope: env }, { auth: authAs(agents.get(cb.agentRef)), deadline: cb.build.expiresAt });
       account(cb);
       return r;
     }

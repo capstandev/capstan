@@ -17,7 +17,8 @@ if [ -n "${GOLIVE_OWNER:-}" ]; then
   export GOLIVE_OWNER
 fi
 if [ -n "${GOLIVE_PASSPHRASE_FILE:-}" ] && [ -f "$GOLIVE_PASSPHRASE_FILE" ]; then
-  mode="$(stat -f %Lp "$GOLIVE_PASSPHRASE_FILE" 2>/dev/null || stat -c %a "$GOLIVE_PASSPHRASE_FILE")"
+  # GNU form first: on Linux `stat -f` is file system status and prints a block instead of failing (ops/server/lib.sh)
+  mode="$(stat -c %a "$GOLIVE_PASSPHRASE_FILE" 2>/dev/null || stat -f %Lp "$GOLIVE_PASSPHRASE_FILE")"
   case "$mode" in 600|400) ;; *) echo "refused: GOLIVE_PASSPHRASE_FILE must be mode 600 or 400 (it is $mode)"; exit 2 ;; esac
 fi
 cd "$here/../.."

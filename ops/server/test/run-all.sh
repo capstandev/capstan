@@ -33,7 +33,7 @@ cleanup() { "$DOCKER" rm -f "$NAME" >/dev/null 2>&1 || true; }
 trap cleanup EXIT
 "$DOCKER" run -d --name "$NAME" --cap-add NET_ADMIN -v "$srv:/src/server:ro" "$IMAGE" sleep infinity >/dev/null || { echo "run-all: cannot start the test container"; exit 1; }
 
-for t in provision permissions keys deploy backup firewall config sharedhost; do
+for t in provision permissions keys deploy backup firewall config sharedhost domain; do
   echo "run-all: $t.test.sh"
   out="$("$DOCKER" exec "$NAME" /bin/bash "/src/server/test/$t.test.sh" 2>&1)"
   lines="$(printf '%s\n' "$out" | grep -E '^(PASS|FAIL) ' || true)"
