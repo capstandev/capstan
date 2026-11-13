@@ -22,7 +22,7 @@ t_guards() {
 }
 
 t_guards_each_one_alone() {
-  for gname in launch-at owner-tz stress-report public-ci release-token notify schedule origins; do
+  for gname in launch-at owner-tz stress-report public-ci release-token notify schedule origins deploy-source; do
     sandbox; good_setup
     case "$gname" in
       launch-at) arm ;;
@@ -33,6 +33,7 @@ t_guards_each_one_alone() {
       notify) rm "$T/home/notify.proof"; arm LAUNCH_AT="$LAUNCH_ISO" ;;
       schedule) echo more > "$T/seed/m.txt"; g -C "$T/seed" add -A; g -C "$T/seed" commit -q -m "feat: late"; g -C "$T/seed" push -q "$T/queue.git" tu-queue; arm LAUNCH_AT="$LAUNCH_ISO" ;;
       origins) sed -i.bak '/^ALLOW_LOCAL_REMOTES=/d' "$T/release.conf"; arm LAUNCH_AT="$LAUNCH_ISO" ;;
+      deploy-source) g --git-dir="$T/deploy-src.git" config --unset core.sharedRepository; arm LAUNCH_AT="$LAUNCH_ISO" ;;
     esac
     refused_only "$gname"
     other=$(printf '%s\n' "$out" | grep 'REFUSED' | grep -v "REFUSED $gname:" || true)
@@ -70,10 +71,18 @@ t_check_mode_changes_nothing() {
 t_arms_when_every_guard_passes() {
   sandbox; good_setup; arm LAUNCH_AT=2026-11-20T03:30:00Z
   assert_eq "$rc" 0; assert_file "$T/flag"
-  assert_eq "$(cat "$T/systemctl.log")" "enable --now capstan-release.timer"
+  assert_eq "$(cat "$T/systemctl.log")" "enable --now capstan-release-watchdog.timer
+enable --now capstan-release.timer"
   assert_eq "$(rr_sched_header launch_at)" 2026-11-20T03:30:00Z
   assert_eq "$(rr_sched_field 1 2)" "$(rr_iso_to_epoch 2026-11-20T03:30:00Z)" "slots re-dated"
   assert_contains "$out" "2026-11-19 22:30 EST"
+}
+
+t_refuses_without_a_deploy_source() {
+  sandbox; good_setup; sed -i.bak '/^LOCAL_DEPLOY_REMOTE=/d' "$T/release.conf"; arm LAUNCH_AT="$LAUNCH_ISO"
+  refused_only deploy-source; rm -rf "$T"
+  sandbox; good_setup; sed -i.bak "s#^LOCAL_DEPLOY_REMOTE=.*#LOCAL_DEPLOY_REMOTE=$T/nothing.git#" "$T/release.conf"; arm LAUNCH_AT="$LAUNCH_ISO"
+  refused_only deploy-source
 }
 
 run_tests "$0"

@@ -7,9 +7,11 @@
 #   public-ci       PUBLIC_CI_CHECK_CMD is set and exits 0 (green on the public launch commit)
 #   release-token   RELEASE_TOKEN_PROOF exists (ghrelease.sh draft-test passed through the server's token)
 #   notify          NOTIFY_PROOF exists (notify-telegram.sh --test reached the team group)
+#   deploy-source   LOCAL_DEPLOY_REMOTE is a bare repo shared with the runner group (core.sharedRepository=group):
+#                   capstan-deploy fetches only that repo, so a sha the runner cannot push there never deploys
 #   origins         the work checkout has no url.* rewrites and no local-path remotes, and the Telegram and GitHub
 #                   API bases are the real ones (stand-in origins and endpoints removed)
-# Then: dates every slot (set-times), creates the real-deploy flag, enables the timer. --check runs the guards only.
+# Then: dates every slot (set-times), creates the real-deploy flag, enables the watchdog timer and the runner timer. --check runs the guards only.
 # Usage: arm.sh [--check] LAUNCH_AT=2026-11-20T01:30:00Z
 set -u
 . "$(cd "$(dirname "$0")/.." && pwd -P)/lib/common.sh"
@@ -45,6 +47,11 @@ elif ! rr_run PUBLIC_CI_CHECK_CMD >/dev/null 2>&1; then refuse public-ci "public
 p=$(rr_conf_get RELEASE_TOKEN_PROOF "$RR_HOME/release-token.proof"); [ -f "$p" ] || refuse release-token "no draft-release proof (run ghrelease.sh draft-test)"
 p=$(rr_conf_get NOTIFY_PROOF "$RR_HOME/notify.proof"); [ -f "$p" ] || refuse notify "no notify proof (run notify-telegram.sh --test)"
 
+ds=$(rr_conf_get LOCAL_DEPLOY_REMOTE "")
+if [ -z "$ds" ]; then refuse deploy-source "LOCAL_DEPLOY_REMOTE is not set (the bare repo capstan-deploy fetches)"
+elif [ "$(git -c safe.directory="$ds" --git-dir="$ds" rev-parse --is-bare-repository 2>/dev/null)" != "true" ]; then refuse deploy-source "$ds is not a bare git repo"
+elif [ "$(git -c safe.directory="$ds" --git-dir="$ds" config core.sharedRepository 2>/dev/null)" != "group" ]; then refuse deploy-source "$ds is not shared with the runner group (run install.sh)"; fi
+
 # r3d-04: a git that cannot read the checkout (dubious ownership, no repo) must refuse, not pass with nothing read.
 # config --get-regexp exits 1 when nothing matches (the good case) and 128 or more when git failed.
 if ! git -C "$RR_WORK" rev-parse --git-dir >/dev/null 2>&1; then refuse origins "git cannot read the work checkout $RR_WORK"
@@ -68,6 +75,9 @@ echo "arm: every guard passed"
 [ "$check_only" = "1" ] && exit 0
 "$RR_ROOT/bin/set-times.sh" "$launch_iso" || exit 1
 mkdir -p "$(dirname "$RR_FLAG")" && : > "$RR_FLAG"
+# the dead-man switch first: armed with no watchdog would let a stopped runner go unnoticed
+rr_mkdir "$RR_HOME/watchdog"; rr_now | rr_write "$RR_HOME/watchdog/armed-since"
+rr_run SYSTEMCTL enable --now "$(rr_conf_get WATCHDOG_TIMER_UNIT capstan-release-watchdog.timer)" || { rm -f "$RR_FLAG"; echo "arm: could not enable the watchdog timer; flag removed" >&2; exit 1; }
 rr_run SYSTEMCTL enable --now "$(rr_conf_get TIMER_UNIT capstan-release.timer)" || { rm -f "$RR_FLAG"; echo "arm: could not enable the timer; flag removed" >&2; exit 1; }
 rr_log "arm: armed for $launch_iso"
 rr_fix_owner

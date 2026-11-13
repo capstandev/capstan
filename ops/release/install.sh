@@ -1,6 +1,6 @@
 #!/bin/bash
-# Install the release runner on the server, idempotent, with the timer DISABLED and no real-deploy flag (arm.sh does
-# both on launch day). Run as root. DESTDIR=<dir> installs into a scratch root for tests and dry runs (no users, no
+# Install the release runner on the server, idempotent, with the timers (runner and watchdog) DISABLED and no
+# real-deploy flag (arm.sh does both on launch day). Run as root. DESTDIR=<dir> installs into a scratch root for tests and dry runs (no users, no
 # systemctl, no visudo).
 # Usage: [DESTDIR=/tmp/x] bash install.sh
 set -u
@@ -19,9 +19,36 @@ chmod 0755 "$D/opt/capstan-release/bin/"*.sh
 install -m 0644 "$src/../public/sync-public.py" "$D/opt/capstan-release/lib/sync-public.py"
 mkdir -p "$D/etc/capstan-release/public"
 [ -f "$D/etc/capstan-release/release.conf" ] || cp "$src/etc/release.conf.example" "$D/etc/capstan-release/release.conf"
-cp "$src/systemd/capstan-release.service" "$src/systemd/capstan-release.timer" "$D/etc/systemd/system/"
+cp "$src/systemd/capstan-release.service" "$src/systemd/capstan-release.timer" \
+  "$src/systemd/capstan-release-watchdog.service" "$src/systemd/capstan-release-watchdog.timer" "$D/etc/systemd/system/"
 if id capstan-release >/dev/null 2>&1 || [ -n "$D" ]; then :; else run useradd --system --home-dir /var/lib/capstan-release --shell /usr/sbin/nologin capstan-release; fi
 run chown -R capstan-release:capstan-release /var/lib/capstan-release
+# The deploy source (LOCAL_DEPLOY_REMOTE, the bare repo capstan-deploy fetches): the runner pushes each released sha
+# there. It stays root-owned; the capstan-release group may write objects/ and refs/ only (setgid, sharedRepository
+# group, so the Mac's pushes as root stay group-writable). The top folder, config and hooks/ stay root-only: a hook or
+# config the runner could write would run as root on the next push from the Mac. "Other" bits are left as they are.
+share_deploy_source() { # share_deploy_source /srv/capstan-src.git
+  local r="$1" p="$D$1" d
+  case "$r" in /*) ;; *) echo "install: LOCAL_DEPLOY_REMOTE must be an absolute path ($r)" >&2; exit 1 ;; esac
+  if [ ! -d "$p" ]; then
+    if [ -n "$D" ]; then echo "would run: git init --bare $r" >> "$D/install-actions.log"; return 0; fi
+    git init -q --bare "$r" || { echo "install: could not create $r" >&2; exit 1; }
+  fi
+  [ "$(git --git-dir="$p" rev-parse --is-bare-repository 2>/dev/null)" = "true" ] || { echo "install: $r is not a bare git repo" >&2; exit 1; }
+  git --git-dir="$p" config core.sharedRepository group
+  git --git-dir="$p" config receive.denyNonFastForwards true
+  git --git-dir="$p" config receive.denyDeletes true
+  git --git-dir="$p" config receive.autogc false
+  run chgrp -R capstan-release "$r"
+  for d in objects refs; do
+    mkdir -p "$p/$d"; chmod -R g+rwX "$p/$d"; find "$p/$d" -type d -exec chmod g+s {} +
+  done
+  chmod g-w "$p" "$p/config"; [ -d "$p/hooks" ] && chmod -R g-w "$p/hooks"
+  return 0
+}
+dsrc=$(grep -E '^LOCAL_DEPLOY_REMOTE=' "$D/etc/capstan-release/release.conf" | tail -n 1 | cut -d= -f2-)
+if [ -n "$dsrc" ]; then share_deploy_source "$dsrc"
+else echo "install: LOCAL_DEPLOY_REMOTE is not set in release.conf; the runner will refuse to deploy until it is" >&2; fi
 # /etc/capstan-release/public: the public sync state and keys, root-owned, readable by the runner group only
 run chown root:capstan-release /etc/capstan-release/public
 run chmod 0750 /etc/capstan-release/public
@@ -50,6 +77,6 @@ wrap capstan-release-resume unpause.sh root
 wrap capstan-release-retry retry.sh runner
 wrap capstan-release-preflight preflight.sh runner
 run systemctl daemon-reload
-run systemctl disable capstan-release.timer
+run systemctl disable capstan-release.timer capstan-release-watchdog.timer
 rm -f "$D/etc/capstan-release/ALLOW_REAL_DEPLOY"
 echo "install: done. Timer disabled, not armed. Next: edit release.conf, build the schedule, stress test, then arm.sh."

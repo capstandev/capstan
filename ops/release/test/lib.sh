@@ -29,6 +29,9 @@ sandbox() {
   g init -q "$T/seed"
   echo base > "$T/seed/base.txt"; g -C "$T/seed" add -A; g -C "$T/seed" commit -q -m "chore: base"
   g -C "$T/seed" push -q "$T/private.git" main
+  # the server's deploy source (/srv/capstan-src.git): capstan-deploy fetches only this repo, never GitHub
+  g init -q --bare "$T/deploy-src.git"; g -C "$T/seed" push -q "$T/deploy-src.git" main
+  g --git-dir="$T/deploy-src.git" config core.sharedRepository group
   BASE=$(g -C "$T/seed" rev-parse HEAD)
   g -C "$T/seed" checkout -q -b tu-queue
   i=1
@@ -57,6 +60,7 @@ RELEASE_TOKEN_PROOF=$T/home/release-token.proof
 NOTIFY_PROOF=$T/home/notify.proof
 GATE_CMD=$T/fake/gate
 PRIVATE_PUSH_CMD=$BIN/push-private.sh
+LOCAL_DEPLOY_REMOTE=$T/deploy-src.git
 DEPLOY_CMD=$T/fake/deploy
 ROLLBACK_CMD=$T/fake/rollback
 CHECK_CMD=$T/fake/check
@@ -83,6 +87,8 @@ EOF
 #!/bin/bash
 f="$T/fail-deploy"
 if [ -f "\$f" ]; then c=\$(cat "\$f"); [ "\$c" = once75 ] && { rm -f "\$f"; exit 75; }; exit "\$c"; fi
+# like capstan-deploy: the sha must be on main of the deploy source, or "not found in the repo"
+git --git-dir="$T/deploy-src.git" merge-base --is-ancestor "\$1" refs/heads/main 2>/dev/null || { echo "sha \$1 not found in the repo" >&2; exit 1; }
 echo "\$1" > "$T/prod"; echo "deploy \$1" >> "$T/deploys.log"
 EOF
   cat > "$T/fake/rollback" <<EOF

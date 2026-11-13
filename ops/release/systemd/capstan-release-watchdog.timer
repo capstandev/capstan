@@ -1,0 +1,11 @@
+# Every 10 minutes. Installed disabled; arm.sh enables it with the runner timer. Unarmed, each run is silent.
+[Unit]
+Description=Capstan release runner watchdog timer
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=10min
+AccuracySec=30s
+
+[Install]
+WantedBy=timers.target

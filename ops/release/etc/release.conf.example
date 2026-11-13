@@ -28,6 +28,10 @@ GITHUB_RELEASE_ENV=/etc/capstan-release/github-release.env
 # Light gate on the server: typecheck plus the tests of what the update touched (the full gate ran before launch).
 GATE_CMD=/opt/capstan-release/bin/gate-light.sh
 PRIVATE_PUSH_CMD=/opt/capstan-release/bin/push-private.sh
+# The server's own bare repo that capstan-deploy fetches (REPO_URL in /etc/capstan/server.conf; the same path). Each
+# released sha is pushed to its main (fast-forward only) before the deploy; when that push fails nothing deploys.
+# install.sh gives the capstan-release group write on its objects/ and refs/ (setgid, core.sharedRepository=group).
+LOCAL_DEPLOY_REMOTE=/srv/capstan-src.git
 # ops/server/deploy.sh installed as capstan-deploy: health checks and its own auto-rollback. A runner rollback is a
 # deploy of the previous sha through the same path.
 DEPLOY_CMD=sudo -n /usr/local/sbin/capstan-deploy
@@ -66,6 +70,13 @@ ANNOUNCE_TRIES=4
 ANNOUNCE_BACKOFF_S=2
 ANNOUNCE_BACKOFF_MAX_S=60
 PUBLIC_CI_CHECK_CMD=/opt/capstan-release/bin/public-ci-green.sh
+# Optional external heartbeat run at the end of each armed pass (e.g. a curl to a healthchecks.io ping URL; that needs
+# an account, so it is empty by default). The dead-man switch is the watchdog below, on this server.
 HEALTHCHECK_CMD=
+# Watchdog (bin/watchdog.sh, capstan-release-watchdog.timer, enabled by arm.sh): alert when armed and the last pass is
+# older than this many slots of CADENCE_MINUTES; repeat every WATCHDOG_REPEAT_S while it stays stale.
+WATCHDOG_STALE_SLOTS=2
+WATCHDOG_REPEAT_S=21600
+WATCHDOG_TIMER_UNIT=capstan-release-watchdog.timer
 SYSTEMCTL=sudo -n /bin/systemctl
 TIMER_UNIT=capstan-release.timer

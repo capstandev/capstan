@@ -7,7 +7,9 @@ Linux bash 5.
 ## What one release does
 1. **Gate**: apply the update on private main (fast-forward, or a signed cherry-pick), run the light gate
    (`bin/gate-light.sh`: frozen install, typecheck, the tests of what it touched, the public guard).
-2. **Push** private main.
+2. **Push** private main, then the same sha to main of the server's deploy source (`LOCAL_DEPLOY_REMOTE`, the bare
+   repo `capstan-deploy` fetches: `REPO_URL` in `/etc/capstan/server.conf`, `/srv/capstan-src.git`). Fast-forward
+   only, never forced. When that push fails nothing deploys: the update is retried, then held after `TRANSIENT_MAX`.
 3. **Deploy** (`DEPLOY_CMD`, with health checks); **check** production by content (`bin/check-update.sh` runs the
    update's own check, which was recorded as failing on production before the release).
 4. Only then the **public copy** (`bin/publish-public.sh`), the **GitHub Release** (`bin/ghrelease.sh`, poster
@@ -29,6 +31,8 @@ Linux bash 5.
 | Team post fails | The update stays live; the post is owed and retried each pass (no part twice); one alert after `ANNOUNCE_MAX_PASSES` |
 | Main moved under the queue | That update is held with one "queue needs a rebase" alert |
 
+| The runner stops passing while armed | The watchdog (below) alerts after 2 slots with no pass, every 6 hours after, and once when passes are back |
+
 Alerts are keyed by cause (one alert, then at most an hourly reminder). An unarmed runner posts nothing.
 
 ## Guards
@@ -38,6 +42,15 @@ Alerts are keyed by cause (one alert, then at most an hourly reminder). An unarm
   and ahead, `OWNER_TZ` is set, the stress-test report says `Result: PASS` for this exact queue tip, the schedule
   matches the checkouts, public CI is green, the release token and the team alert were both proven, and no stand-in
   origins remain. `--check` runs the guards only.
+- **Deploy source**: `install.sh` gives the `capstan-release` group write on `objects/` and `refs/` of
+  `LOCAL_DEPLOY_REMOTE` only (setgid, `core.sharedRepository=group`, `receive.denyNonFastForwards`,
+  `receive.denyDeletes`). The repo stays root-owned; its top folder, `config` and `hooks/` stay root-only (a hook the
+  runner could write would run as root on the next push from the Mac). `arm.sh` refuses (`deploy-source`) without it.
+- **Watchdog** (dead-man switch, `bin/watchdog.sh`, `capstan-release-watchdog.timer` every 10 minutes, as the
+  runner user): every armed pass writes `$RR_HOME/last-pass`; while the flag exists and that is older than
+  `WATCHDOG_STALE_SLOTS` (2) slots of `CADENCE_MINUTES`, it posts "RUNNER STOPPED" through `NOTIFY_CMD`. Silent while
+  unarmed. `arm.sh` enables it with the runner timer. It runs on the same box, so it cannot report a dead server; an
+  external heartbeat (`HEALTHCHECK_CMD`, e.g. a healthchecks.io ping) would cover that and is left empty by default.
 - **Preflight** (`bin/preflight.sh`) runs the gate on every pending and held update ahead of its slot. It never takes
   the release lock.
 
@@ -106,7 +119,7 @@ Once the runner owns the public copy, stop running `publish-public-update.sh` fr
 
 ## Files
 `lib/common.sh` (config, UTC maths, state, journal, lock, alerts), `bin/` (the commands), `systemd/` (oneshot service
-and a 1-minute timer, installed disabled), `sudoers/` (narrow rules), `etc/release.conf.example`, `install.sh`,
+and a 1-minute timer, plus the watchdog service and its 10-minute timer, all installed disabled), `sudoers/` (narrow rules), `etc/release.conf.example`, `install.sh`,
 `npm/` (package metadata for the SDK and MCP packages), `test/` (sandboxed tests: local bare repos and fake commands).
 
 ## Tests

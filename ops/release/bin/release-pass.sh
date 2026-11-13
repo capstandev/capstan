@@ -1,13 +1,16 @@
 #!/bin/bash
 # One pass of the release runner: release at most one due update, then exit. The systemd timer starts a pass every
-# minute. Order of one release: gate -> apply on private main -> push private -> deploy (auto-rollback) -> post-release
-# checks -> public copy -> GitHub Release -> team post (poster and notes). Nothing public happens before the deploy
-# is healthy.
+# minute. Order of one release: gate -> apply on private main -> push private -> push deploy source -> deploy
+# (auto-rollback) -> post-release checks -> public copy -> GitHub Release -> team post (poster and notes). Nothing
+# public happens before the deploy is healthy.
 #
 # Rules this file proves (tests in ../test):
 # - Not armed (flag file plus CAPSTAN_RELEASE_RUNNER=1) or paused: nothing runs, nothing is posted.
 # - A failed gate holds that one update; the next one still releases at its slot (no cascade).
 # - Exit 75 from gate, push or deploy means "nothing switched": the update stays pending and is retried.
+# - The sha reaches the server's deploy source (LOCAL_DEPLOY_REMOTE, fast-forward only) before any deploy; when that
+#   push fails nothing deploys and the update is retried, then held.
+# - Every armed pass writes $RR_HOME/last-pass (the watchdog's heartbeat).
 # - A failed deploy or check rolls back and holds; a failed rollback writes PAUSE and alerts.
 # - A crash mid-release is adopted from the journal by the next pass; the public copy is never made twice. An update
 #   that crashes its pass more than CRASH_MAX (3) times pauses the runner with one alert (no endless redeploys).
@@ -67,6 +70,19 @@ retry_later() { # retry_later n attempts title what
     rr_state_set "$n" pending "$att" "retry: $4"
     rr_log "update $n: $4 failed (transient, attempt $att of $TRANSIENT_MAX); retried next pass"
   fi
+}
+
+# Push sha to main of the server's deploy source (LOCAL_DEPLOY_REMOTE, the bare repo capstan-deploy fetches).
+# Fast-forward only: no +, no --force, so a main the Mac moved elsewhere refuses and nothing deploys. receive-pack runs
+# as the runner on a root-owned repo: safe.directory is set for that one path on its command line only.
+deploy_source_push() { # deploy_source_push sha
+  local remote; remote=$(rr_conf_get LOCAL_DEPLOY_REMOTE "")
+  if [ -z "$remote" ]; then rr_log "deploy source: LOCAL_DEPLOY_REMOTE is not set; refusing to deploy"; return 1; fi
+  case "$remote" in /*) ;; *) rr_log "deploy source: LOCAL_DEPLOY_REMOTE must be an absolute path ($remote)"; return 1 ;; esac
+  if ! git_w push -q --receive-pack="git -c safe.directory=$remote receive-pack" "$remote" "$1:refs/heads/main"; then
+    rr_log "deploy source: push of $1 to $remote main failed (not a fast-forward, or no write access)"; return 1
+  fi
+  rr_log "deploy source: $remote main = $1"
 }
 
 # Undo a deployed update: production back to prev, private main reverted. Returns 0 when the rollback worked.
@@ -280,6 +296,11 @@ release_one() {
   if [ "$rc" -ne 0 ]; then git_w reset -q --hard "$prev"; retry_later "$n" "$att" "$title" "private push"; return 0; fi
   rr_journal "$n" "$applied" pushed
 
+  # capstan-deploy fetches only the server's own bare repo (REPO_URL in /etc/capstan/server.conf), never GitHub: the
+  # sha must be there before the deploy, or it fails "not found in the repo" (stress 2026-11-12). No push, no deploy.
+  deploy_source_push "$applied" >> "$RR_LOG" 2>&1; rc=$?
+  if [ "$rc" -ne 0 ]; then retry_later "$n" "$att" "$title" "deploy source push (LOCAL_DEPLOY_REMOTE)"; return 0; fi
+
   rr_run DEPLOY_CMD "$applied" >> "$RR_LOG" 2>&1; rc=$?
   if [ "$rc" -eq 75 ]; then retry_later "$n" "$att" "$title" "deploy (nothing switched)"; return 0; fi
   if [ "$rc" -ne 0 ]; then
@@ -318,6 +339,8 @@ public_ci_tick() {
 
 main() {
   if ! rr_armed; then rr_log "pass: not armed (no release, no alert)"; exit 0; fi
+  # heartbeat for the watchdog (bin/watchdog.sh): every armed pass, paused or not, before anything can hang
+  rr_now | rr_write "$RR_HOME/last-pass"
   if [ -f "$RR_PAUSE" ]; then rr_log "pass: paused"; exit 0; fi
   if ! rr_lock; then rr_log "pass: another pass is running"; exit 0; fi
   trap 'rr_unlock' EXIT

@@ -1,0 +1,13 @@
+# Dead-man switch for the release runner (bin/watchdog.sh): alerts the team group when the runner is armed and has not
+# passed for 2 slots. Silent while unarmed. Runs as the runner user; the alert goes through the root notify wrapper.
+[Unit]
+Description=Capstan release runner watchdog
+
+[Service]
+Type=oneshot
+User=capstan-release
+Group=capstan-release
+Environment=RR_CONF=/etc/capstan-release/release.conf
+UMask=0022
+TimeoutStartSec=5min
+ExecStart=/opt/capstan-release/bin/watchdog.sh
