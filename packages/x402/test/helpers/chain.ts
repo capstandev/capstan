@@ -12,8 +12,13 @@ export const FORGE = join(homedir(), ".foundry/bin/forge");
 export const ANVIL = join(homedir(), ".foundry/bin/anvil");
 export const haveFoundry = existsSync(FORGE) && existsSync(ANVIL);
 
-/** Lane ports (README lane table, base 21800): the acceptance fork is 21845; tests start their own on 21846 to 21849. */
-export const LANE_PORTS = { fork: 21845, localAnvil: 21846, baseFork: 21847, spare: 21848 } as const;
+/** Lane ports (README lane table, base 21800): the acceptance fork is 21845. Tests never use a fixed port: each one
+ * starts its own anvil with `--port 0` and reads the port anvil chose (another worktree or agent on this host can hold
+ * any fixed port, and a test would then talk to that stranger's anvil). */
+export const LANE_PORTS = { fork: 21845 } as const;
+
+/** Budget for anvil to print its port and answer eth_chainId; generous for a loaded host. */
+const ANVIL_START_MS = 60_000;
 
 export interface Anvil {
   url: string;
@@ -21,33 +26,64 @@ export interface Anvil {
   stop(): Promise<void>;
 }
 
-export async function startAnvil(port: number, opts: { forkUrl?: string; chainId?: number } = {}): Promise<Anvil> {
-  const args = ["--port", String(port), "--silent"];
+/** Start a throwaway anvil on 127.0.0.1 and a port the OS picks; stopped later by its own handle (never by pattern). */
+export async function startAnvil(opts: { forkUrl?: string; chainId?: number } = {}): Promise<Anvil> {
+  const args = ["--host", "127.0.0.1", "--port", "0"];
   if (opts.forkUrl) args.push("--fork-url", opts.forkUrl);
   if (opts.chainId) args.push("--chain-id", String(opts.chainId));
-  const proc = spawn(ANVIL, args, { stdio: "ignore" });
+  const proc = spawn(ANVIL, args, { stdio: ["ignore", "pipe", "pipe"] });
+  const kill = () => {
+    if (proc.exitCode === null) proc.kill("SIGTERM");
+  };
+  // anvil logs every RPC call to stdout: keep reading it for the whole run so a full pipe never blocks it
+  let head = "";
+  const port = await new Promise<number>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      kill();
+      reject(new Error(`anvil did not print its port in ${ANVIL_START_MS} ms: ${head.slice(-400)}`));
+    }, ANVIL_START_MS);
+    const onData = (b: Buffer) => {
+      if (head.length < 64_000) head += b.toString("utf8");
+      const m = /Listening on 127\.0\.0\.1:(\d+)/.exec(head);
+      if (m) {
+        clearTimeout(timer);
+        resolve(Number(m[1]));
+      }
+    };
+    proc.stdout!.on("data", onData);
+    proc.stderr!.on("data", onData);
+    proc.once("error", (e) => {
+      clearTimeout(timer);
+      reject(e);
+    });
+    proc.once("exit", (code) => {
+      clearTimeout(timer);
+      reject(new Error(`anvil exited (${code}) before listening: ${head.slice(-400)}`));
+    });
+  });
   const url = `http://127.0.0.1:${port}`;
-  const deadline = Date.now() + 30_000;
+  const deadline = Date.now() + ANVIL_START_MS;
   for (;;) {
     try {
-      const r = await fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "eth_chainId", params: [] }) });
+      const r = await fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "eth_chainId", params: [] }), signal: AbortSignal.timeout(5_000) });
       if (r.ok) break;
     } catch {
       /* not up yet */
     }
     if (Date.now() > deadline || proc.exitCode !== null) {
-      proc.kill();
-      throw new Error(`anvil on ${port} did not start`);
+      kill();
+      throw new Error(`anvil on ${port} did not answer`);
     }
-    await Bun.sleep(200);
+    await Bun.sleep(100);
   }
   return {
     url,
     proc,
     async stop() {
       if (proc.exitCode === null) {
+        const exited = new Promise((r) => proc.once("exit", r));
         proc.kill("SIGTERM"); // our own child, by handle (never by pattern)
-        await new Promise((r) => proc.once("exit", r));
+        await exited;
       }
     },
   };
@@ -63,8 +99,12 @@ export function compileMocks(): Record<string, Artifact> {
   const dir = join(import.meta.dir, "..", "mocks");
   const out = mkdtempSync(join(tmpdir(), "capstan-x402-mocks-"));
   try {
-    const r = spawnSync(FORGE, ["build", "--root", dir, "--contracts", ".", "--out", join(out, "out"), "--cache-path", join(out, "cache"), "--offline"], { encoding: "utf8" });
-    if (r.status !== 0) throw new Error(`forge build failed: ${r.stderr || r.stdout}`);
+    const build = (offline: boolean) =>
+      spawnSync(FORGE, ["build", "--root", dir, "--contracts", ".", "--out", join(out, "out"), "--cache-path", join(out, "cache"), "--use", "0.8.28", ...(offline ? ["--offline"] : [])], { encoding: "utf8", timeout: 60_000 });
+    let r = build(true);
+    // a fresh host (the CI runner) has no solc yet: forge installs the pinned 0.8.28 once, then every build is offline
+    for (let i = 0; i < 2 && r.status !== 0 && /no compiler versions are available|not installed|offline|download/i.test(`${r.stderr}${r.stdout}`); i++) r = build(false);
+    if (r.status !== 0) throw new Error(`forge build failed: ${r.error?.message ?? ""} ${r.stderr || r.stdout}`);
     const res: Record<string, Artifact> = {};
     for (const name of ["MockGood3009", "MockNo3009", "MockFacetRemoved", "MockDomainV2"]) {
       const j = JSON.parse(readFileSync(join(out, "out", "DetectMocks.sol", `${name}.json`), "utf8")) as { abi: Abi; bytecode: { object: Hex } };
@@ -97,9 +137,22 @@ export async function deploy(url: string, chainId: number, art: Artifact, deploy
   const wc = createWalletClient({ account: acct, chain, transport: http(url) });
   const pc = createPublicClient({ chain, transport: http(url) });
   const hash = await wc.deployContract({ abi: art.abi, bytecode: art.bytecode, args: [] });
-  const rc = await pc.waitForTransactionReceipt({ hash });
-  if (!rc.contractAddress) throw new Error("deploy failed");
+  const rc = await pollReceipt(pc, hash);
+  if (rc.status !== "success" || !rc.contractAddress) throw new Error("deploy failed");
   return rc.contractAddress;
+}
+
+/** Poll the receipt: viem's waitForTransactionReceipt can miss anvil's single block and wait 180 s. */
+export async function pollReceipt(pc: { getTransactionReceipt(a: { hash: Hex }): Promise<{ status: string; contractAddress?: Hex | null }> }, hash: Hex, budgetMs = 30_000) {
+  const deadline = Date.now() + budgetMs;
+  for (;;) {
+    try {
+      return await pc.getTransactionReceipt({ hash });
+    } catch (e) {
+      if (Date.now() > deadline) throw new Error(`no receipt for ${hash} in ${budgetMs} ms: ${(e as Error).message}`);
+    }
+    await Bun.sleep(50);
+  }
 }
 
 const EIP1967_SLOTS = [

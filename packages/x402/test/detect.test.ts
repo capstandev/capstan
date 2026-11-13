@@ -6,7 +6,7 @@ import { createPublicClient, http } from "viem";
 import { acceptsFor, type X402State } from "../src/accepts";
 import { detectEip3009, domainSeparator, FORBIDDEN_SELECTORS, TRANSFER_WITH_AUTHORIZATION_TYPEHASH, type ReadClient } from "../src/detect";
 import { railDefs } from "../src/networks";
-import { compileMocks, deploy, haveFoundry, LANE_PORTS, startAnvil, type Anvil } from "./helpers/chain";
+import { compileMocks, deploy, haveFoundry, startAnvil, type Anvil } from "./helpers/chain";
 
 const EXPECT = (chainId: number) => ({ name: "Global Dollar", version: "1", chainId });
 
@@ -16,8 +16,8 @@ const EXPECT = (chainId: number) => ({ name: "Global Dollar", version: "1", chai
   const sent: Hex[] = [];
   let rpc: ReadClient;
   beforeAll(async () => {
-    anvil = await startAnvil(LANE_PORTS.localAnvil);
     const arts = compileMocks();
+    anvil = await startAnvil();
     for (const [name, art] of Object.entries(arts)) addr[name] = await deploy(anvil.url, 31337, art, `deployer-${name}`);
     const pc = createPublicClient({ transport: http(anvil.url) });
     rpc = {
@@ -26,7 +26,7 @@ const EXPECT = (chainId: number) => ({ name: "Global Dollar", version: "1", chai
         return pc.call(args);
       },
     };
-  }, 120_000);
+  }, 240_000); // compile (a fresh host fetches solc once), one anvil, four deploys: generous for a loaded host
   afterAll(async () => {
     await anvil?.stop();
   });

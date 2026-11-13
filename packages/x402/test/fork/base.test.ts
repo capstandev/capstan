@@ -8,7 +8,7 @@ import { createPublicClient, http } from "viem";
 import { SETTLE_GAS } from "../../src/accepts";
 import { NETWORKS } from "../../src/networks";
 import { readTokenInfo } from "../../src/tokens";
-import { balanceOf, haveFoundry, LANE_PORTS, setTokenBalance, startAnvil, type Anvil } from "../helpers/chain";
+import { balanceOf, haveFoundry, setTokenBalance, startAnvil, type Anvil } from "../helpers/chain";
 import { acceptsFor, forkFacilitator, freshPayer, pay, stateFor } from "./helpers";
 
 const BASE = process.env.BASE_RPC_URL;
@@ -18,7 +18,7 @@ const USDC = ADDRESSES.usdcBase.address as Hex;
 (BASE && haveFoundry ? describe : describe.skip)("Base fork: USDC eip3009", () => {
   let fork: Anvil;
   beforeAll(async () => {
-    fork = await startAnvil(LANE_PORTS.baseFork, { forkUrl: BASE! });
+    fork = await startAnvil({ forkUrl: BASE! });
   }, 60_000);
   afterAll(async () => {
     await fork?.stop();

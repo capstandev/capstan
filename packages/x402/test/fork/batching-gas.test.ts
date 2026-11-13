@@ -12,7 +12,7 @@ import { BatchSettlementEvmScheme } from "@x402/evm/batch-settlement/facilitator
 import { createPublicClient, http, keccak256, parseAbi, toHex } from "viem";
 import { NETWORKS, type EvmNetwork } from "../../src/networks";
 import { readTokenInfo } from "../../src/tokens";
-import { fund, haveFoundry, LANE_PORTS, setTokenBalance, startAnvil, type Anvil } from "../helpers/chain";
+import { fund, haveFoundry, setTokenBalance, startAnvil, type Anvil } from "../helpers/chain";
 import { facilitatorEvmSigner } from "../../src/evm-signer";
 import { assertLocal, freshPayer, hotKeySigner } from "./helpers";
 
@@ -132,7 +132,7 @@ afterAll(async () => {
 
 (BASE && haveFoundry ? describe : describe.skip)("batch-settlement gas on Base 8453 fork (USDC)", () => {
   test("gas-per-voucher-base", async () => {
-    fork = await startAnvil(LANE_PORTS.baseFork, { forkUrl: BASE! });
+    fork = await startAnvil({ forkUrl: BASE! });
     const g = await measure(fork.url, 8453, NETWORKS.base, ADDRESSES.usdcBase.address as Hex, undefined, "base");
     report(g);
     expect(g.claim[100] / 100n).toBeLessThan(g.claim[1] / 2n);
