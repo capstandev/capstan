@@ -40,3 +40,13 @@ regexTarget = "line"
 regexes = [
   '''assertLocalGenesis\("https://api\.devnet\.solana\.com", "2vrSEsUo2XJYd1hv4AJruEP1XkUx5goyUg65HFbka1XC"\)''',
 ]
+
+# A service:env-var name pair in the env-review test's expected list, by exact line: gitleaks' generic-api-key rule
+# reads "api:" as a key name and the variable name X402_PAY_TO_EVM after it as the key. It is the name of a setting,
+# not a value, and the line holds no secret (first in public commit 7a44cae, private 094db25; history stays as is).
+[[allowlists]]
+description = "env var names in the env-review test's expected pending list, by exact line"
+regexTarget = "line"
+regexes = [
+  '''\.toEqual\(\["api:X402_PAY_TO_EVM", "facilitator:X402_PAYTO_EVM", "mcp:X402_PAY_TO_EVM"\]\);''',
+]
