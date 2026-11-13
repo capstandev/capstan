@@ -3,7 +3,8 @@ import { describe, expect, test } from "bun:test";
 import { mkdtempSync, writeFileSync, mkdirSync, cpSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { OFF_AT_FIRST_DEPLOY, parseEnv, review, reviewService, type Env } from "../env-review";
+import { readFileSync } from "node:fs";
+import { INPUTS_FILE, loadInputs, OFF_AT_FIRST_DEPLOY, parseEnv, review, reviewService, type Env } from "../env-review";
 import { ROOT } from "../lib";
 
 const SAFE = "0x1111111111111111111111111111111111111111";
@@ -15,9 +16,10 @@ const kinds = (f: { kind: string; key: string }[]) => f.map((x) => `${x.kind}:${
 
 describe("env review", () => {
   test("flags-and-matches", () => {
-    // the committed templates and overlays pass, with only pending inputs
+    // the committed templates, overlays and public inputs pass; only the brand Safe (made at go, E1) is pending
     const r = review();
     expect(r.findings.filter((f) => f.kind === "fail")).toEqual([]);
+    expect(r.findings.filter((f) => f.kind === "pending").map((f) => `${f.svc}:${f.key}`)).toEqual(["api:X402_PAY_TO_EVM", "facilitator:X402_PAYTO_EVM", "mcp:X402_PAY_TO_EVM"]);
     expect(r.services).toEqual(["anchor", "api", "facilitator", "mcp", "receipts", "relay", "workers", "ws"]);
     // every flag of the OFF list refuses any value but 0
     for (const k of OFF_AT_FIRST_DEPLOY) {
@@ -54,5 +56,21 @@ describe("env review", () => {
     mkdirSync(join(d, "empty"));
     r = review({ overlays: join(d, "empty") });
     expect(r.findings.filter((f) => f.key === "-").length).toBe(8);
+  });
+
+  test("the committed public inputs: addresses and an IP only, builders equal the SDK pins, env vars win", () => {
+    const f = parseEnv(readFileSync(INPUTS_FILE, "utf8"));
+    for (const [k, v] of f) {
+      expect(k).not.toMatch(/KEY|PASSWORD|SECRET|SEED|MNEMONIC|KEYSTORE/);
+      expect(v === "" || /^0x[0-9a-fA-F]{40}$/.test(v) || /^\d{1,3}(\.\d{1,3}){3}$/.test(v)).toBe(true);
+    }
+    const pins = JSON.parse(readFileSync(join(ROOT, "packages/sdk/src/pins.json"), "utf8")).networks.mainnet;
+    const i = loadInputs();
+    expect(i.hlBuilder).toBe(pins.builders.hyperliquid);
+    expect(i.asterBuilder).toBe(pins.builders.aster);
+    expect(i.brandSafe).toBeUndefined();
+    expect(pins.receiptSigners.map((s: { address: string }) => s.address)).toEqual([f.get("MAINNET_RECEIPTS_SIGNER")]);
+    expect(loadInputs(INPUTS_FILE, { MAINNET_BRAND_SAFE: SAFE }).brandSafe).toBe(SAFE);
+    expect(loadInputs(join(ROOT, "no-such-inputs.conf"))).toEqual({ vpsIp: undefined, brandSafe: undefined, hlBuilder: undefined, asterBuilder: undefined });
   });
 });

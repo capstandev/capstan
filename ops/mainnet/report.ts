@@ -114,7 +114,7 @@ settled one USDG x402 payment on each RHC path. Nothing was sent to a real chain
 - Commit: \`${m.head_sha}\` (snapshot made with \`git archive HEAD\`; the dry run refuses uncommitted deploy inputs).
 - Chain id: 4663 from the fork, \`EXPECTED_CHAIN_ID\` left to the script's own mainnet default (4663).
 - Go flag: \`CAPSTAN_MAINNET_GO=go-${day}\` (the Guard checks it against the fork block's UTC date, as on the day).
-- Brand Safe: \`${m.safe}\` (${m.safe_mode === "given" ? "the real brand Safe, read from the fork" : "a Safe 1.4.1 made on the fork, 2 of 3, SafeL2 singleton, canonical factory: the owner's Safe is not known yet (E1)"}).
+- Brand Safe: \`${m.safe}\` (${m.safe_mode === "given" ? "the real brand Safe, read from the fork" : m.safe_mode === "fork-made-given-owners" ? `a stand-in Safe 1.4.1 made on the fork, 2 of 3, SafeL2 singleton, canonical factory, owned by the three real signer addresses ${(m.safe_owners ?? "").split(",").map((a) => `\`${a}\``).join(", ")}: the real Safe is created at go (E1)` : "a Safe 1.4.1 made on the fork, 2 of 3, SafeL2 singleton, canonical factory: the owner's Safe is not known yet (E1)"}).
 - Poster: \`${m.poster}\` (${m.poster_mode === "given" ? "the address make-service-key.sh printed on the server" : "a fresh fork key standing in for the anchor key make-service-key.sh will make on the server (D2)"}).
 
 Only these differ from the owner's own run:

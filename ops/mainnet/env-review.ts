@@ -8,8 +8,9 @@
 //   - no security setting is empty, every chain id is a mainnet one (or the unused dev pair 31337), no testnet RPC;
 //   - every merged value is printed with its sha (sha256 of "<svc>:<KEY>=<value>", first 12 hex) and each file's
 //     git blob sha, so a reviewer signs off a value, not a file name.
-// Inputs (env or --inputs FILE with KEY=value lines): MAINNET_VPS_IP, MAINNET_BRAND_SAFE, MAINNET_HL_BUILDER,
-// MAINNET_ASTER_BUILDER. Usage: bun ops/mainnet/env-review.ts [--strict] [--quiet] [--inputs FILE]
+// Inputs (env, else --inputs FILE with KEY=value lines, default ops/mainnet/inputs.conf): MAINNET_VPS_IP,
+// MAINNET_BRAND_SAFE, MAINNET_HL_BUILDER, MAINNET_ASTER_BUILDER. An empty value stays pending.
+// Usage: bun ops/mainnet/env-review.ts [--strict] [--quiet] [--inputs FILE]
 import { createHash } from "node:crypto";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { basename, join } from "node:path";
@@ -49,6 +50,15 @@ export function parseEnv(text: string): Env {
     m.set(l.slice(0, i).trim(), l.slice(i + 1).trim());
   }
   return m;
+}
+
+export const INPUTS_FILE = join(ROOT, "ops/mainnet/inputs.conf");
+
+/** The public inputs from a KEY=value file (empty values are left out) with env vars of the same name on top. */
+export function loadInputs(file: string = INPUTS_FILE, envVars: Record<string, string | undefined> = {}): Inputs {
+  const f = existsSync(file) ? Object.fromEntries(parseEnv(readFileSync(file, "utf8"))) : {};
+  const get = (k: string) => (envVars[k] || f[k] || undefined) as string | undefined;
+  return { vpsIp: get("MAINNET_VPS_IP"), brandSafe: get("MAINNET_BRAND_SAFE"), hlBuilder: get("MAINNET_HL_BUILDER"), asterBuilder: get("MAINNET_ASTER_BUILDER") };
 }
 
 export function merge(template: Env, overlay: Env): Env {
@@ -141,7 +151,7 @@ export function review(o: ReviewOptions = {}) {
   const example = parseEnv(readFileSync(o.example ?? join(ROOT, ".env.example"), "utf8"));
   const pinsRaw = JSON.parse(readFileSync(o.pinsFile ?? join(ROOT, "packages/sdk/src/pins.json"), "utf8")) as { networks: { mainnet: { builders: Pins } } };
   const pins = pinsRaw.networks.mainnet.builders;
-  const inputs = o.inputs ?? {};
+  const inputs = o.inputs ?? loadInputs();
   const services = readdirSync(templates).filter((f) => f.endsWith(".env")).map((f) => basename(f, ".env")).sort();
   const findings: Finding[] = [];
   const lines: string[] = [];
@@ -160,9 +170,7 @@ export function review(o: ReviewOptions = {}) {
 
 if (import.meta.main) {
   const a = args(process.argv.slice(2));
-  const fileInputs = a.inputs ? Object.fromEntries(parseEnv(readFileSync(a.inputs, "utf8"))) : {};
-  const get = (k: string) => (process.env[k] || fileInputs[k] || undefined) as string | undefined;
-  const r = review({ inputs: { vpsIp: get("MAINNET_VPS_IP"), brandSafe: get("MAINNET_BRAND_SAFE"), hlBuilder: get("MAINNET_HL_BUILDER"), asterBuilder: get("MAINNET_ASTER_BUILDER") } });
+  const r = review({ inputs: loadInputs(a.inputs ?? INPUTS_FILE, process.env) });
   if (!a.quiet) console.log(r.lines.join("\n"));
   const fails = r.findings.filter((f) => f.kind === "fail");
   const pend = r.findings.filter((f) => f.kind === "pending");

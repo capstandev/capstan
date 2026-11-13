@@ -12,6 +12,8 @@
 # Stage 5 (Sourcify) gets stand-in forge and curl for its two calls only (fork addresses do not exist on 4663, and
 # nothing may be sent to Sourcify for them); every other tool is the real one.
 # Inputs (all optional): BRAND_SAFE (the real brand Safe, read from the fork; default a fork-made Safe 1.4.1, 2 of 3),
+# SAFE_OWNERS (three comma-separated public signer addresses: the fork-made stand-in Safe gets these owners instead of
+# fresh ones, so the deploy runs with the real signer set before the real Safe exists; ignored when BRAND_SAFE is set),
 # POSTER_ADDRESS (the address make-service-key.sh printed on the server; default a fresh fork key; a given address
 # is impersonated on the fork for the anchor post). Then, on the fork contracts: a second deploy run (only skip
 # lines), live-check.sh, one anchor post, one USDG settle on each path (Permit2, EIP-3009) through the facilitator's
@@ -116,6 +118,7 @@ meta deployer "$deployer"; meta poster "$poster"; meta poster_mode "$poster_mode
 
 # 3. the brand Safe: the real one if given (read from the fork), else a Safe 1.4.1 made on the fork
 if [ -n "${BRAND_SAFE:-}" ]; then safe="$BRAND_SAFE"; safe_mode="given"
+elif [ -n "${SAFE_OWNERS:-}" ]; then safe="$("$BUN" "$here/fork-steps.ts" safe --rpc "$RPC" --out "$run/safe.json" --owners "$SAFE_OWNERS" | tail -1)"; safe_mode="fork-made-given-owners"; meta safe_owners "$SAFE_OWNERS"
 else safe="$("$BUN" "$here/fork-steps.ts" safe --rpc "$RPC" --out "$run/safe.json" | tail -1)"; safe_mode="fork-made"; fi
 echo "$safe" | grep -Eq '^0x[0-9a-fA-F]{40}$' || { echo "fail: no brand Safe address (fork-made Safe failed?)"; exit 1; }
 echo "step 3: brand Safe $safe ($safe_mode)"

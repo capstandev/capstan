@@ -1,6 +1,8 @@
 // Fork-only steps for ops/mainnet/dry-run.sh. Every write goes to the loopback dry-run anvil (localRpc refuses any
 // other URL). Test wallets are fresh in-memory keys for this run only; nothing here prints a key.
-//   bun ops/mainnet/fork-steps.ts safe   --rpc URL --out FILE      Safe 1.4.1 (SafeL2 singleton), 2 of 3 fresh owners
+//   bun ops/mainnet/fork-steps.ts safe   --rpc URL --out FILE [--owners A,B,C]
+//                                          Safe 1.4.1 (SafeL2 singleton), 2 of 3; fresh owners, or the given public
+//                                          owner addresses (the real signers: a stand-in Safe on the fork only)
 //   bun ops/mainnet/fork-steps.ts settle --rpc URL --safe ADDR --keystore F --password-file F --method permit2|eip3009 --out FILE
 import { keystoreSigner } from "@capstan/core";
 import type { Hex } from "@capstan/schema";
@@ -37,18 +39,26 @@ async function send(pc: PublicClient, url: string, acct: PrivateKeyAccount, to: 
 }
 
 /** A Safe 1.4.1 made the way the Safe app makes one on an L2: canonical factory, SafeL2 singleton, fallback handler. */
-async function safe(url: string, out: string): Promise<void> {
+export function parseOwners(list: string | undefined): Hex[] | null {
+  if (!list) return null;
+  const owners = list.split(",").map((s) => s.trim()).filter(Boolean);
+  if (owners.length !== 3 || owners.some((a) => !/^0x[0-9a-fA-F]{40}$/.test(a))) throw new Error("--owners needs three 0x addresses");
+  if (new Set(owners.map((a) => a.toLowerCase())).size !== 3) throw new Error("--owners has a repeated address");
+  return owners as Hex[];
+}
+
+async function safe(url: string, out: string, given: Hex[] | null): Promise<void> {
   const pc = localRpc(url);
   const operator = privateKeyToAccount(generatePrivateKey());
   await fundEth(url, operator.address, 10n ** 17n);
-  const owners = [0, 1, 2].map(() => privateKeyToAccount(generatePrivateKey()).address);
+  const owners = given ?? [0, 1, 2].map(() => privateKeyToAccount(generatePrivateKey()).address);
   const init = encodeFunctionData({ abi: SAFE_ABI, functionName: "setup", args: [owners, 2n, ZERO, "0x", SAFE_141.fallback, ZERO, 0n, ZERO] });
   const salt = BigInt(toHex(crypto.getRandomValues(new Uint8Array(16))));
   const rc = await send(pc, url, operator, SAFE_141.factory, encodeFunctionData({ abi: SAFE_ABI, functionName: "createProxyWithNonce", args: [SAFE_141.singletonL2, init, salt] }));
   const log = rc.logs.find((l) => l.address.toLowerCase() === SAFE_141.factory.toLowerCase());
   if (!log?.topics[1]) throw new Error("no ProxyCreation log");
   const address = `0x${log.topics[1].slice(26)}` as Hex;
-  writeFileSync(out, `${JSON.stringify({ address, owners, threshold: 2, singleton: SAFE_141.singletonL2, tx: rc.transactionHash, gas: rc.gasUsed.toString() }, null, 2)}\n`);
+  writeFileSync(out, `${JSON.stringify({ address, owners, ownersMode: given ? "given" : "fresh", threshold: 2, singleton: SAFE_141.singletonL2, tx: rc.transactionHash, gas: rc.gasUsed.toString() }, null, 2)}\n`);
   console.log(address);
 }
 
@@ -101,11 +111,13 @@ async function settle(o: Record<string, string>): Promise<void> {
   if (!row.ok) process.exit(1);
 }
 
-const [cmd, ...rest] = process.argv.slice(2);
-const o = args(rest);
-if (cmd === "safe") await safe(o.rpc!, o.out!);
-else if (cmd === "settle") await settle(o);
-else {
-  console.error("usage: fork-steps.ts safe|settle --rpc URL ...");
-  process.exit(2);
+if (import.meta.main) {
+  const [cmd, ...rest] = process.argv.slice(2);
+  const o = args(rest);
+  if (cmd === "safe") await safe(o.rpc!, o.out!, parseOwners(o.owners));
+  else if (cmd === "settle") await settle(o);
+  else {
+    console.error("usage: fork-steps.ts safe|settle --rpc URL ...");
+    process.exit(2);
+  }
 }

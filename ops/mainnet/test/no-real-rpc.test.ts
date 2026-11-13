@@ -36,7 +36,7 @@ describe("dry run is fork only", () => {
     const s = readFileSync(SH, "utf8");
     expect(s).toContain('RPC="http://127.0.0.1:$P_ANVIL"');
     const sends = s.split("\n").filter((x) => /CAST" send|fork-steps\.ts" (safe|settle)/.test(x) && !x.trim().startsWith("#"));
-    expect(sends.length).toBe(4);
+    expect(sends.length).toBe(5); // two Safe paths (fresh owners or SAFE_OWNERS), two poster paths (keystore or given), the settle loop
     for (const l of sends) expect(l).toMatch(/--rpc-url "\$RPC"|--rpc "\$RPC"/);
     const deploy = s.match(/\ndeploy\(\) \{[\s\S]*?\n\}/)?.[0] ?? "";
     expect(deploy).toContain('RPC_URL="$RPC"');

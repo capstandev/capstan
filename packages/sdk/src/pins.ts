@@ -36,7 +36,11 @@ export interface Pins {
 const withPrefix = (h: string): Hex => (h.startsWith("0x") ? (h.toLowerCase() as Hex) : (`0x${h.toLowerCase()}` as Hex));
 const lowerOrNull = (a: string | null): Hex | null => (a === null ? null : (a.toLowerCase() as Hex));
 
-function loadNetwork(n: (typeof raw.networks)["mainnet"], chainDefault: number): NetworkPins {
+// The JSON types of the two networks differ once one pins a builder (a string) and the other does not (null): read
+// both through one shape where each pinned address may be either.
+type RawNetwork = Omit<(typeof raw.networks)["mainnet"], "builders" | "anchor"> & { builders: { hyperliquid: string | null; aster: string | null }; anchor: { chainId: number; address: string | null } };
+
+function loadNetwork(n: RawNetwork, chainDefault: number): NetworkPins {
   const anchorFromDeployments = DEPLOYMENTS[chainDefault]?.contracts.CapstanReceiptAnchor?.address ?? null;
   return {
     builders: { hyperliquid: lowerOrNull(n.builders.hyperliquid), aster: lowerOrNull(n.builders.aster) },

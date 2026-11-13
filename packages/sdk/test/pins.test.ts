@@ -3,10 +3,10 @@ import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import type { OrderIntent, VenueCapabilities } from "@capstan/schema";
 import { SdkError } from "../src/errors";
-import { assertServerMatchesPins, PINS } from "../src/pins";
+import { assertServerMatchesPins, pinnedBuilder, PINS } from "../src/pins";
 import { hlTemplateHashes, PINS_FILE, regenerate, render } from "../scripts/gen-pins";
 import { hlProbeBundles } from "../scripts/hl-template";
-import { hlTemplateHash } from "../src/onboard";
+import { asterTemplateHash, hlTemplateHash } from "../src/onboard";
 import { BUILDER_ASTER, BUILDER_HL, labelAddr, testPins } from "./helpers";
 import { sdkClient, startStack } from "./stack";
 
@@ -71,12 +71,23 @@ describe("pins", () => {
   test("generated parts of pins.json are current", async () => {
     const raw = JSON.parse(readFileSync(PINS_FILE, "utf8"));
     expect(render(regenerate(raw, await hlTemplateHashes()))).toBe(readFileSync(PINS_FILE, "utf8"));
-    // eight Lighter step combinations per config and network; no builder, so no Aster hash yet
+    // eight Lighter step combinations per config and network; one Aster hash per pinned builder (mainnet only)
     expect(PINS.networks.mainnet.templateHashes["lighter-rh"].length).toBe(8);
     expect(PINS.networks.testnet.templateHashes["lighter-mainnet"].length).toBe(8);
-    expect(PINS.networks.mainnet.templateHashes.aster).toEqual([]);
+    expect(PINS.networks.mainnet.templateHashes.aster).toEqual([asterTemplateHash(PINS.networks.mainnet.builders.aster!, "Mainnet", "0.0003")]);
+    expect(PINS.networks.testnet.templateHashes.aster).toEqual([]);
     expect(PINS.networks.mainnet.approvalCeilings).toEqual({ hyperliquid: "0.03%", aster: "0.0003" });
     expect(PINS.networks.mainnet.allowedFees).toEqual({ hyperliquid: [10, 20], aster: ["0.0001", "0.0002"] });
+  });
+
+  // Mainnet wallet pack 2026-11-12: the shipped release pins the real builders and receipts signer, so a mainnet client
+  // no longer refuses Hyperliquid or Aster with DEPLOYMENT_MISMATCH for want of a builder. Testnet pins none.
+  test("the shipped mainnet pins carry the real builders and receipts signer", () => {
+    const m = PINS.networks.mainnet;
+    expect(pinnedBuilder(m, "hyperliquid")).toBe("0x9a76f0230118b43a3ea8ee265f15405adcd7bf92");
+    expect(pinnedBuilder(m, "aster")).toBe("0x76bc78b24dc1d12fcdf5c0eaf0ff71cd772b76a7");
+    expect(m.receiptSigners).toEqual([{ address: "0xf0c0acf8f7493527e9730896acedab521de48740" }]);
+    expect(() => pinnedBuilder(PINS.networks.testnet, "hyperliquid")).toThrow(SdkError);
   });
 
   // The launch blocker of 2026-11-12: empty Hyperliquid pins made every production onboarding TEMPLATE_UNKNOWN.

@@ -60,7 +60,8 @@ describe("end to end", () => {
     // the relay forwarded exactly one order to the venue, signed by the local agent key
     const orders = stack.venue.st.exchangePosts.filter((x) => (x as { action: { type: string } }).action.type === "order");
     expect(orders.length).toBe(1);
-    expect(mergePins(PINS).networks.mainnet.builders.hyperliquid).toBeNull(); // the shipped pins stay fail-closed
+    // the shipped pins carry the real mainnet builder (wallet pack 2026-11-12), not the test stack's one
+    expect(mergePins(PINS).networks.mainnet.builders.hyperliquid).toBe("0x9a76f0230118b43a3ea8ee265f15405adcd7bf92");
     ks.close?.();
   });
 });

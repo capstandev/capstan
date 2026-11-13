@@ -4,8 +4,8 @@
   "networks": {
     "mainnet": {
       "builders": {
-        "hyperliquid": null,
-        "aster": null
+        "hyperliquid": "0x9a76F0230118b43A3Ea8ee265F15405aDcD7bf92",
+        "aster": "0x76bC78B24dc1d12FcDF5c0eAF0Ff71cD772B76a7"
       },
       "approvalCeilings": {
         "hyperliquid": "0.03%",
@@ -36,7 +36,9 @@
           "9e4a6f7e58cbaf69803df5a7cb964e7362bad69c9d0db54dea5a536c426a2580",
           "dd49de38dc6bda9054de096af4db0a77c3b57d81d6da16a6d944e8077fd59f82"
         ],
-        "aster": [],
+        "aster": [
+          "4f98e217252a11899f58542f3974bcedb10a67243908b1ed86517a7796616d22"
+        ],
         "lighter-mainnet": [
           "67f8c7bd249f45c88dd0d17caa3cae9a46104a5f067ff1a41b55e3ef976f01ef",
           "e5e0c795adba9fd177e9cf514787b19483a794653353207c4ddc1ef1b5314a55",
@@ -58,7 +60,11 @@
           "5af3382cc6f2c5e10cdc9d2a0c0ef6f6e24bd9697c29db48ecb7968670b2a54b"
         ]
       },
-      "receiptSigners": [],
+      "receiptSigners": [
+        {
+          "address": "0xF0c0acf8f7493527e9730896acEDAb521De48740"
+        }
+      ],
       "anchor": {
         "chainId": 4663,
         "address": null
