@@ -10,7 +10,7 @@ SRC=/src/release; SB=/srv/sandbox; RH=/var/lib/capstan-release; CONF=/etc/capsta
 TG_PORT=25520; GH_PORT=25521
 TG_TOKEN="123456789:SandboxStandinTokenNotRealCCCCCCCC"; GH_TOKEN="sandbox-standin-not-a-real-token"
 U=capstan-release; NOW=0
-PUB_EMAIL=1+capstandev@users.noreply.github.com; WORD=zebracorn   # WORD stands in for the owner's forbidden words
+PUB_EMAIL=1+capstandev@users.noreply.github.com; WORD="zebra""corn"   # WORD stands in for the owner's forbidden words (built here: no tracked file may hold it)
 export GIT_CONFIG_NOSYSTEM=1
 failed=0
 

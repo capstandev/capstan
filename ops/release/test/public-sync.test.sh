@@ -3,7 +3,7 @@
 # in for capstandev/capstan and a throwaway key signs; nothing reaches the network.
 . "$(dirname "$0")/lib.sh"
 SYNC="$BIN/public-sync.sh"
-WORD=zebracorn # the forbidden word of these tests (stands in for the owner's names)
+WORD="zebra""corn" # the forbidden word of these tests (stands in for the owner's names); built here so no tracked file holds it
 
 # pub_world [changelog]: sandbox + a bootstrapped public repo (one signed empty base) + the template and key
 pub_world() {

@@ -13,7 +13,7 @@ set -u
 SRC=/src/release; Q=/src/queue; SB=/srv/sandbox; RH=/var/lib/capstan-release; CONF=/etc/capstan-release/release.conf
 TG_PORT=25530; GH_PORT=25531
 TG_TOKEN="123456789:SandboxStandinTokenNotRealCCCCCCCC"; GH_TOKEN="sandbox-standin-not-a-real-token"
-PUB_EMAIL=1+capstandev@users.noreply.github.com; WORD=zebracorn   # stands in for the owner's forbidden words
+PUB_EMAIL=1+capstandev@users.noreply.github.com; WORD="zebra""corn"   # stands in for the owner's forbidden words (built here: no tracked file may hold it)
 U=capstan-release; NOW=0; QBASE="${STRESS_BASE:?STRESS_BASE}"; QTIP="${STRESS_TIP:?STRESS_TIP}"
 export GIT_CONFIG_NOSYSTEM=1
 failed=0; cases=0
