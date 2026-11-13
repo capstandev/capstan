@@ -149,8 +149,9 @@ describe.skipIf(skip)("the production build under the vercel.json headers", () =
               sw: document.documentElement.scrollWidth,
               h1: document.querySelector("#cap-live h1")?.textContent,
               cards: document.querySelectorAll("#cap-live [data-update]").length,
-              planned: document.querySelectorAll('#cap-live [data-badge="planned"]').length,
-              live: document.querySelectorAll('#cap-live [data-badge="live"]').length,
+              planned: document.querySelectorAll('#cap-live [data-update] [data-badge="planned"]').length,
+              live: document.querySelectorAll('#cap-live [data-update] [data-badge="live"]').length,
+              bonuses: document.querySelectorAll("#cap-live [data-bonus]").length,
               empty: document.querySelector("[data-changelog-empty]")?.textContent ?? null,
               footer: [...document.querySelectorAll(".bl-footer a")].map((a) => a.getAttribute("href")).filter((h) => h === "roadmap.html" || h === "changelog.html"),
             }))),
@@ -163,8 +164,8 @@ describe.skipIf(skip)("the production build under the vercel.json headers", () =
     const rel = JSON.parse(readFileSync(join(import.meta.dir, "../src/generated/releases.json"), "utf8")) as { updates: { live: boolean }[]; changelog: unknown[] };
     const live = rel.updates.filter((u) => u.live).length;
     for (const width of [1440, 390]) {
-      expect(out.seen.find((x) => x.path === "/roadmap" && x.width === width)).toEqual({ path: "/roadmap", width, status: 200, csp: true, vw: width, sw: width, h1: "Roadmap", cards: 72, planned: 72 - live, live, empty: null, footer: ["roadmap.html", "changelog.html"] });
-      expect(out.seen.find((x) => x.path === "/changelog" && x.width === width)).toEqual({ path: "/changelog", width, status: 200, csp: true, vw: width, sw: width, h1: "Changelog", cards: 0, planned: 0, live: 0, empty: rel.changelog.length ? null : "No releases yet. The first update ships at launch.", footer: ["roadmap.html", "changelog.html"] });
+      expect(out.seen.find((x) => x.path === "/roadmap" && x.width === width)).toEqual({ path: "/roadmap", width, status: 200, csp: true, vw: width, sw: width, h1: "Roadmap", cards: 72, planned: 72 - live, live, bonuses: 3, empty: null, footer: ["roadmap.html", "changelog.html"] });
+      expect(out.seen.find((x) => x.path === "/changelog" && x.width === width)).toEqual({ path: "/changelog", width, status: 200, csp: true, vw: width, sw: width, h1: "Changelog", cards: 0, planned: 0, live: 0, bonuses: 0, empty: rel.changelog.length ? null : "No releases yet. The first update ships at launch.", footer: ["roadmap.html", "changelog.html"] });
     }
     expect(out.problems).toEqual([]);
   }, 240_000);

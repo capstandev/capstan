@@ -8,6 +8,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import type { ReactElement } from "react";
 import { CHANGELOG_SOURCE, parseChangelog, readRoadmap, releasePages, ROADMAP_SOURCE, type ReleasePages } from "../scripts/sync-releases";
 import { READ_BY_PATH } from "../scripts/build-inputs";
+import { parseQueue, QUEUE_SOURCE, roadmapFromQueue, ROADMAP_TARGET } from "../scripts/sync-roadmap";
 import { Changelog } from "../src/pages/Changelog";
 import { Roadmap } from "../src/pages/Roadmap";
 import releasesJson from "../src/generated/releases.json";
@@ -57,24 +58,53 @@ describe("CHANGELOG.md parsing", () => {
 });
 
 describe("/roadmap", () => {
-  test("all-72-present: the export holds updates 1 to 72 with title, plain line, day and slot", () => {
+  test("no-drift: data/roadmap.json is exactly the queue table (data/release-queue.md): titles, order, lanes, slots, bonuses", () => {
+    const queueMd = readFileSync(QUEUE_SOURCE, "utf8");
+    expect(JSON.parse(readFileSync(ROADMAP_TARGET, "utf8"))).toEqual(roadmapFromQueue(queueMd));
+    expect(readRoadmap()).toEqual(roadmapFromQueue(queueMd));
+    const rows = queueMd.split("\n").filter((l) => /^\| \d+ \| Day \d+, \+\d+ h \|/.test(l));
+    expect(rows.length).toBe(72);
+    expect(readRoadmap().updates.map((u) => `| ${u.n} | Day ${u.day}, +${u.hour} h | ${u.lane} | ${u.tier} | ${u.title} | ${u.line} |`)).toEqual(rows);
+  });
+
+  test("the queue copy: updates 1 to 72 in order, one an hour from launch, four lanes; two launch-day bonuses and one later", () => {
+    const q = parseQueue(readFileSync(QUEUE_SOURCE, "utf8"));
+    expect(q.updates.map((u) => u.n)).toEqual(Array.from({ length: 72 }, (_, i) => i + 1));
+    for (const u of q.updates) expect({ n: u.n, day: u.day, hour: u.hour }).toEqual({ n: u.n, day: Math.floor((u.n - 1) / 24) + 1, hour: (u.n - 1) % 24 });
+    expect([...new Set(q.updates.map((u) => u.lane))].sort()).toEqual(["A", "B", "C", "D"]);
+    expect(q.bonuses.map((b) => [b.n, b.key, b.when])).toEqual([
+      [1, "home-funding", "launch day"],
+      [2, "mcp-quickstart", "launch day"],
+      [3, "lock-calculator", "later"],
+    ]);
+    expect(() => parseQueue("| 1 | Day 1, 4 pm | A | core | t | l |")).toThrow();
+  });
+
+  test("all-72-present: every update with its time relative to launch, then the bonuses; no calendar date", () => {
     const r = readRoadmap();
-    expect(r.updates.map((u) => u.n)).toEqual(Array.from({ length: 72 }, (_, i) => i + 1));
-    for (const u of r.updates) expect({ n: u.n, day: u.day, slot: u.slot }).toEqual({ n: u.n, day: Math.floor((u.n - 1) / 24) + 1, slot: ((u.n - 1) % 24) + 1 });
     const v = dom(<Roadmap />);
     expect(v.querySelector("h1")!.textContent).toBe("Roadmap");
-    expect([...v.querySelectorAll("h2")].map((h) => h.textContent)).toEqual(["Day 1", "Day 2", "Day 3"]);
-    expect(v.querySelectorAll("[data-update]").length).toBe(72);
+    expect(v.querySelector("[data-roadmap-intro]")!.textContent).toContain("Day 1, +4 h is four hours after launch");
+    expect([...v.querySelectorAll("h2")].map((h) => h.textContent)).toEqual(["Day 1", "Day 2", "Day 3", "Bonus updates"]);
+    expect([...v.querySelectorAll("[data-update]")].map((e) => Number(e.getAttribute("data-update")))).toEqual(r.updates.map((u) => u.n));
+    expect([...v.querySelectorAll("[data-update] [data-at]")].map((e) => e.textContent)).toEqual(r.updates.map((u) => `Day ${u.day}, +${u.hour} h`));
     const first = v.querySelector('[data-update="1"]')!;
     expect(first.querySelector("h3")!.textContent).toBe(`Update 1: ${r.updates[0]!.title}`);
     expect(first.textContent).toContain(r.updates[0]!.line);
-    expect(first.textContent).toContain("Planned slot: Day 1, slot 1");
+    expect(first.querySelector("[data-at]")!.textContent).toBe("Day 1, +0 h");
+    expect(v.querySelector('[data-update="29"] [data-at]')!.textContent).toBe("Day 2, +4 h");
+    expect([...v.querySelectorAll("[data-bonus]")].map((e) => [e.getAttribute("data-bonus"), e.querySelector("[data-when]")!.textContent])).toEqual([
+      ["home-funding", "Launch day"],
+      ["mcp-quickstart", "Launch day"],
+      ["lock-calculator", "Later"],
+    ]);
+    expect(v.textContent).not.toMatch(/\b20\d\d-\d\d-\d\d\b/);
   });
 
   test("before launch every badge reads planned (the build data matches the repo's own files)", () => {
     expect(releases).toEqual(releasePages(readRoadmap(), readFileSync(CHANGELOG_SOURCE, "utf8")));
     const v = dom(<Roadmap />);
-    expect(v.querySelectorAll('[data-badge="planned"]').length).toBe(72);
+    expect(v.querySelectorAll('[data-badge="planned"]').length).toBe(75);
     expect(v.querySelectorAll('[data-badge="live"]').length).toBe(0);
     expect([...v.querySelectorAll("[data-badge]")].every((b) => b.textContent === "planned")).toBe(true);
   });
@@ -86,7 +116,12 @@ describe("/roadmap", () => {
     expect([...v.querySelectorAll('[data-badge="live"]')].map((b) => [b.closest("[data-update]")!.getAttribute("data-update"), b.textContent])).toEqual([["1", "LIVE"], ["2", "LIVE"], ["25", "LIVE"]]);
     // update 9 is only under Unreleased; the bonus and the fix never mark a queued update
     expect(v.querySelector('[data-update="9"] [data-badge]')!.textContent).toBe("planned");
-    expect(v.querySelectorAll('[data-badge="planned"]').length).toBe(69);
+    expect(v.querySelectorAll('[data-update] [data-badge="planned"]').length).toBe(69);
+    // "Bonus update 1:" flips bonus 1 only
+    expect(data.bonuses.map((b) => [b.n, b.live])).toEqual([[1, true], [2, false], [3, false]]);
+    const w = dom(<Roadmap updates={data.updates} bonuses={data.bonuses} />);
+    expect(w.querySelector('[data-bonus="home-funding"] [data-badge]')!.textContent).toBe("LIVE");
+    expect(w.querySelector('[data-bonus="lock-calculator"] [data-badge]')!.textContent).toBe("planned");
   });
 });
 

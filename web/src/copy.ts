@@ -148,14 +148,18 @@ export const STATUS_COPY = {
   off: "Paused",
 } as const;
 
-/** /roadmap: titles and lines come from the release plan (web/data/roadmap.json); these are the labels only. */
+/** /roadmap: titles and lines come from the release queue (web/data/roadmap.json); these are the labels only. */
 export const ROADMAP_COPY = {
   title: "Roadmap",
   day: (d: number) => `Day ${d}`,
   update: (n: number) => `Update ${n}`,
-  slot: (d: number, s: number) => `Planned slot: Day ${d}, slot ${s}`,
+  intro: "Times count from the launch time, one update an hour: Day 1, +4 h is four hours after launch. Each update goes live only after its tests and checks pass.",
+  slot: (d: number, h: number) => `Day ${d}, +${h} h`,
   live: "LIVE",
   planned: "planned",
+  bonusTitle: "Bonus updates",
+  bonus: (n: number) => `Bonus update ${n}`,
+  when: { "launch day": "Launch day", later: "Later" },
 } as const;
 
 /** /changelog: entries come from CHANGELOG.md; these are the labels only. */

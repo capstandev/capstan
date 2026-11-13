@@ -8,7 +8,8 @@ build, deployable as is (Vercel config in `vercel.json`).
 | Path | What it is |
 | --- | --- |
 | `*.html` | One file per page: the owner's pages (index, how-it-works, developers, markets, quotes, risk, use-cases, the three case pages, pricing, about, contact, terms, privacy, dashboard) plus docs, verify, status, legal, roadmap, changelog and 404 |
-| `data/roadmap.json` | The release queue export for /roadmap (number, title, one plain line, planned day and slot), made from the release plan. `scripts/sync-releases.ts` joins it with the repo's CHANGELOG.md at build time: an update reads LIVE only when its `Update N:` entry is released there, otherwise "planned"; /changelog lists the released entries newest first |
+| `data/release-queue.md` | The release queue table (number, time after launch, lane, tier, title, one plain line) and the bonus updates (launch day or later), copied from the release tools; never edited by hand |
+| `data/roadmap.json` | The /roadmap data, made from `data/release-queue.md` by `bun scripts/sync-roadmap.ts`; a test fails if the two differ. Times are relative to launch ("Day 1, +4 h"). `scripts/sync-releases.ts` joins it with the repo's CHANGELOG.md at build time: an update reads LIVE only when its `Update N:` entry is released there, otherwise "planned"; /changelog lists the released entries newest first |
 | `public/` | The owner's styles, scripts, component bundles, images and mascot videos, as supplied (kept word for word) |
 | `site-src/` | The owner's editable sources for the component bundles in `public/assets/` (`site-src/package.json` has the esbuild commands) |
 | `src/site/` | The live wiring: `main.ts` (the one module every page loads), `data.ts` (API reads and the view states), `feature.ts` (markets, quotes, risk and pricing pages), `dashboard.tsx` (the owner's dashboard views), `react.tsx` (React screens inside the owner's pages), `live.css`, `fonts.css` |
