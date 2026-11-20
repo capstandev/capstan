@@ -8,7 +8,7 @@
   "scripts": {
     "sync": "bun scripts/sync-openapi.ts",
     "dev": "bun scripts/sync-openapi.ts && vite --host 127.0.0.1 --port 22273 --strictPort",
-    "build": "bun scripts/sync-openapi.ts && tsc --noEmit -p . && vite build && bun scripts/hash-public.ts && bun scripts/check-dist.ts",
+    "build": "bun scripts/sync-openapi.ts && tsc --noEmit -p . && vite build && bun scripts/hash-public.ts && bun scripts/prerender.ts && bun scripts/check-dist.ts",
     "preview": "vite preview --host 127.0.0.1 --port 22273 --strictPort",
     "test": "bun test --timeout 30000 test",
     "test:e2e": "CAPSTAN_WEB_E2E=1 bun test --timeout 300000 test/e2e",

@@ -64,6 +64,9 @@ export function buildOnce(env: Record<string, string> = {}): Promise<string> {
         await build({ root: WEB, mode: "production", configFile: join(WEB, "vite.config.ts"), logLevel: "error", build: { outDir, emptyOutDir: true } });
         const { hashPublic } = await import("../scripts/hash-public");
         hashPublic(outDir);
+        // the prerender step runs in its own process: it registers happy-dom globals of its own per page
+        const pre = Bun.spawnSync(["bun", join(WEB, "scripts/prerender.ts"), outDir], { cwd: WEB, stdout: "pipe", stderr: "pipe" });
+        if (pre.exitCode !== 0) throw new Error(`prerender failed: ${pre.stderr.toString()}`);
       } finally {
         for (const [k, v] of Object.entries(saved)) {
           if (v === undefined) delete process.env[k];

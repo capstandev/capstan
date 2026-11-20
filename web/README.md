@@ -77,8 +77,8 @@ Production values for every variable are in `.env.example` (entered in the Verce
   must-revalidate`. Pages carry the CSP (scripts from this origin only, `frame-ancestors 'none'`), `X-Frame-Options
   DENY`, `nosniff`, a referrer policy and a permissions policy. `test/vercel-browser.test.ts` loads every built page
   under those exact headers in headless Chromium.
-- Pre-launch: the last header rule sends `X-Robots-Tag: noindex, nofollow` on every path. JSON has no comments, so
-  the note lives here: **remove that rule on launch day**, and only then.
+- Search engines: no site page sends an `X-Robots-Tag` header. The pre-launch `noindex, nofollow` rule for every path
+  was removed in the mainnet go change; only `404.html` keeps its own `noindex` meta tag. A test holds both.
 
 ## Rules the tests hold
 

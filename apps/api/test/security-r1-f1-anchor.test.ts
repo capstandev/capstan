@@ -1,6 +1,7 @@
 // Security review r1, review-r1:6 F1 (server side): the api's anchor reader takes the address from the deployment
 // record of the network's chain, never from a free env value on testnet or mainnet, and checks the RPC's chain id
 // before using any answer. Without a deployed anchor there is no reader, and /verify never reads valid.
+import { DEPLOYMENTS } from "@capstan/schema";
 import { afterAll, describe, expect, test } from "bun:test";
 import { anchorReaderFromEnv } from "../src/routes/receipts.routes";
 
@@ -20,8 +21,16 @@ afterAll(() => srv.stop(true));
 
 describe("security r1 F1 anchor reader", () => {
   test("testnet-ignores-env-anchor-address", async () => {
-    // no anchor in contracts/deployments for 4663 yet: a free ANCHOR_ADDRESS must not be trusted
-    expect(await anchorReaderFromEnv({ CAPSTAN_NETWORK: "mainnet", ANCHOR_ADDRESS: "0x00000000000000000000000000000000000a1c40", ANCHOR_RPC_URL: `http://127.0.0.1:${PORT}` })).toBeNull();
+    // with no anchor in contracts/deployments for 4663 (before the mainnet go) a free ANCHOR_ADDRESS must not be
+    // trusted: no reader. With the record committed, the reader comes from the record (and this RPC is not 4663).
+    const mainnet = () => anchorReaderFromEnv({ CAPSTAN_NETWORK: "mainnet", ANCHOR_ADDRESS: "0x00000000000000000000000000000000000a1c40", ANCHOR_RPC_URL: `http://127.0.0.1:${PORT}` });
+    const record = DEPLOYMENTS[4663];
+    delete DEPLOYMENTS[4663];
+    try {
+      expect(await mainnet()).toBeNull();
+    } finally {
+      if (record) DEPLOYMENTS[4663] = record;
+    }
     // 46630 has a deployment record (2026-11-12): the reader uses it and still checks the RPC's chain id
     const r = await anchorReaderFromEnv({ CAPSTAN_NETWORK: "testnet", ANCHOR_ADDRESS: "0x00000000000000000000000000000000000a1c40", ANCHOR_RPC_URL: `http://127.0.0.1:${PORT}` });
     expect(r).not.toBeNull();

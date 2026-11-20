@@ -1,5 +1,5 @@
 // Vercel readiness (tracker 52 and 82): vercel.json installs the workspace root, skips builds only when nothing the
-// site reads changed (and survives a shallow clone), keeps the pre-launch noindex header, caches hashed assets forever
+// site reads changed (and survives a shallow clone), sends no noindex header since launch, caches hashed assets forever
 // and pages never, and .env.example lists every VITE_ variable the code reads with its production value.
 import { describe, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
@@ -81,9 +81,16 @@ describe("install, robots and caching", () => {
     expect(cfg.installCommand).toBe("cd .. && bun install --frozen-lockfile && cd web && bun install --frozen-lockfile");
   });
 
-  test("the pre-launch noindex header is on every path, and the README says it is removed on launch day", () => {
-    for (const p of ["/", "/docs", "/404", "/robots.txt", "/_app/main-abc123.js", "/assets/style-abc123.css"]) expect({ p, robots: headersFor(p, cfg)["x-robots-tag"] }).toEqual({ p, robots: "noindex, nofollow" });
-    expect(readFileSync(join(WEB, "README.md"), "utf8")).toMatch(/X-Robots-Tag: noindex, nofollow[\s\S]{0,120}remove that rule on launch day/);
+  test("launched: no site page or asset sends an X-Robots-Tag header, and only the 404 page carries a noindex meta tag", () => {
+    for (const p of ["/", "/docs", "/markets", "/pricing", "/404", "/robots.txt", "/sitemap.xml", "/_app/main-abc123.js", "/assets/style-abc123.css"]) expect({ p, robots: headersFor(p, cfg)["x-robots-tag"] }).toEqual({ p, robots: undefined });
+    // no rule for every path may carry it again (a rule for the signed-in app paths alone may)
+    const robotRules = cfg.headers.filter((h) => h.headers.some((x) => x.key.toLowerCase() === "x-robots-tag"));
+    expect(robotRules.filter((h) => new RegExp(`^${h.source}$`).test("/") || new RegExp(`^${h.source}$`).test("/docs")).map((h) => h.source)).toEqual([]);
+    const pages = readdirSync(WEB).filter((f) => f.endsWith(".html"));
+    expect(pages.length).toBeGreaterThan(10);
+    const noindex = pages.filter((f) => /<meta[^>]+name="robots"[^>]*noindex/i.test(readFileSync(join(WEB, f), "utf8")));
+    expect(noindex).toEqual(["404.html"]);
+    expect(readFileSync(join(WEB, "README.md"), "utf8")).toMatch(/no site page sends an `X-Robots-Tag` header/);
   });
 
   test("in the production build, hashed files are immutable and every page and kept-name file is not", async () => {

@@ -1,6 +1,14 @@
 {
   "generatedBy": "ops/ci/gen-deployments.ts",
   "cpst": {
+    "4663": {
+      "address": "0xd2683D8175073202678638A90e263CD9a68dE7a1",
+      "symbol": "CPST",
+      "decimals": 18,
+      "supply": "1000000000",
+      "lock": "0x494E76E9Bb0ABfad017f36F444f1Bc7A08C1838b",
+      "anchor": "0x3C6152b8Ef66FB2aA5D25aB77B0611470c68D5EC"
+    },
     "46630": {
       "address": "0x32a800622317F97d829277215Bcd0D62E191EB2E",
       "symbol": "CPST",

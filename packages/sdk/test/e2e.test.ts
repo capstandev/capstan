@@ -25,7 +25,7 @@ describe("end to end", () => {
       network: "mainnet",
       keystore: ks,
       walletSigner: wallet,
-      pinned: { networks: { mainnet: { ...PINS.networks.mainnet, builders: { hyperliquid: BUILDER_HL, aster: BUILDER_ASTER }, templateHashes: { ...PINS.networks.mainnet.templateHashes, hyperliquid: [pin] }, receiptSigners: [{ address: stack.receiptSigner }] } } },
+      pinned: { networks: { mainnet: { ...PINS.networks.mainnet, builders: { hyperliquid: BUILDER_HL, aster: BUILDER_ASTER }, templateHashes: { ...PINS.networks.mainnet.templateHashes, hyperliquid: [pin] }, receiptSigners: [{ address: stack.receiptSigner }], anchor: { ...PINS.networks.mainnet.anchor, address: null } } } },
       venueHosts: { hyperliquid: stack.venue.url },
       now: () => T0,
     });

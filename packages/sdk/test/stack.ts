@@ -403,7 +403,7 @@ export async function sdkClient(stack: Awaited<ReturnType<typeof startStack>>, o
     network: "mainnet",
     keystore: ks,
     walletSigner: wallet,
-    pinned: { networks: { mainnet: { ...PINS.networks.mainnet, builders: { hyperliquid: BUILDER_HL, aster: BUILDER_ASTER }, templateHashes: { ...PINS.networks.mainnet.templateHashes, hyperliquid: pins, aster: [asterTemplateHash(BUILDER_ASTER, "Mainnet", "0.0003")] }, receiptSigners: [{ address: stack.receiptSigner }] } } },
+    pinned: { networks: { mainnet: { ...PINS.networks.mainnet, builders: { hyperliquid: BUILDER_HL, aster: BUILDER_ASTER }, templateHashes: { ...PINS.networks.mainnet.templateHashes, hyperliquid: pins, aster: [asterTemplateHash(BUILDER_ASTER, "Mainnet", "0.0003")] }, receiptSigners: [{ address: stack.receiptSigner }], anchor: { ...PINS.networks.mainnet.anchor, address: null } } } },
     venueHosts: { hyperliquid: stack.venue.url, aster: stack.aster.url },
     now: () => T0,
     ...(o.extra ?? {}),

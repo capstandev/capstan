@@ -16,10 +16,10 @@ const kinds = (f: { kind: string; key: string }[]) => f.map((x) => `${x.kind}:${
 
 describe("env review", () => {
   test("flags-and-matches", () => {
-    // the committed templates, overlays and public inputs pass; only the brand Safe (made at go, E1) is pending
+    // the committed templates, overlays and public inputs pass with nothing pending (the brand Safe is set, E1)
     const r = review();
     expect(r.findings.filter((f) => f.kind === "fail")).toEqual([]);
-    expect(r.findings.filter((f) => f.kind === "pending").map((f) => `${f.svc}:${f.key}`)).toEqual(["api:X402_PAY_TO_EVM", "facilitator:X402_PAYTO_EVM", "mcp:X402_PAY_TO_EVM"]);
+    expect(r.findings.filter((f) => f.kind === "pending").map((f) => `${f.svc}:${f.key}`)).toEqual([]);
     expect(r.services).toEqual(["anchor", "api", "facilitator", "mcp", "receipts", "relay", "workers", "ws"]);
     // every flag of the OFF list refuses any value but 0
     for (const k of OFF_AT_FIRST_DEPLOY) {
@@ -68,7 +68,10 @@ describe("env review", () => {
     const i = loadInputs();
     expect(i.hlBuilder).toBe(pins.builders.hyperliquid);
     expect(i.asterBuilder).toBe(pins.builders.aster);
-    expect(i.brandSafe).toBeUndefined();
+    expect(i.brandSafe).toBe("0x207c8505c849F97Cf1C691803f74c80542CE8AEa");
+    expect(f.get("BRAND_SAFE")).toBe(i.brandSafe!);
+    // the brand Safe is one of the addresses the ops alerts show in full
+    expect(parseEnv(readFileSync(join(ROOT, "ops/mainnet/env/workers.env"), "utf8")).get("OPS_KNOWN_ADDRESSES")!.split(",")).toContain(i.brandSafe!);
     expect(pins.receiptSigners.map((s: { address: string }) => s.address)).toEqual([f.get("MAINNET_RECEIPTS_SIGNER")]);
     expect(loadInputs(INPUTS_FILE, { MAINNET_BRAND_SAFE: SAFE }).brandSafe).toBe(SAFE);
     expect(loadInputs(join(ROOT, "no-such-inputs.conf"))).toEqual({ vpsIp: undefined, brandSafe: undefined, hlBuilder: undefined, asterBuilder: undefined });

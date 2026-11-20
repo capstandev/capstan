@@ -149,9 +149,11 @@ describe("/changelog", () => {
 
 describe("site wiring", () => {
   test("both pages exist in the owner's page shell, mount through main.ts and are linked from the footer", () => {
+    // the same shell as the status page; only the page name and the page's own title and description differ
+    const shell = (html: string) => html.replace(/<title>[^<]*<\/title>/, "<title></title>").replace(/(<meta name="description" content=")[^"]*"/, '$1"');
     const status = readFileSync(join(WEB, "status.html"), "utf8");
     for (const p of ["roadmap", "changelog"]) {
-      expect(readFileSync(join(WEB, `${p}.html`), "utf8")).toBe(status.replace('data-page="status"', `data-page="${p}"`));
+      expect(shell(readFileSync(join(WEB, `${p}.html`), "utf8"))).toBe(shell(status).replace('data-page="status"', `data-page="${p}"`));
     }
     const views = readFileSync(join(WEB, "public/bloop-views.js"), "utf8");
     expect(views).toContain("['docs','verify','status','legal','roadmap','changelog','404'].includes(page)");

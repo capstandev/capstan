@@ -17,6 +17,33 @@ export interface Deployment {
   updatedAt: string;
 }
 export const DEPLOYMENTS: Record<number, Deployment> = {
+  "4663": {
+    "chainId": 4663,
+    "contracts": {
+      "CapstanReceiptAnchor": {
+        "address": "0x3C6152b8Ef66FB2aA5D25aB77B0611470c68D5EC",
+        "block": 119341277,
+        "poster": "0x7E4FFF0601147F9b2394Cae8F9a26d1CEc29032c"
+      },
+      "CPSTLock": {
+        "address": "0x494E76E9Bb0ABfad017f36F444f1Bc7A08C1838b",
+        "block": 119341277
+      },
+      "CPST": {
+        "address": "0xd2683D8175073202678638A90e263CD9a68dE7a1",
+        "block": 119341277,
+        "symbol": "CPST",
+        "decimals": 18,
+        "supply": "1000000000"
+      }
+    },
+    "deployer": "0x14c29AF848E6262D8D110bBaB5cc39fA11d5acDE",
+    "sourcify": {
+      "verified": true,
+      "url": "https://repo.sourcify.dev/4663/0x3C6152b8Ef66FB2aA5D25aB77B0611470c68D5EC"
+    },
+    "updatedAt": "2026-11-20T20:40:06Z"
+  },
   "46630": {
     "chainId": 46630,
     "contracts": {

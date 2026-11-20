@@ -15,9 +15,12 @@ import { anchorReaderFromEnv, receiptDepsWith } from "../src/routes/receipts.rou
 const ANCHOR = "0x00000000000000000000000000000000000a1c41" as Hex;
 const ROOT = `0x${"ab".repeat(32)}` as Hex;
 const dir = mkdtempSync(join(tmpdir(), "capstan-gate-fork-anchor-"));
-const had4663 = 4663 in DEPLOYMENTS;
+// the committed 4663 record (present after the mainnet go) is set aside for this file and put back at the end
+const committed4663 = DEPLOYMENTS[4663];
+delete DEPLOYMENTS[4663];
 afterAll(() => {
-  if (!had4663) delete DEPLOYMENTS[4663];
+  delete DEPLOYMENTS[4663];
+  if (committed4663) DEPLOYMENTS[4663] = committed4663;
   rmSync(dir, { recursive: true, force: true });
 });
 
@@ -29,7 +32,7 @@ const postedAfterFirst = () => {
 
 describe("gate fork anchor for /verify", () => {
   test("mainnet rule: ANCHOR_ADDRESS alone never names the anchor", async () => {
-    expect(had4663).toBe(false); // 4663 is not deployed: nothing committed for this test to shadow
+    expect(4663 in DEPLOYMENTS).toBe(false); // no record in view: nothing for this test to shadow
     expect(await anchorReaderFromEnv({ CAPSTAN_NETWORK: "mainnet", ANCHOR_ADDRESS: ANCHOR, ANCHOR_RPC_URL: "http://127.0.0.1:24690" })).toBeNull();
   });
 

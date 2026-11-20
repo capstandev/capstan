@@ -61,6 +61,9 @@ Generated from `contracts/deployments/<chainId>.json` by `bun ops/ci/gen-deploym
 <!-- deployments:start -->
 | Chain | Contract | Address | Sourcify |
 | --- | --- | --- | --- |
+| Robinhood Chain (`4663`) | `CapstanReceiptAnchor` | `0x3C6152b8Ef66FB2aA5D25aB77B0611470c68D5EC` | [verified](https://repo.sourcify.dev/4663/0x3C6152b8Ef66FB2aA5D25aB77B0611470c68D5EC) |
+| Robinhood Chain (`4663`) | `CPSTLock` | `0x494E76E9Bb0ABfad017f36F444f1Bc7A08C1838b` | [verified](https://repo.sourcify.dev/4663/0x494E76E9Bb0ABfad017f36F444f1Bc7A08C1838b) |
+| Robinhood Chain (`4663`) | `CPST` | `0xd2683D8175073202678638A90e263CD9a68dE7a1` | [verified](https://repo.sourcify.dev/4663/0xd2683D8175073202678638A90e263CD9a68dE7a1) |
 | Robinhood Chain testnet (`46630`) | `CapstanReceiptAnchor` | `0x34CC7eDB6b6F17E06BF88F79dFd86D2338d86Bcf` | [verified](https://repo.sourcify.dev/46630/0x34CC7eDB6b6F17E06BF88F79dFd86D2338d86Bcf) |
 | Robinhood Chain testnet (`46630`) | `CPSTLock` | `0x3D69429d628c8Ea342d5C8722c9e1A75d54Fb7DA` | [verified](https://repo.sourcify.dev/46630/0x3D69429d628c8Ea342d5C8722c9e1A75d54Fb7DA) |
 | Robinhood Chain testnet (`46630`) | `CPST` | `0x32a800622317F97d829277215Bcd0D62E191EB2E` | [verified](https://repo.sourcify.dev/46630/0x32a800622317F97d829277215Bcd0D62E191EB2E) |

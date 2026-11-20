@@ -6,6 +6,7 @@
 | `report.ts` | `dry-run.sh` | Gas per transaction, the live gas price and the L1 data estimate (read-only), the deployer ETH to fund (gas x price x 1.3, and the script's own balance floor). |
 | `env-review.ts` | agent, before the go | Merges `ops/server/etc/<svc>.env` with `env/<svc>.env`, prints every value with its sha, and checks the flags that must be off, the values that must match (VPS IP, SDK builder pins, brand Safe as payTo) and that no security setting is empty. The public inputs (VPS IP, builders, poster, brand Safe) live in `inputs.conf`; an env var of the same name wins. `--strict` fails on pending inputs. |
 | `live-check.sh` | after the go, read-only | Runtime code against this checkout's build (immutables masked), `poster()`, `token()`, the CPST ticker, the supply in the brand Safe, the real Safe check, Sourcify. Writes `.audit-grade/live-check-<date>.md`. |
+| `fill-go-commit.sh` | agent, after `live-check: PASS` | Offline. Fills the one go change from the deploy's `contracts/deployments/4663.json`: the record, its generated copies (schema TS, `web/public/contracts.json`, README and SECURITY tables) and the SDK mainnet anchor pin. Refuses a wrong chain, a missing contract, an unverified record or another poster. Never signs, sends or commits. |
 | `builder-balances.ts` | read-only | Hyperliquid builder account value and abstraction mode; Aster is a signed read on the VPS. |
 | `fork-steps.ts` | `dry-run.sh` | Fork-only helpers: a Safe 1.4.1 made on the fork, a USDG settle through the facilitator's own signer. |
 
