@@ -81,7 +81,10 @@ describe("ingest-lighter job", () => {
       const db = createDb(t.url, { max: 2 });
       try {
         const run = { lastPersist: new Map<string, number>() };
-        const at = Date.UTC(2026, 10, 6, 3, 0, 0);
+        // Dated from the current minute, never a fixed day: book_snapshots keeps 14 days and mark_ticks 180
+        // (0001_timescale.sql), and the retention job drops an older row while the test runs. One second into the
+        // minute, so at and at + 30 s share a minute and at + 61 s is in the next one.
+        const at = Math.floor(Date.now() / 60_000) * 60_000 + 1_000;
         const mark: MarketEvent = { kind: "mark", marketId: "lighter-rh:-:AMZN", mark: "250.10", index: "250.00", asOf: new Date(at).toISOString() };
         const book: MarketEvent = { kind: "book", book: { marketId: "lighter-rh:-:AMZN", bids: [["250.0", "1"]], asks: [["250.2", "2"]], asOf: new Date(at).toISOString() } };
         const fund: MarketEvent = {

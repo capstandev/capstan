@@ -15,8 +15,16 @@ const fx = <T>(p: string): T => (JSON.parse(readFileSync(join(ROOT, p), "utf8"))
 const json = (b: unknown) => new Response(JSON.stringify(b), { headers: { "content-type": "application/json" } });
 const DB_TEST_TIMEOUT_MS = 30_000;
 
-function adapters(nowMs: number) {
-  const vf = (async () => json(fx("variational/test/fixtures/stats.json"))) as unknown as typeof fetch;
+// The fixture as recorded, or moved forward by a whole number of days (every quote updated_at; ms precision is all
+// the adapter keeps).
+function variationalStats(shiftMs = 0): VariationalStats {
+  const s = fx<VariationalStats>("variational/test/fixtures/stats.json");
+  if (shiftMs) for (const l of s.listings) if (l.quotes?.updated_at) l.quotes.updated_at = new Date(Date.parse(isoMs(l.quotes.updated_at)) + shiftMs).toISOString();
+  return s;
+}
+
+function adapters(nowMs: number, shiftMs = 0) {
+  const vf = (async () => json(variationalStats(shiftMs))) as unknown as typeof fetch;
   const af = (async () => json(fx("arcus/test/fixtures/markets.json"))) as unknown as typeof fetch;
   const v = createVariationalAdapter(venueHttp("variational", "http://variational.invalid", createMemoryGovernor("iv"), { fetchImpl: vf }), null, { now: () => nowMs });
   const a = createArcusAdapter(ARCUS_MAINNET, venueHttp("arcus", ARCUS_MAINNET.rest, createMemoryGovernor("ia"), { fetchImpl: af }), null, { now: () => nowMs });
@@ -58,15 +66,19 @@ describe("ingest-readonly", () => {
         await closeDb(db);
         await t.drop();
       };
-      const nowMs = Date.parse("2026-11-06T01:53:40.250Z");
-      const { v, a } = adapters(nowMs);
+      // Rows land in mark_ticks, which keeps 180 days (0001_timescale.sql): a fixed day would be dropped by the
+      // retention job once it is that old. Move the recorded day forward by whole days so it is always under a day
+      // old; the time of day, and so every minute and ordering the checks rely on, stays as recorded.
+      const shiftMs = Math.floor((Date.now() - Date.parse("2026-11-06T01:53:40.250Z")) / 86_400_000) * 86_400_000;
+      const nowMs = Date.parse("2026-11-06T01:53:40.250Z") + shiftMs;
+      const { v, a } = adapters(nowMs, shiftMs);
       const r = await runReadonlyIngest(readonlySources(v, a), memoryMarketDataCache(), db);
       expect(r.venues.every((x) => !x.error)).toBe(true);
       expect(r.markRows).toBeGreaterThan(50);
       expect(r.fundingRows).toBeGreaterThan(50);
 
       // Variational: ts is the quote updated_at, never the fetch time
-      const stats = fx<VariationalStats>("variational/test/fixtures/stats.json");
+      const stats = variationalStats(shiftMs);
       const btc = stats.listings.find((l) => l.ticker === "BTC-PERP")!;
       const [mrow] = await db.select().from(schema.markTicks).where(eq(schema.markTicks.marketId, variationalMarketId("BTC-PERP")));
       expect(mrow!.ts.toISOString()).toBe(isoMs(btc.quotes!.updated_at));
@@ -89,7 +101,7 @@ describe("ingest-readonly", () => {
       expect(allSources).toEqual([{ s: "venue" }]);
 
       // a second tick on the same venue data adds nothing (unique market_id, ts)
-      const { v: v2, a: a2 } = adapters(nowMs + 5_000);
+      const { v: v2, a: a2 } = adapters(nowMs + 5_000, shiftMs);
       const r2 = await runReadonlyIngest(readonlySources(v2, a2), null, db);
       expect(r2.markRows).toBe(0);
       expect(r2.fundingRows).toBe(0);

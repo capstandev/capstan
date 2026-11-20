@@ -134,7 +134,9 @@ describe("ingest", () => {
       const cache = memoryMarketDataCache();
       const ws = hlWs({ ...CFG, wsUrl: "ws://127.0.0.1:9" }, { backoffBaseMs: 60_000 });
       const reader = createHlReader(CFG, fixtureHttp(), cache, { ws });
-      const T = 1793934060000;
+      // The current minute, never a fixed day: book_snapshots keeps 14 days (0001_timescale.sql) and the retention
+      // job drops an older snapshot while the test runs.
+      const T = Math.floor(Date.now() / 60_000) * 60_000;
       const ingest = createHlIngest({ reader, cache, ws, db, dexes: [null, "xyz"], now: () => T });
       await ingest.start();
       await cache.putBook({ marketId: "hyperliquid:-:BTC", bids: Array.from({ length: 30 }, (_, i) => [`${100 - i}`, "1"] as [string, string]), asks: Array.from({ length: 30 }, (_, i) => [`${101 + i}`, "1"] as [string, string]), asOf: new Date().toISOString() });
